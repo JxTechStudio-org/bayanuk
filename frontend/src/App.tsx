@@ -1,14 +1,20 @@
+import { useTranslation } from 'react-i18next'
+
 function App() {
+  const { t, i18n } = useTranslation()
+  const nextLanguage = i18n.language === 'ar' ? 'en' : 'ar'
+
   return (
     <div className="min-h-screen bg-ink p-8">
-      <h1 className="text-4xl font-bold text-white">بيانك Bayanuk</h1>
-      <p className="mt-2 text-teal-light">افهم عرضك الوظيفي قبل أن توقّع</p>
-      <div className="mt-6 flex gap-3">
-        <span className="size-12 rounded-lg bg-teal" />
-        <span className="size-12 rounded-lg bg-teal-light" />
-        <span className="size-12 rounded-lg bg-tint" />
-        <span className="size-12 rounded-lg bg-teal-deep" />
-      </div>
+      <h1 className="text-4xl font-bold text-white">{t('brand')}</h1>
+      <p className="mt-2 text-teal-light">{t('tagline')}</p>
+      <button
+        type="button"
+        onClick={() => i18n.changeLanguage(nextLanguage)}
+        className="mt-6 rounded-lg bg-teal-light px-4 py-2 font-medium text-ink"
+      >
+        {t('switchLanguage')}
+      </button>
     </div>
   )
 }
