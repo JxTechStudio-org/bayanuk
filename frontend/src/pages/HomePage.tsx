@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 
-function App() {
+export function HomePage() {
   const { t, i18n } = useTranslation()
   const nextLanguage = i18n.language === 'ar' ? 'en' : 'ar'
 
@@ -18,5 +18,3 @@ function App() {
     </div>
   )
 }
-
-export default App

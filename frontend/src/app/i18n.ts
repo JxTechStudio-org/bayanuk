@@ -5,12 +5,29 @@ import en from '../locales/en.json'
 
 const STORAGE_KEY = 'bayanuk.locale'
 
-// Language saved from an earlier visit, otherwise Arabic.
-const saved = localStorage.getItem(STORAGE_KEY)
-const initialLanguage = saved === 'en' ? 'en' : 'ar'
+// Browser storage can be blocked by the user's settings.
+// The site must still work then, just without remembering the choice.
+function readSavedLanguage(): string | null {
+  try {
+    return localStorage.getItem(STORAGE_KEY)
+  } catch {
+    return null
+  }
+}
 
-// Sets <html lang> and <html dir>, which flips the whole page layout.
-function applyDirection(language: string) {
+function saveLanguage(language: string) {
+  try {
+    localStorage.setItem(STORAGE_KEY, language)
+  } catch {
+    // Storage is blocked: nothing to do.
+  }
+}
+
+// Language saved from an earlier visit, otherwise Arabic.
+const initialLanguage = readSavedLanguage() === 'en' ? 'en' : 'ar'
+
+// Sets <html lang>, <html dir> (which flips the whole layout) and the tab title.
+function applyLanguage(language: string) {
   document.documentElement.lang = language
   document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr'
   document.title = language === 'ar' ? ar.title : en.title
@@ -26,11 +43,11 @@ i18n.use(initReactI18next).init({
   interpolation: { escapeValue: false },
 })
 
-applyDirection(initialLanguage)
+applyLanguage(initialLanguage)
 
 i18n.on('languageChanged', (language) => {
-  applyDirection(language)
-  localStorage.setItem(STORAGE_KEY, language)
+  applyLanguage(language)
+  saveLanguage(language)
 })
 
 export default i18n
