@@ -1,0 +1,15 @@
+@import "tailwindcss";
+@import "@fontsource-variable/readex-pro";
+
+@theme {
+  --font-sans: "Readex Pro Variable", ui-sans-serif, system-ui, sans-serif;
+
+  /* ألوان الهوية، من ملف هوية مشروع بيانك */
+  --color-ink: #0e2a33;
+  --color-teal: #1597a8;
+  --color-teal-light: #4fc6d3;
+  --color-tint: #ddf1f4;
+
+  /* درجة أغمق من الفيروزي للنصوص على الخلفية الفاتحة */
+  --color-teal-deep: #0c6f7c;
+}
