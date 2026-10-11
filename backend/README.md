@@ -6,7 +6,8 @@ Backend for **Bayanuk**, an AI review service for job offers and employment cont
 
 - PHP 8.3+
 - Laravel 11
-- PostgreSQL 16+
+- PostgreSQL 16+ with pgvector
+- Redis (for queues, cache, and sessions)
 
 ## Local Setup Instructions
 
@@ -26,7 +27,7 @@ Backend for **Bayanuk**, an AI review service for job offers and employment cont
      cp .env.example .env
      ```
    - Open `.env` and fill in your actual PostgreSQL database credentials (`DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`).
-   - *Note:* Since local development uses `database` for sessions and queues to simplify setup without requiring external services like Redis, ensure your PostgreSQL server is running and the database is created.
+   - *Note:* Ensure your PostgreSQL server and Redis service are running locally before executing migrations and starting queue workers.
 
 4. **Generate application key:**
    ```bash
