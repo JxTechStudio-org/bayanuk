@@ -2,10 +2,10 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, it } from 'vitest'
 import '@/app/i18n'
-import { HomePage } from './HomePage'
+import { LandingPage } from './LandingPage'
 
 it('starts in Arabic, right to left', () => {
-  render(<HomePage />)
+  render(<LandingPage />)
 
   expect(screen.getByRole('heading', { name: 'بيانك' })).toBeInTheDocument()
   expect(document.documentElement.dir).toBe('rtl')
@@ -14,7 +14,7 @@ it('starts in Arabic, right to left', () => {
 
 it('switches to English, left to right, and back', async () => {
   const user = userEvent.setup()
-  render(<HomePage />)
+  render(<LandingPage />)
 
   await user.click(screen.getByRole('button', { name: 'English' }))
 
