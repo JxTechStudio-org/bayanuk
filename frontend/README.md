@@ -2,7 +2,7 @@
 
 Frontend of Bayanuk (بيانك): a React single-page app in Arabic (right to left) and English (left to right).
 
-This README covers Task 1, project setup. It explains how to run the project, how it is organised, and the decisions made where the Technical Plan left a choice open.
+This README covers Task 1 (project setup) and the frontend part of the root Dockerfile. It explains how to run the project, how it is organised, and the decisions made where the Technical Plan left a choice open.
 
 ## Requirements
 
@@ -29,6 +29,17 @@ Vite prints the local address, normally `http://localhost:5173/`.
 | `npm run build` | Type checks with `tsc`, then builds into `dist/` |
 
 `test`, `lint` and `build` are the checks the Jenkins pipeline runs (Technical Plan, section 10). All three pass on this branch.
+
+## Docker
+
+The frontend build stage is in the root `Dockerfile`, as the `frontend-build` stage. To build and check it from the repository root:
+
+```bash
+docker build --target frontend-build -t bayanuk-frontend .
+docker run --rm bayanuk-frontend ls dist
+```
+
+The built site is in `/app/frontend/dist` inside the `frontend-build` stage. The final runtime stage copies it from there.
 
 ## Folder structure
 
@@ -113,6 +124,9 @@ Choices made where the plan did not specify, with the reason for each.
 | 13 | Tests are set up now, in Task 1, although the task list does not name them | The Technical Plan names Vitest and Testing Library (section 9), and the Jenkins pipeline runs Vitest on every push (section 10). Setting it up with the project means `npm test` exists from the first push, and it is easier to add while the project is small. |
 | 14 | Test files sit next to the file they test | `HomePage.test.tsx` is beside `HomePage.tsx`, so tests are easy to find. |
 | 15 | First tests cover the language files and the direction switch | These are the two things that exist now, and the plan asks for checks in both RTL and LTR. |
+| 16 | `npm ci` in the Docker build, not `npm install` | `npm ci` installs exactly the versions in `package-lock.json` and stops if the two disagree, so the server builds what was tested locally. The backend stage of the studio's existing Dockerfile uses it too. |
+| 17 | No `VITE_API_BASE_URL` in the Docker build yet | The frontend does not call the API yet, so nothing reads this setting. It is added with the first task that calls the API, following decision 1. |
+| 18 | A root `.dockerignore` that skips `node_modules`, `dist` and `.git` | Without it, the build would copy the macOS `node_modules` into the Linux image and break the build. It also keeps the files sent to Docker small. It sits at the root so it covers the backend too. |
 
 ## Differences from the Technical Plan
 
