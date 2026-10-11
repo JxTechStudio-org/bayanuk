@@ -1,3 +1,4 @@
+import { Globe } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 export function LanguageSwitcher() {
@@ -10,8 +11,9 @@ export function LanguageSwitcher() {
       onClick={() => i18n.changeLanguage(nextLanguage)}
       // The label is written in the other language, so it carries that language's tag.
       lang={nextLanguage}
-      className="rounded-lg px-3 py-2 text-sm font-medium text-white hover:bg-white/10"
+      className="inline-flex h-9 items-center gap-1.5 rounded-full border border-ink/15 bg-white px-3 text-sm font-medium text-ink transition-colors hover:border-tint hover:bg-tint focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-teal-light"
     >
+      <Globe aria-hidden="true" className="size-4 text-teal-deep" />
       {t('switchLanguage')}
     </button>
   )
