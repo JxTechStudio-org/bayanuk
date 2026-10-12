@@ -19,7 +19,6 @@ return new class extends Migration
             $table->text('text');
             $table->integer('char_count');
             $table->string('extraction_method', 20);
-
             $table->unique(['document_id', 'page_number']);
         });
 

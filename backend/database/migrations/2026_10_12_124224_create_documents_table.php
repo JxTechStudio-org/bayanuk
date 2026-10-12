@@ -41,6 +41,7 @@ return new class extends Migration
         DB::statement("ALTER TABLE documents ADD CONSTRAINT documents_language_check CHECK (language IN ('ar', 'en', 'mixed'))");
         DB::statement("ALTER TABLE documents ADD CONSTRAINT documents_document_type_check CHECK (document_type IN ('job_offer', 'employment_contract', 'other'))");
         DB::statement("ALTER TABLE documents ADD CONSTRAINT documents_status_check CHECK (status IN ('uploaded', 'scanning', 'extracting', 'classifying', 'analyzing', 'indexing', 'ready', 'failed', 'rejected'))");
+        
         DB::statement('CREATE INDEX documents_user_id_created_at_index ON documents (user_id, created_at DESC)');
     }
 

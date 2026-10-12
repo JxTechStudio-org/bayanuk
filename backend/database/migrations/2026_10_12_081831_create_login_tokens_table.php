@@ -12,8 +12,6 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('login_tokens', function (Blueprint $table) {
-            // $table->id();
-            // $table->timestamps();
             $table->uuid('id')->primary();
             $table->string('email', 255)->index();
             $table->char('token_hash', 64)->unique();
