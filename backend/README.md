@@ -17,18 +17,18 @@ Backend for **Bayanuk**, an AI review service for job offers and employment cont
    git clone https://github.com/JxTechStudio-org/bayanuk bayanuk
    cd bayanuk/backend
    ```
-
-2. **Ensure Required PHP Extensions Are Enabled:**
-   Verify in your `php.ini` that extensions such as `fileinfo`, `mbstring`, `openssl`, `pdo_pgsql`, and `bcmath` are enabled.
-   ```bash
-   php -m
-   ```
+2. **Enable Database Extension (pgvector):**
+   - Ensure your PostgreSQL 16+ instance is running.
+   - Enable the vector extension on your database:
+     ```sql
+     CREATE EXTENSION IF NOT EXISTS vector;
+     ```
 
 3. **Install dependencies (including Flysystem S3 adapter for RustFS):**
    ```bash
    composer install
    ```
-
+   
 4. **Configure environment variables:**
    - Copy `.env.example` to `.env`:
      ```bash
