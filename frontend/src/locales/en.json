@@ -1,6 +1,28 @@
 {
   "title": "Bayanuk",
   "brand": "Bayanuk",
-  "tagline": "Understand your job offer before you sign",
-  "switchLanguage": "العربية"
+  "switchLanguage": "العربية",
+  "upload": {
+    "choose": "Choose a file"
+  },
+  "hero": {
+    "title": "Understand your job offer before you sign",
+    "subtitle": "Upload a job offer or employment contract. We explain the important terms in plain language and point out the clauses worth a second read.",
+    "howItWorks": "How it works",
+    "privacy": "Your document is never used to train AI, and you can delete it yourself at any time.",
+    "photoAlt": "A person leafing through the pages of a long contract",
+    "summary": {
+      "title": "What Bayanuk shows you",
+      "label": "Illustration from a made-up contract",
+      "page": "p. {{page}}",
+      "probation": "Probation",
+      "probationValue": "90 days",
+      "salary": "Basic salary",
+      "salaryValue": "SAR 8,000",
+      "notice": "Notice if you resign",
+      "noticeValue": "60 days",
+      "attention": "Attention:",
+      "nonCompete": "12-month non-compete"
+    }
+  }
 }
