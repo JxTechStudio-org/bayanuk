@@ -125,5 +125,12 @@
         "answer": "Only from your document, and every answer cites the page and a short quote. If the answer is not in the document, we say so clearly instead of guessing."
       }
     }
+  },
+  "footer": {
+    "disclaimer": "Bayanuk provides AI-generated information to help you understand your document. It is not legal advice.",
+    "studio": "Bayanuk, by JX Tech Studio"
+  },
+  "nav": {
+    "label": "Page sections"
   }
 }
