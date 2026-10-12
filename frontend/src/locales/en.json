@@ -37,5 +37,22 @@
       "body": "Comparing a new offer to their current job or to a second offer.",
       "photoAlt": "A handshake over an employment contract"
     }
+  },
+  "supportedFiles": {
+    "title": "Supported documents",
+    "subtitle": "Job offers and employment contracts, in Arabic and English.",
+    "offer": {
+      "title": "Job offer",
+      "body": "Usually 1 to 4 pages."
+    },
+    "contract": {
+      "title": "Employment contract",
+      "body": "Usually 5 to 30 pages, with richer clauses and risk points."
+    },
+    "other": {
+      "title": "Not supported",
+      "body": "Freelance contracts, NDAs, internship agreements, rental and commercial contracts."
+    },
+    "limits": "PDF or Word (DOCX), up to 10 MB and 30 pages."
   }
 }

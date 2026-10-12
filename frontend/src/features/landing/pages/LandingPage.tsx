@@ -1,5 +1,6 @@
 import { Header } from '../components/Header'
 import { Hero } from '../components/Hero'
+import { SupportedFiles } from '../components/SupportedFiles'
 import { TargetUsers } from '../components/TargetUsers'
 
 // Puts the landing page sections together, top to bottom.
@@ -10,6 +11,7 @@ export function LandingPage() {
       <main>
         <Hero />
         <TargetUsers />
+        <SupportedFiles />
       </main>
     </>
   )
