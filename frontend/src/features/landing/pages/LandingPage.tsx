@@ -1,6 +1,7 @@
 import { Header } from '../components/Header'
 import { Hero } from '../components/Hero'
 import { HowItWorks } from '../components/HowItWorks'
+import { Privacy } from '../components/Privacy'
 import { SupportedFiles } from '../components/SupportedFiles'
 import { TargetUsers } from '../components/TargetUsers'
 
@@ -14,6 +15,7 @@ export function LandingPage() {
         <TargetUsers />
         <SupportedFiles />
         <HowItWorks />
+        <Privacy />
       </main>
     </>
   )

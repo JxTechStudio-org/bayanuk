@@ -75,5 +75,30 @@
         "body": "Suggested questions such as “What is my notice period?” and “Can I resign during probation?”. Every answer cites the page and a short quote."
       }
     }
+  },
+  "privacy": {
+    "title": "Trust and privacy",
+    "points": {
+      "training": {
+        "title": "Never used for training",
+        "body": "Documents are never used to train AI models."
+      },
+      "masking": {
+        "title": "Personal details masked",
+        "body": "National ID, iqama number, IBAN and phone number are not extracted, and are masked before text is sent to the AI provider."
+      },
+      "storage": {
+        "title": "Private, encrypted storage",
+        "body": "Files are stored privately and encrypted at rest, and are reached only through short-lived signed links."
+      },
+      "delete": {
+        "title": "Deleted immediately",
+        "body": "Deleting a document removes the file, extracted text, analysis and chat history immediately."
+      },
+      "retention": {
+        "title": "Deleted automatically",
+        "body": "You can delete your document at any time, and it is deleted automatically after a retention period."
+      }
+    }
   }
 }
