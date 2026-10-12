@@ -13,7 +13,7 @@ export function FAQ() {
         <h2 className="text-2xl font-semibold md:text-3xl">{t('faq.title')}</h2>
 
         {/* dir tells the accordion which way the arrow keys go */}
-        <Accordion type="single" collapsible defaultValue="legal" dir={i18n.dir()} className="mt-8">
+        <Accordion type="single" collapsible dir={i18n.dir()} className="mt-8">
           {QUESTIONS.map((key) => (
             <AccordionItem key={key} value={key}>
               <AccordionTrigger className="text-base">{t(`faq.items.${key}.question`)}</AccordionTrigger>
