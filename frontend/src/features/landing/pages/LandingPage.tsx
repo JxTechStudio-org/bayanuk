@@ -1,5 +1,6 @@
 import { Header } from '../components/Header'
 import { Hero } from '../components/Hero'
+import { TargetUsers } from '../components/TargetUsers'
 
 // Puts the landing page sections together, top to bottom.
 export function LandingPage() {
@@ -8,6 +9,7 @@ export function LandingPage() {
       <Header />
       <main>
         <Hero />
+        <TargetUsers />
       </main>
     </>
   )

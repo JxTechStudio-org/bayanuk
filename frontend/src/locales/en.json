@@ -24,5 +24,21 @@
       "attention": "Attention:",
       "nonCompete": "12-month non-compete"
     }
+  },
+  "targetUsers": {
+    "eyebrow": "Who it is for",
+    "title": "For anyone who has received a job offer or contract",
+    "graduates": {
+      "tag": "First job",
+      "title": "Fresh graduates",
+      "body": "Your first job offer, and little experience with contract terms. We explain every term before you sign.",
+      "photoAlt": "Two people reviewing the terms of an employment contract"
+    },
+    "switchers": {
+      "tag": "New job",
+      "title": "Job switchers",
+      "body": "Comparing a new offer with your current job or a second offer. We pull out the salary, allowances and leave clearly.",
+      "photoAlt": "A handshake over an employment contract"
+    }
   }
 }
