@@ -14,7 +14,7 @@ Backend for **Bayanuk**, an AI review service for job offers and employment cont
 
 1. **Clone the repository and navigate to the backend folder:**
    ```bash
-   git clone <https://github.com/JxTechStudio-org/bayanuk> bayanuk
+   git clone https://github.com/JxTechStudio-org/bayanuk bayanuk
    cd bayanuk/backend
    ```
 
