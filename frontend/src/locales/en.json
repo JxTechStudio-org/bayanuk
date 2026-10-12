@@ -131,6 +131,7 @@
     "studio": "Bayanuk, by JX Tech Studio"
   },
   "nav": {
-    "label": "Page sections"
+    "label": "Page sections",
+    "privacy": "Privacy"
   }
 }

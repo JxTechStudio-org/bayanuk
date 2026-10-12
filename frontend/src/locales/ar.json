@@ -131,6 +131,7 @@
     "studio": "بيانك، من JX Tech Studio"
   },
   "nav": {
-    "label": "أقسام الصفحة"
+    "label": "أقسام الصفحة",
+    "privacy": "الخصوصية"
   }
 }

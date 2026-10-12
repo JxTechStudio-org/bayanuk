@@ -4,12 +4,12 @@ import logoAr from '@/assets/brand/bayanuk-logo-ar.svg'
 import logoEn from '@/assets/brand/bayanuk-logo-en.svg'
 import { LanguageSwitcher } from '@/features/shared/components/LanguageSwitcher'
 
-// Links to the sections of this page. Each label reuses the section's own title.
+// Links to the main sections of this page. Most labels reuse the section's own title;
+// privacy has a shorter label so the bar stays light.
 const SECTIONS = [
   { id: 'who', title: 'targetUsers.title' },
-  { id: 'documents', title: 'supportedFiles.title' },
   { id: 'how-it-works', title: 'howItWorks.title' },
-  { id: 'privacy', title: 'privacy.title' },
+  { id: 'privacy', title: 'nav.privacy' },
   { id: 'faq', title: 'faq.title' },
 ] as const
 
