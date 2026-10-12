@@ -1,3 +1,4 @@
+import { FAQ } from '../components/FAQ'
 import { Header } from '../components/Header'
 import { Hero } from '../components/Hero'
 import { HowItWorks } from '../components/HowItWorks'
@@ -16,6 +17,7 @@ export function LandingPage() {
         <SupportedFiles />
         <HowItWorks />
         <Privacy />
+        <FAQ />
       </main>
     </>
   )

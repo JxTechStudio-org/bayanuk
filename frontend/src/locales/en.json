@@ -100,5 +100,30 @@
         "body": "You can delete your document at any time, and it is deleted automatically after a retention period."
       }
     }
+  },
+  "faq": {
+    "title": "Frequently asked questions",
+    "items": {
+      "legal": {
+        "question": "Is Bayanuk legal advice?",
+        "answer": "No. Bayanuk provides AI-generated information to help you understand your document. It is not legal advice."
+      },
+      "documents": {
+        "question": "Which documents does Bayanuk support?",
+        "answer": "Job offers and employment contracts, in Arabic and English, as a PDF or Word file up to 10 MB and 30 pages. Any other contract is declined with a clear message."
+      },
+      "account": {
+        "question": "Do I need an account?",
+        "answer": "No. You can upload and see the result without an account. Sign in to save the analysis and ask more: guests get 3 questions per document, signed-in users get 20."
+      },
+      "signIn": {
+        "question": "How do I sign in?",
+        "answer": "With a link sent to your email, or with your Google account."
+      },
+      "answers": {
+        "question": "Where do the answers to my questions come from?",
+        "answer": "Only from your document, and every answer cites the page and a short quote. If the answer is not in the document, we say so clearly instead of guessing."
+      }
+    }
   }
 }
