@@ -1,5 +1,6 @@
 import { Header } from '../components/Header'
 import { Hero } from '../components/Hero'
+import { HowItWorks } from '../components/HowItWorks'
 import { SupportedFiles } from '../components/SupportedFiles'
 import { TargetUsers } from '../components/TargetUsers'
 
@@ -12,6 +13,7 @@ export function LandingPage() {
         <Hero />
         <TargetUsers />
         <SupportedFiles />
+        <HowItWorks />
       </main>
     </>
   )

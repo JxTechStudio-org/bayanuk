@@ -54,5 +54,26 @@
       "body": "Freelance contracts, NDAs, internship agreements, rental and commercial contracts."
     },
     "limits": "PDF or Word (DOCX), up to 10 MB and 30 pages."
+  },
+  "howItWorks": {
+    "title": "How it works",
+    "steps": {
+      "upload": {
+        "title": "Upload your document",
+        "body": "A PDF or Word file. We check its type, size and page count before anything else."
+      },
+      "process": {
+        "title": "We read it",
+        "body": "We read the document, extract the key terms, and look for points that need attention."
+      },
+      "result": {
+        "title": "See the result",
+        "body": "An overview, then key-term cards for pay, working hours, leave and contract, then attention points, then the summary."
+      },
+      "ask": {
+        "title": "Ask your document",
+        "body": "Suggested questions such as “What is my notice period?” and “Can I resign during probation?”. Every answer cites the page and a short quote."
+      }
+    }
   }
 }
