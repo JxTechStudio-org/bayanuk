@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import logoAr from '@/assets/brand/bayanuk-logo-ar.svg'
 import logoEn from '@/assets/brand/bayanuk-logo-en.svg'
-import { LanguageSwitcher } from './LanguageSwitcher'
+import { LanguageSwitcher } from '@/features/shared/components/LanguageSwitcher'
 
 export function Header() {
   const { t, i18n } = useTranslation()
