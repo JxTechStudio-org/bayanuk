@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -23,9 +24,9 @@ return new class extends Migration
             $table->string('source_quote', 500)->nullable();
             $table->decimal('confidence', 3, 2)->nullable();
             $table->boolean('corrected_by_user')->default(false);
-
-            $table->unique(['analysis_id', 'key']);
         });
+
+        DB::statement('CREATE UNIQUE INDEX extracted_terms_analysis_id_key_unique ON extracted_terms (analysis_id, key)');
     }
 
     /**

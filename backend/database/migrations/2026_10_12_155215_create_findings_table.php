@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -24,6 +25,9 @@ return new class extends Migration
             $table->string('source_quote', 500)->nullable();
             $table->smallInteger('sort_order')->default(0);
         });
+
+        DB::statement("ALTER TABLE findings ADD CONSTRAINT findings_severity_check CHECK (severity IN ('info', 'attention', 'high'))");
+        DB::statement("ALTER TABLE findings ADD CONSTRAINT findings_source_check CHECK (source IN ('rule', 'ai'))");
     }
 
     /**
