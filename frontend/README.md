@@ -260,7 +260,7 @@ The API has 7 statuses (Database Schema), and the visitor sees 4 stages (MVP 5, 
 | `classifying`, `analyzing` | Finding key terms |
 | `indexing` | Looking for points that need attention |
 
-Every call goes through `lib/api.ts`, which adds the `/api/v1` base path, the `X-Guest-Token` header, the interface language (`Accept-Language`), and turns the error format `{ "error": { "code", "message" } }` into an `ApiError`.
+Every call goes through `lib/api.ts`, which adds the `/api/v1` base path, the `X-Guest-Token` header, the interface language (`Accept-Language`), and turns the error format `{ "error": { "code", "message" } }` into an `ApiError` with the HTTP status and the message.
 
 ### Text sources
 
@@ -363,6 +363,9 @@ Choices made where the plan did not specify, with the reason for each.
 | 65 | Only a `404` shows "Document not found", and the checks stop there. Any other error keeps the stages on screen, and the next check tries again | A dropped connection for a few seconds should not tell the visitor their document is gone. Without the stop, a missing document would be asked about every 2 seconds for as long as the page is open. |
 | 66 | `AnalysisLayout` in `features/analysis/components` | The processing and result pages share the same frame. One place to change it, and the pages only hold their own content. |
 | 67 | Tests for the processing page cover every state on the card: stages, ready, rejected, failed, not found, and a dropped connection. They replace `fetch` inside the test | These are the states the task asks for. Replacing `fetch` tests the real path through `lib/api.ts`, without the fake API. |
+| 68 | One upload at a time: while a file is uploading, the button is disabled and a dropped file is ignored | Otherwise a second drop during an upload sends a second document. A test covers it. |
+| 69 | `ApiError` keeps the HTTP status and the message only, not the error `code` | Nothing in the frontend reads the code yet: the page shows the API's translated message, and only the status decides "not found". The code is added when a screen needs it. |
+| 70 | Only the rejected state has our own fallback text under its title | For a rejected document, "Bayanuk supports job offers and employment contracts only" fits the most common reason. For a failed file and a missing document, the title says enough, so there is no empty text in the language files. |
 
 ## Differences from the Technical Plan
 
