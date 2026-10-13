@@ -1,17 +1,12 @@
-import { render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { screen } from '@testing-library/react'
 import { expect, it } from 'vitest'
 import '@/app/i18n'
 import ar from '@/locales/ar.json'
+import { renderWithProviders } from '@/test/renderWithProviders'
 import { LandingPage } from './LandingPage'
 
 it('starts in Arabic, right to left', () => {
-  // The header has links, and links need a router around them.
-  render(
-    <MemoryRouter>
-      <LandingPage />
-    </MemoryRouter>,
-  )
+  renderWithProviders(<LandingPage />)
 
   expect(screen.getByRole('heading', { name: ar.hero.title })).toBeInTheDocument()
   expect(document.documentElement.dir).toBe('rtl')
