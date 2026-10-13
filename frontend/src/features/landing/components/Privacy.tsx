@@ -1,8 +1,8 @@
 import { Ban, Clock, EyeOff, Lock, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-// From the MVP Definition: section 9 (trust and privacy), section 6 (masking) and 4.2 (retention).
-// The retention periods (24 hours, 30 days) are an open question in the MVP, so they are not shown yet.
+// From the MVP Definition: section 9 (trust and privacy, retention periods) and section 6 (masking).
+// The retention periods (24 hours for guests, 30 days for signed-in users unless they keep it) were confirmed by the manager.
 const POINTS = [
   { key: 'training', icon: Ban },
   { key: 'masking', icon: EyeOff },
