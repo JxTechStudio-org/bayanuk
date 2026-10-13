@@ -4,11 +4,12 @@ import type { ReactNode } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 
 // Renders a component with what the app gives it in real use: a query client and a router.
-export function renderWithProviders(ui: ReactNode) {
+// `path` is the address the router starts at, for pages that read it (for example /d/123).
+export function renderWithProviders(ui: ReactNode, { path = '/' }: { path?: string } = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>{ui}</MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>{ui}</MemoryRouter>
     </QueryClientProvider>,
   )
 }

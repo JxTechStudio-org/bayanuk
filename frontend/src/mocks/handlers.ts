@@ -20,7 +20,8 @@ export const handlers = [
     const form = await request.formData()
     const file = form.get('file')
     const name = file instanceof File ? file.name.toLowerCase() : ''
-    const id = crypto.getRandomValues(new Uint32Array(2)).join('')
+    // Document IDs are UUIDs (Technical Plan, section 8).
+    const id = crypto.randomUUID()
     documents.set(id, {
       startedAt: Date.now(),
       outcome: name.includes('reject') ? 'rejected' : name.includes('fail') ? 'failed' : 'ready',

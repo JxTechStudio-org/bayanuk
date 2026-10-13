@@ -1,9 +1,10 @@
-import { CircleAlert, FileSearch, FileText, FileX, ShieldCheck } from 'lucide-react'
+import { CircleAlert, FileSearch, FileText, FileX } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { AppHeader } from '@/features/shared/components/AppHeader'
+import { AnalysisLayout } from '../components/AnalysisLayout'
 import { ProcessingStages } from '../components/ProcessingStages'
 import { useDocumentStatus } from '../hooks/useDocumentStatus'
 import { stageIndex } from '../utils/stages'
@@ -13,65 +14,61 @@ import { stageIndex } from '../utils/stages'
 export function ProcessingPage() {
   const { id = '' } = useParams()
   const { t } = useTranslation()
-  const { data, isError } = useDocumentStatus(id)
-  // Sent by the upload (useUploadDocument). It is lost on refresh, and then the line is hidden.
+  const { data, error } = useDocumentStatus(id)
+  // Sent by the upload (useUploadDocument). A page opened from a link has no name, and the line is hidden.
   const fileName = (useLocation().state as { fileName?: string } | null)?.fileName
 
   if (data?.status === 'ready') return <Navigate to={`/d/${id}/result`} replace />
 
-  const ended = isError || data?.status === 'rejected' || data?.status === 'failed'
-  const outcome = isError ? 'notFound' : data?.status === 'rejected' ? 'rejected' : 'failed'
-  const body = data?.status_detail || t(`processing.${outcome}.body`)
+  // Only a 404 means the document is not there. Other errors (a lost connection, for example)
+  // keep the stages on screen, and the next check every 2 seconds tries again.
+  const outcome =
+    error instanceof ApiError && error.status === 404
+      ? 'notFound'
+      : data?.status === 'rejected' || data?.status === 'failed'
+        ? data.status
+        : null
+
+  if (outcome) {
+    // The API sends a user-safe reason (status_detail); our own text is the fallback.
+    const body = data?.status_detail || t(`processing.${outcome}.body`)
+    return (
+      <AnalysisLayout>
+        <div role="alert">
+          <span
+            className={cn(
+              'grid size-12 place-items-center rounded-full',
+              outcome === 'rejected' ? 'bg-muted text-muted-foreground' : 'bg-destructive/10 text-destructive',
+            )}
+          >
+            {outcome === 'rejected' ? (
+              <FileX aria-hidden="true" className="size-6" />
+            ) : (
+              <CircleAlert aria-hidden="true" className="size-6" />
+            )}
+          </span>
+          <h1 className="mt-4 text-xl font-semibold md:text-2xl">{t(`processing.${outcome}.title`)}</h1>
+          {fileName ? <FileName name={fileName} /> : null}
+          {body ? <p className="mt-2 text-muted-foreground">{body}</p> : null}
+          <Button asChild size="lg" className="mt-6 h-12 px-6 text-base font-semibold">
+            <Link to="/">{t(`processing.${outcome}.action`)}</Link>
+          </Button>
+        </div>
+      </AnalysisLayout>
+    )
+  }
 
   return (
-    <div className="flex min-h-svh flex-col">
-      <AppHeader />
-      {/* Same soft background as the top of the landing page. */}
-      <main className="flex-1 bg-linear-to-b from-muted to-background px-5 py-12 md:py-20">
-        <div className="mx-auto w-full max-w-lg rounded-2xl border bg-background p-6 shadow-sm md:p-8">
-          {ended ? (
-            <div role="alert">
-              <span
-                className={cn(
-                  'grid size-12 place-items-center rounded-full',
-                  outcome === 'rejected' ? 'bg-muted text-muted-foreground' : 'bg-destructive/10 text-destructive',
-                )}
-              >
-                {outcome === 'rejected' ? (
-                  <FileX aria-hidden="true" className="size-6" />
-                ) : (
-                  <CircleAlert aria-hidden="true" className="size-6" />
-                )}
-              </span>
-              <h1 className="mt-4 text-xl font-semibold md:text-2xl">{t(`processing.${outcome}.title`)}</h1>
-              {fileName ? <FileName name={fileName} /> : null}
-              {/* The API sends a user-safe reason (status_detail); our own text is the fallback. */}
-              {body ? <p className="mt-2 text-muted-foreground">{body}</p> : null}
-              <Button asChild size="lg" className="mt-6 h-12 px-6 text-base font-semibold">
-                <Link to="/">{t(`processing.${outcome}.action`)}</Link>
-              </Button>
-            </div>
-          ) : (
-            <>
-              <span className="grid size-12 place-items-center rounded-full bg-tint text-teal-deep">
-                <FileSearch aria-hidden="true" className="size-6" />
-              </span>
-              <h1 className="mt-4 text-xl font-semibold md:text-2xl">{t('processing.title')}</h1>
-              {fileName ? <FileName name={fileName} /> : null}
-              <div className="mt-6" aria-live="polite">
-                <ProcessingStages current={data ? stageIndex(data.status) : 0} />
-              </div>
-            </>
-          )}
-        </div>
-
-        <p className="mx-auto mt-6 flex max-w-lg items-start gap-2 text-sm text-muted-foreground">
-          <ShieldCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-teal-deep" />
-          {/* The same privacy message as the landing page (MVP 9). */}
-          {t('hero.privacy')}
-        </p>
-      </main>
-    </div>
+    <AnalysisLayout>
+      <span className="grid size-12 place-items-center rounded-full bg-tint text-teal-deep">
+        <FileSearch aria-hidden="true" className="size-6" />
+      </span>
+      <h1 className="mt-4 text-xl font-semibold md:text-2xl">{t('processing.title')}</h1>
+      {fileName ? <FileName name={fileName} /> : null}
+      <div className="mt-6" aria-live="polite">
+        <ProcessingStages current={data ? stageIndex(data.status) : 0} />
+      </div>
+    </AnalysisLayout>
   )
 }
 

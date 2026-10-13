@@ -2,7 +2,7 @@ import type { DocumentStatus } from '../types'
 
 // The four progress labels from the MVP Definition, section 5, step 3.
 export const STAGES = ['checking', 'reading', 'findingTerms', 'findingAttention'] as const
-export type Stage = (typeof STAGES)[number]
+type Stage = (typeof STAGES)[number]
 
 // Database Schema: "The frontend polls the status and maps each value to a friendly progress label."
 const STAGE_OF: Partial<Record<DocumentStatus, Stage>> = {
