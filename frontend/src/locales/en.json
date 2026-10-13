@@ -97,7 +97,7 @@
       },
       "retention": {
         "title": "Deleted automatically",
-        "body": "You can delete your document at any time, and it is deleted automatically after a retention period."
+        "body": "You can delete your document at any time. It is deleted automatically after 24 hours for guests, and after 30 days for signed-in users."
       }
     }
   },
