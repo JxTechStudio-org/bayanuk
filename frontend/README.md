@@ -2,7 +2,7 @@
 
 Frontend of Bayanuk (بيانك): a React single-page app in Arabic (right to left) and English (left to right).
 
-This README covers Task 1 (project setup), Task 2 (the landing page) and the frontend part of the root Dockerfile. It explains how to run the project, how it is organised, where every text on the page comes from, and the decisions made where the Technical Plan left a choice open.
+This README covers Task 1 (project setup), Task 2 (the landing page), Task 3 (the upload and processing flow) and the frontend part of the root Dockerfile. It explains how to run the project, how it is organised, where every text on the page comes from, and the decisions made where the Technical Plan left a choice open.
 
 ## Requirements
 
@@ -26,6 +26,26 @@ npm run dev -- --host
 ```
 
 Then open the `Network:` address that Vite prints.
+
+### The fake API
+
+The backend is built in parallel, so in development a fake API answers instead (decision 50). It is on by default, from `.env.development`:
+
+```
+VITE_API_MOCK=true
+```
+
+The browser console shows `[MSW] Mocking enabled.` when it runs. It follows the API contract in the Technical Plan (section 7) and the status flow in the Database Schema. A document moves one status every 2 seconds, and the file name picks the outcome:
+
+| File name | Outcome |
+| --- | --- |
+| Any PDF or DOCX | Ready after about 12 seconds |
+| Contains `reject` (for example `reject-lease.pdf`) | Rejected: not a job offer or employment contract |
+| Contains `fail` (for example `fail-scan.pdf`) | Failed: the file could not be read |
+
+The fake documents live in memory, so refreshing the processing page shows "Document not found". The real API keeps them in the database.
+
+To use the real API, set `VITE_API_MOCK=false` in a `.env.development.local` file (not committed). The production build never includes the fake API.
 
 ## Commands
 
@@ -60,11 +80,14 @@ frontend/
     favicon.svg            Browser tab icon (modern browsers)
     favicon-32.png         Browser tab icon (older browsers)
     apple-touch-icon.png   iPhone home screen icon, 180 x 180
+    mockServiceWorker.js   Made by MSW for the fake API. Not edited by hand
+  .env.development         Turns the fake API on in development
   src/
-    main.tsx               Entry point
+    main.tsx               Entry point. Starts the fake API first in development
     index.css              Tailwind, the font, the brand colours, shadcn/ui colours
     app/
       App.tsx              Routes: which path shows which page
+      queryClient.ts       TanStack Query settings (retries)
       i18n.ts              Language setup, direction and tab title
     assets/
       brand/               Official logos, Arabic and English
@@ -72,6 +95,19 @@ frontend/
     components/
       ui/                  shadcn/ui components (button, accordion)
     features/
+      analysis/
+        types.ts           Document statuses and the status response
+        api/
+          getDocumentStatus.ts   GET /documents/{id}/status
+        hooks/
+          useDocumentStatus.ts   Asks for the status every 2 seconds until processing ends
+        utils/
+          stages.ts        Maps the 7 statuses to the 4 progress stages
+        components/
+          ProcessingStages.tsx   The 4 stages: done, in progress, waiting
+        pages/
+          ProcessingPage.tsx     /d/:id, shown right after upload
+          ResultPage.tsx         /d/:id/result, placeholder until the result task
       landing/
         components/        One file per section of the landing page
           Header.tsx
@@ -87,16 +123,30 @@ frontend/
       shared/
         components/
           LanguageSwitcher.tsx   Used by every page
+          Logo.tsx               The logo, chosen by language
+          AppHeader.tsx          Header for the pages after the landing page
       upload/
+        api/
+          uploadDocument.ts      POST /documents
+        hooks/
+          useUploadDocument.ts   Sends the file, then opens the processing page
+        utils/
+          validateFile.ts        Type and size check before upload
         components/
-          UploadEntry.tsx  The "Choose a file" button
+          UploadEntry.tsx  The "Choose a file" button, and drop anywhere on the page
     lib/
+      api.ts               Every call to the API: base path, headers, error format
+      guestToken.ts        The guest token sent with every call
       utils.ts             The `cn` helper, created by the shadcn CLI (see decision 48)
+    mocks/
+      handlers.ts          The fake API (development only)
+      browser.ts           Starts it in the browser
     locales/
       ar.json              Arabic text
       en.json              English text
     test/
       setup.ts             Shared test setup
+      renderWithProviders.tsx   Renders a component with TanStack Query and the router
 ```
 
 Tests sit next to the file they test (for example `FAQ.test.tsx` beside `FAQ.tsx`).
@@ -124,10 +174,12 @@ Every frontend library named in the Technical Plan (section 3), and its status.
 | React Router | Pages and paths | Installed |
 | Vitest + Testing Library | Tests | Installed |
 | shadcn/ui (Radix) | Shared components | Installed in Task 2, with right-to-left support. Components in use: `button`, `accordion` |
-| TanStack Query | Calls to the API | Added with the upload task, the first one that calls the API |
+| TanStack Query | Calls to the API | Installed in Task 3. Used for the upload and the status checks |
 | react-pdf | Document viewer | Added with the viewer task |
 
 Libraries that came with shadcn/ui: `radix-ui` (the components underneath), `class-variance-authority` (component variants), `cn` (merges class names), `tw-animate-css` (open and close animations), `shadcn` (the CLI that adds components, and its base CSS) and `lucide-react` (icons).
+
+One library not named in the plan: **MSW** (Mock Service Worker), for the fake API in development (decision 50). It is in `devDependencies` and is not part of the production build.
 
 `dependencies` holds the libraries whose code runs in the browser. `devDependencies` holds the tools used while writing and building the site: Vite, TypeScript, ESLint, the test tools, Tailwind CSS and the `shadcn` CLI (decision 45).
 
@@ -188,6 +240,38 @@ Real photos, free for commercial use. Resized to at most 1600 pixels at 75% qual
 | `contract-review.jpg` | Who it is for (fresh graduates) | [Unsplash](https://unsplash.com/photos/two-men-sitting-at-a-table-with-papers-and-a-pen-Mqc-m8kgxkg) | Amina Atar | Unsplash Licence |
 | `contract-handshake.jpg` | Who it is for (job switchers) | [Unsplash](https://unsplash.com/photos/two-people-shaking-hands-over-a-piece-of-paper-4mEyvORkbN0) | Amina Atar | Unsplash Licence |
 
+## Upload and processing
+
+The flow from MVP 5, steps 2 and 3, and the API from the Technical Plan, section 7.
+
+1. **Choose or drop a file.** The "Choose a file" button opens the file picker. A file can also be dropped anywhere on the page.
+2. **Check it in the browser.** PDF or DOCX, up to 10 MB (MVP 4.2). If not, a message shows under the button and nothing is sent.
+3. **Send it.** `POST /api/v1/documents`, as a form with one field, `file`. The API answers `202` with the new document's `id`.
+4. **Show the processing page** at `/d/{id}`, with the file name. It asks `GET /api/v1/documents/{id}/status` every 2 seconds and stops when processing ends.
+5. **End in one of three states:** `ready` opens `/d/{id}/result`, `rejected` says the document is not supported, `failed` says the file could not be read.
+
+The API has 7 statuses (Database Schema), and the visitor sees 4 stages (MVP 5, step 3). The Database Schema says: "The frontend polls the status and maps each value to a friendly progress label."
+
+| API status | Stage shown |
+| --- | --- |
+| `uploaded`, `scanning` | Checking file |
+| `extracting` | Reading document |
+| `classifying`, `analyzing` | Finding key terms |
+| `indexing` | Looking for points that need attention |
+
+Every call goes through `lib/api.ts`, which adds the `/api/v1` base path, the `X-Guest-Token` header, the interface language (`Accept-Language`), and turns the error format `{ "error": { "code", "message" } }` into an `ApiError`.
+
+### Text sources
+
+| Text | From |
+| --- | --- |
+| The four stages | MVP 5, step 3, word for word in English |
+| "Bayanuk supports job offers and employment contracts only" | MVP 4.1 |
+| "We could not read this file" | Technical Plan, section 5, step 2 |
+| File type and size errors | MVP 4.2 |
+| The privacy line under the processing card | The landing page line, MVP 9 |
+| The other end-state titles, the buttons, "Uploading", "Drop the file here" | Interface labels, our choice |
+
 ## Decisions
 
 Choices made where the plan did not specify, with the reason for each.
@@ -212,7 +296,7 @@ Choices made where the plan did not specify, with the reason for each.
 | 14 | Test files sit next to the file they test | `FAQ.test.tsx` is beside `FAQ.tsx`, so tests are easy to find. |
 | 15 | First tests cover the language files and the direction switch | These are the two things that existed in Task 1, and the plan asks for checks in both RTL and LTR. |
 | 16 | `npm ci` in the Docker build, not `npm install` | `npm ci` installs exactly the versions in `package-lock.json` and stops if the two disagree, so the server builds what was tested locally. The backend stage of the studio's existing Dockerfile uses it too. |
-| 17 | No `VITE_API_BASE_URL` in the Docker build yet | The frontend does not call the API yet, so nothing reads this setting. It is added with the first task that calls the API, following decision 1. |
+| 17 | ~~No `VITE_API_BASE_URL` in the Docker build yet~~ | Not needed. Decided in Task 3 by decision 52. |
 | 18 | A root `.dockerignore` that skips `node_modules`, `dist` and `.git` | Without it, the build would copy the macOS `node_modules` into the Linux image and break the build. It also keeps the files sent to Docker small. It sits at the root so it covers the backend too. |
 
 ### Task 2
@@ -253,7 +337,28 @@ Choices made where the plan did not specify, with the reason for each.
 | 45 | `shadcn`, `tailwindcss` and `@tailwindcss/vite` moved to `devDependencies` | The manager's review. They are tools used while building, like Vite: none of their JavaScript runs in the browser. `shadcn` is the CLI that adds components; the site only uses its base CSS (`shadcn/tailwind.css`), which Tailwind reads at build time. The Docker build runs `npm ci`, which installs `devDependencies` too, so the build is unchanged. |
 | 46 | `npm audit` warnings are known and left as they are | `npm audit --omit=dev` (the site's own libraries) finds 0 vulnerabilities. `npm audit` shows 7 high warnings, all in `braces`, which comes with the `shadcn` CLI (`shadcn` → `fast-glob` → `micromatch` → `braces`). It only runs when adding components on a developer's machine, and is not in the built site. Do not run `npm audit fix --force`: it "fixes" this by downgrading `shadcn` to version 1.0.0. To check again after updating `shadcn`. |
 | 47 | Unused shadcn/ui theme settings removed: dark mode (`.dark` and the `dark` variant), `sidebar-*`, `chart-*`, `card-*`, `popover-*`, `accent-*`, `input`, `font-heading`, and the `sm`, `3xl` and `4xl` radius sizes | The manager's review. Each name was checked against the built CSS: none of these is used by the page or by the two components (`button`, `accordion`). The `dark:` classes in `button.tsx` were removed too: without the `.dark` setting, Tailwind would apply them whenever the phone or computer is in dark mode, and the outline button would change colour. `secondary` and `destructive` stay because `button.tsx` uses them in its variants. When a new shadcn/ui component needs a removed name, it is added back with a brand value. |
-| 48 | `src/lib/utils.ts` stays, although the current components import `cn` directly | The shadcn CLI created it, and `components.json` points the CLI to it (`"utils": "@/lib/utils"`). Removing it could break `npx shadcn add` for the next component. |
+| 48 | `src/lib/utils.ts` stays | The shadcn CLI created it, and `components.json` points the CLI to it (`"utils": "@/lib/utils"`). Removing it could break `npx shadcn add` for the next component. Since Task 3, our own components import `cn` from it too. |
+
+### Task 3
+
+| # | Decision | Reason |
+| --- | --- | --- |
+| 49 | TanStack Query for every API call: `useMutation` for the upload, `useQuery` for the status | The plan names it. It gives loading and error states, and repeats the status check every 2 seconds with one setting (`refetchInterval`), which stops when processing ends. |
+| 50 | A fake API with MSW, in development only | The backend is built at the same time. The fake API follows the plan's contract, so the frontend can be built and tested now, without waiting and without touching the backend folder. It runs only when `VITE_API_MOCK=true`, and its code is never in the production build (checked in `dist`). MSW's `mockServiceWorker.js` sits in `public/`, so it is copied to `dist` as it is, but nothing starts it in production. |
+| 51 | The fake outcome is chosen by the file name (`reject`, `fail`) | The simplest way to try all three endings by hand, with no extra screen or setting. |
+| 52 | The API base is the relative path `/api/v1`, with no `VITE_API_BASE_URL` | The plan serves the frontend and `/api/v1` from the same nginx (section 2), so the browser reaches the API on the same address. It also keeps the Sanctum cookie on the same site. |
+| 53 | Every call sends `credentials: 'include'` | Signed-in users use Sanctum SPA cookie sessions (plan, section 7). Guests are not affected. |
+| 54 | The guest token is 32 random bytes from `crypto.getRandomValues`, saved in the browser (`bayanuk.guestToken`) | The plan: "random value created by the frontend and kept in the browser". `crypto` is the browser's secure random source. If storage is blocked, one token is kept for the visit, as in decision 8. |
+| 55 | The browser checks type and size only; the API checks the page count (30) | A browser cannot count DOCX pages reliably. The plan's pipeline checks pages on the server (section 5, step 1), and the server checks everything again anyway. |
+| 56 | A file is also accepted by its extension (`.pdf`, `.docx`), whatever type the browser reports | Some systems report an empty or unusual type for these files. The server checks the real content anyway (plan, section 5, step 1). |
+| 57 | A file can be dropped anywhere on the page, with a full-page "Drop the file here" layer | MVP 5, step 2: "The user drops a PDF or DOCX". A small drop zone is easy to miss on a long page. |
+| 58 | A failed upload is not repeated on its own; a failed status check is tried once more | Sending a file twice could create two documents. Asking for the status again is safe. |
+| 59 | The API's error message is shown when it sends one, and ours otherwise | The plan says API errors carry "a translated message". Ours covers network errors and an empty message. The same applies to `status_detail` on the processing page. |
+| 60 | The processing page shows the file name | The Database Schema says `original_filename` is "shown to the owner only". It helps a visitor who uploads two offers to compare. The name is passed with the page change, so it is not sent anywhere. |
+| 61 | No progress bar and no time estimate on the processing page | The four stages already show the progress. The MVP's "under 60 seconds" is a target for the team, not a promise to visitors (same reason as decision 28). |
+| 62 | `Logo` and `AppHeader` in `features/shared/components` | The processing page needs the logo and the language switch (decision 21) without the landing page links. The landing `Header` now uses the same `Logo`. |
+| 63 | `ResultPage` is a placeholder that says the analysis is ready | Processing has to end somewhere. The result dashboard is a separate task. |
+| 64 | `renderWithProviders` for tests | Components now need TanStack Query and the router. One helper avoids repeating that in every test. |
 
 ## Differences from the Technical Plan
 
@@ -274,6 +379,21 @@ Points that need an answer before or after launch. Nothing here blocks Task 2.
 | 4 | Privacy and Terms pages | Footer | Links added when the pages exist (decision 30). |
 | 5 | Final English spelling and domain of "Bayanuk" | English interface, tab title | Uses "Bayanuk". MVP "Open questions" lists it. |
 
+### For the backend (Task 3)
+
+Assumptions the frontend makes about the API. To confirm with the backend before connecting the two.
+
+| # | Assumption | Where |
+| --- | --- | --- |
+| 1 | The upload form field is named `file` | `uploadDocument.ts` |
+| 2 | `POST /documents` answers `202` with `{ "id", "status" }` | `uploadDocument.ts` |
+| 3 | `GET /documents/{id}/status` answers `{ "id", "status", "status_detail" }`, with `status_detail` a user-safe reason or `null` | `features/analysis/types.ts` |
+| 4 | A document that does not exist, or belongs to someone else, answers `404` | `ProcessingPage.tsx` shows "Document not found" |
+| 5 | `rejected` and `failed` come with a `status_detail`, because a document can be rejected for different reasons (not a job offer, more than 30 pages, unsafe file; plan, section 5) | Without it, the page falls back to "Bayanuk supports job offers and employment contracts only", which only fits one of these reasons |
+| 6 | The error codes for a file that is too large, the wrong type, too many pages, or over the upload limit | `UploadEntry.tsx` shows the API's message, so new codes need no frontend change |
+| 7 | The address of the API in local development (for example `localhost:8000`), to add a Vite proxy for `/api` | `vite.config.ts` |
+
 ## Next
 
-- Upload task: connect `UploadEntry` to the API, and add TanStack Query.
+- Connect to the real API once the backend is ready: confirm the points above and add the Vite proxy.
+- Result task: the result dashboard at `/d/{id}/result`.
