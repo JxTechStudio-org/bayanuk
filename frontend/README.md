@@ -127,7 +127,9 @@ Every frontend library named in the Technical Plan (section 3), and its status.
 | TanStack Query | Calls to the API | Added with the upload task, the first one that calls the API |
 | react-pdf | Document viewer | Added with the viewer task |
 
-Libraries that came with shadcn/ui: `radix-ui` (the components underneath), `class-variance-authority` (component variants), `cn` (merges class names), `tw-animate-css` (open and close animations), `shadcn` (its base CSS) and `lucide-react` (icons).
+Libraries that came with shadcn/ui: `radix-ui` (the components underneath), `class-variance-authority` (component variants), `cn` (merges class names), `tw-animate-css` (open and close animations), `shadcn` (the CLI that adds components, and its base CSS) and `lucide-react` (icons).
+
+`dependencies` holds the libraries whose code runs in the browser. `devDependencies` holds the tools used while writing and building the site: Vite, TypeScript, ESLint, the test tools, Tailwind CSS and the `shadcn` CLI (decision 45).
 
 ## Brand
 
@@ -173,7 +175,7 @@ Sections, top to bottom, and the source of their text. Every sentence on the pag
 | Who it is for | `TargetUsers.tsx` | MVP 3, the two primary segments (fresh graduates, job switchers) |
 | Supported documents | `SupportedFiles.tsx` | MVP 4.1 (document types) and 4.2 (PDF or DOCX, up to 10 MB and 30 pages) |
 | How it works | `HowItWorks.tsx` | MVP 5, steps 2 to 5. The two example questions are quoted from step 5 |
-| Trust and privacy | `Privacy.tsx` | MVP 9 (training, storage, deletion), MVP 6 (masking of personal identifiers), MVP 4.2 (automatic deletion after a retention period) |
+| Trust and privacy | `Privacy.tsx` | MVP 9 (training, storage, deletion, and the automatic deletion periods), MVP 6 (masking of personal identifiers) |
 | FAQ | `FAQ.tsx` | Questions written for this page. Answers from MVP 9 (disclaimer), 4.1 and 4.2 (documents, guest mode, sign-in), 8 (chat answers and question limits) |
 | Footer | `Footer.tsx` | MVP 9 (the disclaimer, word for word) and the studio name |
 
@@ -225,7 +227,7 @@ Choices made where the plan did not specify, with the reason for each.
 | 23 | The "Choose a file" button is in `features/upload` | The plan names `features/upload` for the upload. The button opens the file picker and accepts PDF and DOCX only. Sending the file to the API comes with the upload task. |
 | 24 | One upload button on the page, in the hero. No closing "call to action" section with a second one | MVP 5, step 1: "The user sees the promise, the privacy message, and one upload button." This is a difference from invoi, which has two. |
 | 25 | Every sentence on the page comes from the MVP Definition | The page describes the product, and the MVP Definition is the agreed description. The landing page section above lists the source of each text. |
-| 26 | The automatic deletion periods (24 hours, 30 days) are not shown | MVP 9 states them, but MVP "Open questions" says they are "to be confirmed together with the privacy policy". The page uses MVP 4.2 instead: "automatic deletion after a retention period". The numbers are added to the language files once confirmed. |
+| 26 | The privacy section shows the automatic deletion periods: 24 hours for guests, 30 days for signed-in users | MVP 9 states them. They were first hidden because MVP "Open questions" lists them as "to be confirmed". The manager confirmed them in the Task 2 review. If they change, only the `privacy.points.retention` text in `ar.json` and `en.json` changes. |
 | 27 | The notice example in the hero card is 30 days | The MVP example (section 6) is "30 / 60": 30 for the employee, 60 for the employer. The card says "notice if you resign", which is the employee's. |
 | 28 | "Planned after MVP" document types are shown as "not supported", with no "coming soon" | A "coming soon" is a promise to visitors. When to announce them is the manager's call. |
 | 29 | The FAQ questions start closed | Tidier first view. It also avoids an answer being cut off when it opens before the font loads. |
@@ -245,6 +247,14 @@ Choices made where the plan did not specify, with the reason for each.
 | 43 | The language test checks nested keys | Texts are now grouped by section. Checking only the top-level keys would miss a missing translation inside a group. |
 | 44 | Mobile first | Classes without a prefix are for phones, `md:` and `lg:` for wider screens. Checked on a real phone. |
 
+### Task 2 review changes
+
+| # | Decision | Reason |
+| --- | --- | --- |
+| 45 | `shadcn`, `tailwindcss` and `@tailwindcss/vite` moved to `devDependencies` | The manager's review. They are tools used while building, like Vite: none of their JavaScript runs in the browser. `shadcn` is the CLI that adds components; the site only uses its base CSS (`shadcn/tailwind.css`), which Tailwind reads at build time. The Docker build runs `npm ci`, which installs `devDependencies` too, so the build is unchanged. |
+| 46 | `npm audit` warnings are known and left as they are | `npm audit --omit=dev` (the site's own libraries) finds 0 vulnerabilities. `npm audit` shows 7 high warnings, all in `braces`, which comes with the `shadcn` CLI (`shadcn` → `fast-glob` → `micromatch` → `braces`). It only runs when adding components on a developer's machine, and is not in the built site. Do not run `npm audit fix --force`: it "fixes" this by downgrading `shadcn` to version 1.0.0. To check again after updating `shadcn`. |
+| 47 | Unused shadcn/ui theme settings removed: dark mode (`.dark` and the `dark` variant), `sidebar-*`, `chart-*`, `radius-3xl` and `radius-4xl` | The manager's review. The site has no dark mode, sidebar or charts, and no component uses them. The `dark:` classes in `button.tsx` were removed too: without the `.dark` setting, Tailwind would apply them whenever the phone or computer is in dark mode, and the outline button would change colour. The base colour names that shadcn/ui components read (`card`, `popover`, `accent`, `secondary`, ...) stay, because new components from the CLI expect them. |
+
 ## Differences from the Technical Plan
 
 | The plan says | This repository has | Note |
@@ -258,10 +268,10 @@ Points that need an answer before or after launch. Nothing here blocks Task 2.
 
 | # | Question | Where it shows | Now |
 | --- | --- | --- | --- |
-| 1 | Automatic deletion periods (24 hours for guests, 30 days for accounts) | Privacy section | Not shown until confirmed (decision 26). MVP "Open questions" lists it too. |
-| 2 | The upload button opens the file picker only | Hero | Connected to the API in the upload task. To confirm this is fine for Task 2. |
+| 1 | Automatic deletion periods (24 hours for guests, 30 days for accounts) | Privacy section | Answered: confirmed by the manager and shown on the page (decision 26). |
+| 2 | The upload button opens the file picker only | Hero | Answered: the manager confirmed the file picker is enough for Task 2. The API comes with Task 3. |
 | 3 | When to announce the document types "planned after MVP" | Supported documents | Shown as "not supported" (decision 28). |
-| 4 | Privacy and Terms pages | Footer | Links added when the pages exist (decision 30). MVP ties the privacy policy to question 1. |
+| 4 | Privacy and Terms pages | Footer | Links added when the pages exist (decision 30). |
 | 5 | Final English spelling and domain of "Bayanuk" | English interface, tab title | Uses "Bayanuk". MVP "Open questions" lists it. |
 
 ## Next
