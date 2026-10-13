@@ -91,7 +91,7 @@ frontend/
         components/
           UploadEntry.tsx  The "Choose a file" button
     lib/
-      utils.ts             Helper used by shadcn/ui components
+      utils.ts             The `cn` helper, created by the shadcn CLI (see decision 48)
     locales/
       ar.json              Arabic text
       en.json              English text
@@ -151,10 +151,9 @@ shadcn/ui components read their own colour names. They are set to the brand in `
 | --- | --- | --- |
 | `primary` (main buttons) | `#0C6F7C` | `teal-deep` |
 | `foreground` (text) | `#0E2A33` | `ink` |
-| `accent` (hover background) | `#DDF1F4` | `tint` |
 | `ring` (keyboard focus) | `#4FC6D3` | `teal-light` |
 | `muted-foreground` (secondary text) | `#4A626A` | A shade of `ink`, contrast about 6:1 on white |
-| `muted`, `border`, `input` | `#F6F9FA`, `#DBE7EA` | Light teal greys |
+| `muted`, `border` | `#F6F9FA`, `#DBE7EA` | Light teal greys |
 
 The logo in the header follows the language: the Arabic logo with the Arabic interface and the English logo with the English one, as the identity file says. The logo files are used as delivered, unchanged.
 
@@ -253,7 +252,8 @@ Choices made where the plan did not specify, with the reason for each.
 | --- | --- | --- |
 | 45 | `shadcn`, `tailwindcss` and `@tailwindcss/vite` moved to `devDependencies` | The manager's review. They are tools used while building, like Vite: none of their JavaScript runs in the browser. `shadcn` is the CLI that adds components; the site only uses its base CSS (`shadcn/tailwind.css`), which Tailwind reads at build time. The Docker build runs `npm ci`, which installs `devDependencies` too, so the build is unchanged. |
 | 46 | `npm audit` warnings are known and left as they are | `npm audit --omit=dev` (the site's own libraries) finds 0 vulnerabilities. `npm audit` shows 7 high warnings, all in `braces`, which comes with the `shadcn` CLI (`shadcn` → `fast-glob` → `micromatch` → `braces`). It only runs when adding components on a developer's machine, and is not in the built site. Do not run `npm audit fix --force`: it "fixes" this by downgrading `shadcn` to version 1.0.0. To check again after updating `shadcn`. |
-| 47 | Unused shadcn/ui theme settings removed: dark mode (`.dark` and the `dark` variant), `sidebar-*`, `chart-*`, `radius-3xl` and `radius-4xl` | The manager's review. The site has no dark mode, sidebar or charts, and no component uses them. The `dark:` classes in `button.tsx` were removed too: without the `.dark` setting, Tailwind would apply them whenever the phone or computer is in dark mode, and the outline button would change colour. The base colour names that shadcn/ui components read (`card`, `popover`, `accent`, `secondary`, ...) stay, because new components from the CLI expect them. |
+| 47 | Unused shadcn/ui theme settings removed: dark mode (`.dark` and the `dark` variant), `sidebar-*`, `chart-*`, `card-*`, `popover-*`, `accent-*`, `input`, `font-heading`, and the `sm`, `3xl` and `4xl` radius sizes | The manager's review. Each name was checked against the built CSS: none of these is used by the page or by the two components (`button`, `accordion`). The `dark:` classes in `button.tsx` were removed too: without the `.dark` setting, Tailwind would apply them whenever the phone or computer is in dark mode, and the outline button would change colour. `secondary` and `destructive` stay because `button.tsx` uses them in its variants. When a new shadcn/ui component needs a removed name, it is added back with a brand value. |
+| 48 | `src/lib/utils.ts` stays, although the current components import `cn` directly | The shadcn CLI created it, and `components.json` points the CLI to it (`"utils": "@/lib/utils"`). Removing it could break `npx shadcn add` for the next component. |
 
 ## Differences from the Technical Plan
 
