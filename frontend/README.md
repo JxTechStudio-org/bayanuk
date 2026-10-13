@@ -35,7 +35,7 @@ The backend is built in parallel, so in development a fake API answers instead (
 VITE_API_MOCK=true
 ```
 
-The browser console shows `[MSW] Mocking enabled.` when it runs. It follows the API contract in the Technical Plan (section 7) and the status flow in the Database Schema. A document moves one status every 2 seconds, and the file name picks the outcome:
+The browser console shows `[MSW] Mocking enabled.` when it runs. It follows the API contract in the Technical Plan (section 7) and the status flow in the Database Schema. Document IDs are UUIDs, as in the real API. A document moves one status every 2 seconds, and the file name picks the outcome:
 
 | File name | Outcome |
 | --- | --- |
@@ -104,6 +104,7 @@ frontend/
         utils/
           stages.ts        Maps the 7 statuses to the 4 progress stages
         components/
+          AnalysisLayout.tsx     The frame of the pages after upload: header, card, privacy line
           ProcessingStages.tsx   The 4 stages: done, in progress, waiting
         pages/
           ProcessingPage.tsx     /d/:id, shown right after upload
@@ -358,7 +359,10 @@ Choices made where the plan did not specify, with the reason for each.
 | 61 | No progress bar and no time estimate on the processing page | The four stages already show the progress. The MVP's "under 60 seconds" is a target for the team, not a promise to visitors (same reason as decision 28). |
 | 62 | `Logo` and `AppHeader` in `features/shared/components` | The processing page needs the logo and the language switch (decision 21) without the landing page links. The landing `Header` now uses the same `Logo`. |
 | 63 | `ResultPage` is a placeholder that says the analysis is ready | Processing has to end somewhere. The result dashboard is a separate task. |
-| 64 | `renderWithProviders` for tests | Components now need TanStack Query and the router. One helper avoids repeating that in every test. |
+| 64 | `renderWithProviders` for tests, with an optional starting address | Components now need TanStack Query and the router. One helper avoids repeating that in every test. Pages that read the address (`/d/123`) start there. |
+| 65 | Only a `404` shows "Document not found", and the checks stop there. Any other error keeps the stages on screen, and the next check tries again | A dropped connection for a few seconds should not tell the visitor their document is gone. Without the stop, a missing document would be asked about every 2 seconds for as long as the page is open. |
+| 66 | `AnalysisLayout` in `features/analysis/components` | The processing and result pages share the same frame. One place to change it, and the pages only hold their own content. |
+| 67 | Tests for the processing page cover every state on the card: stages, ready, rejected, failed, not found, and a dropped connection. They replace `fetch` inside the test | These are the states the task asks for. Replacing `fetch` tests the real path through `lib/api.ts`, without the fake API. |
 
 ## Differences from the Technical Plan
 
