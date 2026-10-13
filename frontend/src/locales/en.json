@@ -156,12 +156,10 @@
     },
     "failed": {
       "title": "We could not read this file",
-      "body": "",
       "action": "Try again"
     },
     "notFound": {
       "title": "Document not found",
-      "body": "",
       "action": "Upload a document"
     }
   },

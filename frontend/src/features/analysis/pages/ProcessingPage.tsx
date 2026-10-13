@@ -30,8 +30,8 @@ export function ProcessingPage() {
         : null
 
   if (outcome) {
-    // The API sends a user-safe reason (status_detail); our own text is the fallback.
-    const body = data?.status_detail || t(`processing.${outcome}.body`)
+    // The API sends a user-safe reason (status_detail). Only a rejected document has our own text as a fallback.
+    const body = data?.status_detail || (outcome === 'rejected' ? t('processing.rejected.body') : null)
     return (
       <AnalysisLayout>
         <div role="alert">

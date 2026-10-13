@@ -21,15 +21,17 @@ export function UploadEntry() {
   const [problem, setProblem] = useState<FileProblem | null>(null)
   const [dragging, setDragging] = useState(false)
   const upload = useUploadDocument()
-  const { mutate } = upload
+  const { mutate, isPending } = upload
 
   const handleFile = useCallback(
     (file: File) => {
+      // One file at a time: a file dropped while another is uploading is ignored.
+      if (isPending) return
       const found = validateFile(file)
       setProblem(found)
       if (!found) mutate(file)
     },
-    [mutate],
+    [isPending, mutate],
   )
 
   useEffect(() => {

@@ -4,14 +4,13 @@ import { getGuestToken } from './guestToken'
 // Technical Plan, section 7: JSON under /api/v1, one error format { error: { code, message } }.
 const BASE_URL = '/api/v1'
 
+// The HTTP status (0 when the API could not be reached) and the API's translated message.
 export class ApiError extends Error {
   readonly status: number
-  readonly code: string
 
-  constructor(status: number, code: string, message: string) {
+  constructor(status: number, message: string) {
     super(message)
     this.status = status
-    this.code = code
   }
 }
 
@@ -29,12 +28,12 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
       },
     })
   } catch {
-    throw new ApiError(0, 'network_error', '')
+    throw new ApiError(0, '')
   }
 
   if (!response.ok) {
     const body = await response.json().catch(() => null)
-    throw new ApiError(response.status, body?.error?.code ?? 'unknown', body?.error?.message ?? '')
+    throw new ApiError(response.status, body?.error?.message ?? '')
   }
 
   return response.json() as Promise<T>
