@@ -73,7 +73,7 @@ export function UploadEntry() {
         onClick={() => input.current?.click()}
       >
         {upload.isPending ? (
-          <LoaderCircle aria-hidden="true" className="size-5 animate-spin" />
+          <LoaderCircle aria-hidden="true" className="size-5 animate-spin motion-reduce:animate-none" />
         ) : (
           <CloudUpload aria-hidden="true" className="size-5" />
         )}
