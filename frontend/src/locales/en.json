@@ -1,6 +1,169 @@
 {
   "title": "Bayanuk",
   "brand": "Bayanuk",
-  "tagline": "Understand your job offer before you sign",
-  "switchLanguage": "العربية"
+  "switchLanguage": "العربية",
+  "upload": {
+    "choose": "Choose a file",
+    "uploading": "Uploading...",
+    "dropHere": "Drop the file here",
+    "errors": {
+      "type": "The file must be a PDF or Word (DOCX) file.",
+      "size": "The file is larger than 10 MB.",
+      "generic": "The file could not be uploaded. Please try again."
+    }
+  },
+  "hero": {
+    "title": "Understand your job offer before you sign",
+    "subtitle": "Upload a job offer or employment contract. Bayanuk extracts the important terms, explains them in plain language, and highlights the clauses that deserve attention.",
+    "howItWorks": "How it works",
+    "privacy": "Your document is never used to train AI, and you can delete it yourself at any time.",
+    "photoAlt": "A person leafing through the pages of a long contract",
+    "summary": {
+      "title": "What Bayanuk shows you",
+      "label": "Illustration from a made-up contract",
+      "page": "p. {{page}}",
+      "probation": "Probation",
+      "probationValue": "90 days",
+      "salary": "Basic salary",
+      "salaryValue": "SAR 8,000",
+      "notice": "Notice if you resign",
+      "noticeValue": "30 days",
+      "attention": "Attention:",
+      "nonCompete": "12-month non-compete"
+    }
+  },
+  "targetUsers": {
+    "title": "Who it is for",
+    "graduates": {
+      "title": "Fresh graduates",
+      "body": "First job offer, little experience with contract terms.",
+      "photoAlt": "Two people reviewing the terms of an employment contract"
+    },
+    "switchers": {
+      "title": "Job switchers",
+      "body": "Comparing a new offer to their current job or to a second offer.",
+      "photoAlt": "A handshake over an employment contract"
+    }
+  },
+  "supportedFiles": {
+    "title": "Supported documents",
+    "subtitle": "Job offers and employment contracts, in Arabic and English.",
+    "offer": {
+      "title": "Job offer",
+      "body": "Usually 1 to 4 pages."
+    },
+    "contract": {
+      "title": "Employment contract",
+      "body": "Usually 5 to 30 pages, with richer clauses and risk points."
+    },
+    "other": {
+      "title": "Not supported",
+      "body": "Freelance contracts, NDAs, internship agreements, rental and commercial contracts."
+    },
+    "limits": "PDF or Word (DOCX), up to 10 MB and 30 pages."
+  },
+  "howItWorks": {
+    "title": "How it works",
+    "steps": {
+      "upload": {
+        "title": "Upload your document",
+        "body": "A PDF or Word file. We check its type, size and page count before anything else."
+      },
+      "process": {
+        "title": "We read it",
+        "body": "We read the document, extract the key terms, and look for points that need attention."
+      },
+      "result": {
+        "title": "See the result",
+        "body": "An overview, then key-term cards for pay, working hours, leave and contract, then attention points, then the summary."
+      },
+      "ask": {
+        "title": "Ask your document",
+        "body": "Suggested questions such as “What is my notice period?” and “Can I resign during probation?”. Every answer cites the page and a short quote."
+      }
+    }
+  },
+  "privacy": {
+    "title": "Trust and privacy",
+    "points": {
+      "training": {
+        "title": "Never used for training",
+        "body": "Documents are never used to train AI models."
+      },
+      "masking": {
+        "title": "Personal details masked",
+        "body": "National ID, iqama number, IBAN and phone number are not extracted, and are masked before text is sent to the AI provider."
+      },
+      "storage": {
+        "title": "Private, encrypted storage",
+        "body": "Files are stored privately and encrypted at rest, and are reached only through short-lived signed links."
+      },
+      "delete": {
+        "title": "Deleted immediately",
+        "body": "Deleting a document removes the file, extracted text, analysis and chat history immediately."
+      },
+      "retention": {
+        "title": "Deleted automatically",
+        "body": "You can delete your document at any time. It is deleted automatically after 24 hours for guests, and after 30 days for signed-in users unless they choose to keep it."
+      }
+    }
+  },
+  "faq": {
+    "title": "Frequently asked questions",
+    "items": {
+      "legal": {
+        "question": "Is Bayanuk legal advice?",
+        "answer": "No. Bayanuk provides AI-generated information to help you understand your document. It is not legal advice."
+      },
+      "documents": {
+        "question": "Which documents does Bayanuk support?",
+        "answer": "Job offers and employment contracts, in Arabic and English, as a PDF or Word file up to 10 MB and 30 pages. Any other contract is declined with a clear message."
+      },
+      "account": {
+        "question": "Do I need an account?",
+        "answer": "No. You can upload and see the result without an account. Sign in to save the analysis and ask more: guests get 3 questions per document, signed-in users get 20."
+      },
+      "signIn": {
+        "question": "How do I sign in?",
+        "answer": "With a link sent to your email, or with your Google account."
+      },
+      "answers": {
+        "question": "Where do the answers to my questions come from?",
+        "answer": "Only from your document, and every answer cites the page and a short quote. If the answer is not in the document, we say so clearly instead of guessing."
+      }
+    }
+  },
+  "footer": {
+    "disclaimer": "Bayanuk provides AI-generated information to help you understand your document. It is not legal advice.",
+    "studio": "Bayanuk, by JX Tech Studio"
+  },
+  "nav": {
+    "label": "Page sections",
+    "privacy": "Privacy"
+  },
+  "processing": {
+    "title": "Processing",
+    "stages": {
+      "checking": "Checking file",
+      "reading": "Reading document",
+      "findingTerms": "Finding key terms",
+      "findingAttention": "Looking for points that need attention"
+    },
+    "rejected": {
+      "title": "This document is not supported",
+      "body": "Bayanuk supports job offers and employment contracts only.",
+      "action": "Upload another document"
+    },
+    "failed": {
+      "title": "We could not read this file",
+      "action": "Try again"
+    },
+    "notFound": {
+      "title": "Document not found",
+      "action": "Upload a document"
+    }
+  },
+  "result": {
+    "ready": "Your analysis is ready."
+  }
 }
