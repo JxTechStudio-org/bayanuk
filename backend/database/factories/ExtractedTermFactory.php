@@ -18,7 +18,7 @@ class ExtractedTermFactory extends Factory
             'found' => true,
             'page_number' => 3,
             'source_quote' => 'Basic salary is 8000 SAR',
-            'confidence' => 0.95, 
+            'confidence' => 0.95,
             'corrected_by_user' => false,
         ];
     }

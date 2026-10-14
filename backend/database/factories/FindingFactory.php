@@ -11,9 +11,9 @@ class FindingFactory extends Factory
     {
         return [
             'analysis_id' => Analysis::factory(),
-            'category' => 'non_compete', 
-            'severity' => 'attention', 
-            'source' => 'rule', 
+            'category' => 'non_compete',
+            'severity' => 'attention',
+            'source' => 'rule',
             'rule_id' => 'RULE_01',
             'title' => 'Non-compete clause detected',
             'explanation' => 'The contract contains a non-compete clause restricting work for 12 months.',

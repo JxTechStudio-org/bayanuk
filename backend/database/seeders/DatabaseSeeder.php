@@ -11,8 +11,8 @@ use App\Models\DocumentPage;
 use App\Models\ExtractedTerm;
 use App\Models\Finding;
 use App\Models\User;
-use Illuminate\Database\Seeder;
 use Illuminate\Database\Eloquent\Factories\Sequence;
+use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -31,7 +31,7 @@ class DatabaseSeeder extends Seeder
             ->for($user)
             ->has(
                 DocumentPage::factory()->count(2)
-                    ->sequence(fn (Sequence $s) => ['page_number' => $s->index + 1]), 
+                    ->sequence(fn (Sequence $s) => ['page_number' => $s->index + 1]),
                 'pages'
             )
             ->has(
@@ -49,8 +49,8 @@ class DatabaseSeeder extends Seeder
                                 ['key' => 'compensation.housing']
                             ),
                         'extractedTerms'
-            ),
-                 'analyses'
+                    ),
+                'analyses'
             )
             ->has(
                 ChatSession::factory()

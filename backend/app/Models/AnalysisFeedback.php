@@ -10,9 +10,9 @@ class AnalysisFeedback extends Model
 {
     use HasUuids;
 
-    protected $table = 'analysis_feedback'; 
+    protected $table = 'analysis_feedback';
 
-    const UPDATED_AT = null; 
+    const UPDATED_AT = null;
 
     protected $fillable = [
         'analysis_id',

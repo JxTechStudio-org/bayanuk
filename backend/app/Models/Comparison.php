@@ -10,7 +10,7 @@ class Comparison extends Model
 {
     use HasUuids;
 
-    const UPDATED_AT = null; 
+    const UPDATED_AT = null;
 
     protected $fillable = [
         'user_id',
@@ -21,7 +21,7 @@ class Comparison extends Model
     ];
 
     protected $casts = [
-        'result' => 'array', 
+        'result' => 'array',
     ];
 
     public function user(): BelongsTo

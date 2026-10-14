@@ -11,7 +11,7 @@ class ExtractedTerm extends Model
 {
     use HasFactory, HasUuids;
 
-    public $timestamps = false; 
+    public $timestamps = false;
 
     protected $fillable = [
         'analysis_id',

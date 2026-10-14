@@ -19,11 +19,11 @@ class DocumentFactory extends Factory
         return [
             'user_id' => User::factory(),
             'guest_token_hash' => null,
-            'original_filename' => 'employment_contract_' . fake()->uuid() . '.pdf',
+            'original_filename' => 'employment_contract_'.fake()->uuid().'.pdf',
             'mime_type' => 'application/pdf',
             'file_size' => fake()->numberBetween(50000, 5000000),
             'sha256' => hash('sha256', fake()->unique()->text()),
-            'storage_key' => 'documents/' . Str::uuid() . '.pdf',
+            'storage_key' => 'documents/'.Str::uuid().'.pdf',
             'page_count' => fake()->numberBetween(1, 10),
             'language' => DocumentLanguage::ARABIC->value,
             'document_type' => DocumentType::EMPLOYMENT_CONTRACT->value,

@@ -1,16 +1,17 @@
 <?php
+
 namespace App\Models;
 
 use App\Enums\DocumentLanguage;
 use App\Enums\DocumentStatus;
 use App\Enums\DocumentType;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Document extends Model
 {
@@ -69,14 +70,14 @@ class Document extends Model
 
     public function latestAnalysis(): HasOne
     {
-      return $this->hasOne(Analysis::class)->ofMany(
-          ['created_at' => 'max', 'id' => 'max'],
-          fn (Builder $q) => $q->where('status', AnalysisStatus::SUCCEEDED->value),
-      );
+        return $this->hasOne(Analysis::class)->ofMany(
+            ['created_at' => 'max', 'id' => 'max'],
+            fn (Builder $q) => $q->where('status', AnalysisStatus::SUCCEEDED->value),
+        );
     }
 
     public function chatSessions(): HasMany
     {
-    return $this->hasMany(ChatSession::class);
+        return $this->hasMany(ChatSession::class);
     }
 }

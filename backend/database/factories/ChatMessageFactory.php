@@ -11,7 +11,7 @@ class ChatMessageFactory extends Factory
     {
         return [
             'chat_session_id' => ChatSession::factory(),
-            'role' => 'user', 
+            'role' => 'user',
             'content' => 'What is the notice period?',
             'citations' => json_encode([['page' => 7, 'chunk_id' => '...', 'quote' => '...']]),
             'answer_found' => true,

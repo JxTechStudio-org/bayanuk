@@ -9,7 +9,7 @@ class LoginToken extends Model
 {
     use HasUuids;
 
-    const UPDATED_AT = null; 
+    const UPDATED_AT = null;
 
     protected $fillable = [
         'email',

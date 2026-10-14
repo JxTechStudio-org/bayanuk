@@ -22,7 +22,7 @@ class AnalysisFactory extends Factory
             'result' => [
                 'document_type' => 'employment_contract',
                 'language' => 'ar',
-                'probation_days' => ['value' => 90, 'page' => 2, 'quote' => 'فترة التجربة 90 يوماً']
+                'probation_days' => ['value' => 90, 'page' => 2, 'quote' => 'فترة التجربة 90 يوماً'],
             ],
             'summary' => fake()->paragraph(),
             'summary_language' => 'ar',

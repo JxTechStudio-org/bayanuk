@@ -3,12 +3,10 @@
 namespace App\Models;
 
 use App\Enums\DeletionReason;
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 
 class DeletionLog extends Model
 {
-    
     public $timestamps = false;
 
     protected $fillable = [

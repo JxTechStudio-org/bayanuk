@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
+use App\Enums\FindingCategory;
 use App\Enums\FindingSeverity;
 use App\Enums\FindingSource;
-use App\Enums\FindingCategory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;

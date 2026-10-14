@@ -24,7 +24,7 @@ class ChatMessage extends Model
     ];
 
     protected $casts = [
-        'citations' => 'array', 
+        'citations' => 'array',
         'answer_found' => 'boolean',
         'input_tokens' => 'integer',
         'output_tokens' => 'integer',
