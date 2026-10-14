@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -18,6 +19,8 @@ return new class extends Migration
             $table->boolean('file_deleted');
             $table->timestampTz('deleted_at');
         });
+
+        DB::statement("ALTER TABLE deletion_logs ADD CONSTRAINT deletion_logs_reason_check CHECK (reason IN ('user_request', 'retention_expired', 'account_deleted'))");
     }
 
     /**

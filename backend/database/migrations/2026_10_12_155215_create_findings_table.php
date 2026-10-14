@@ -28,6 +28,7 @@ return new class extends Migration
 
         DB::statement("ALTER TABLE findings ADD CONSTRAINT findings_severity_check CHECK (severity IN ('info', 'attention', 'high'))");
         DB::statement("ALTER TABLE findings ADD CONSTRAINT findings_source_check CHECK (source IN ('rule', 'ai'))");
+        DB::statement("ALTER TABLE findings ADD CONSTRAINT findings_category_check CHECK (category IN ('non_compete', 'long_notice', 'long_probation', 'penalties', 'salary_mismatch', 'missing_info', 'one_sided_change', 'working_time', 'other'))");
     }
 
     /**

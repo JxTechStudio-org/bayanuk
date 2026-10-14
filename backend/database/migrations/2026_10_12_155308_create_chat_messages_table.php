@@ -14,7 +14,7 @@ return new class extends Migration
     {
         Schema::create('chat_messages', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignUuid('chat_session_id')->constrained()->cascadeOnDelete()->index();
+            $table->foreignUuid('chat_session_id')->index()->constrained()->cascadeOnDelete();
             $table->string('role', 10);
             $table->text('content');
             $table->jsonb('citations')->default('[]');
