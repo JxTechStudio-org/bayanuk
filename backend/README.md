@@ -47,18 +47,27 @@ Backend for **Bayanuk**, an AI review service for job offers and employment cont
      AWS_ENDPOINT=http://127.0.0.1:9000
    ```
 
-5. **Generate application key:**
+5. **Start and Setup RustFS (S3-Compatible Storage):**
+   - Ensure your RustFS server is running locally at `http://127.0.0.1:9000` (matching your `AWS_ENDPOINT` in `.env`).
+   - If setting up a local S3-compatible environment using Docker, you can run:
+     ```bash
+     docker run -d -p 9000:9000 -p 9001:9001 --name rustfs minio/minio server /data --console-address ":9001"
+     ```
+   - Access the local storage dashboard, log in with your credentials, and create a storage bucket named `bayanuk` to match `AWS_BUCKET=bayanuk` in your `.env`.
+   
+
+6. **Generate application key:**
    ```bash
    php artisan key:generate
    ```
 
-6. **Run migrations:**
+7. **Run migrations:**
    ```bash
    php artisan migrate
    ```
    *(This creates the required tables for migrations, sessions, jobs/queues, and database caches).*
 
-7. **Run the local server:**
+8. **Run the local server:**
    ```bash
    php artisan serve
    ```

@@ -70,3 +70,12 @@ it('deletes all data linked to a document (cascade)', function () {
         expect(DB::table($table)->count())->toBe(0);
     }
 });
+
+it('creates an audit log when a document is deleted', function () {
+    $document = Document::factory()->create();
+
+    $document->delete();
+
+    expect(DB::table('deletion_logs')->count())->toBe(1);
+    expect(DB::table('deletion_logs')->first()->document_id)->toBe($document->id);
+});
