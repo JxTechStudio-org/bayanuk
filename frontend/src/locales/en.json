@@ -3,7 +3,14 @@
   "brand": "Bayanuk",
   "switchLanguage": "العربية",
   "upload": {
-    "choose": "Choose a file"
+    "choose": "Choose a file",
+    "uploading": "Uploading...",
+    "dropHere": "Drop the file here",
+    "errors": {
+      "type": "The file must be a PDF or Word (DOCX) file.",
+      "size": "The file is larger than 10 MB.",
+      "generic": "The file could not be uploaded. Please try again."
+    }
   },
   "hero": {
     "title": "Understand your job offer before you sign",
@@ -97,7 +104,7 @@
       },
       "retention": {
         "title": "Deleted automatically",
-        "body": "You can delete your document at any time, and it is deleted automatically after a retention period."
+        "body": "You can delete your document at any time. It is deleted automatically after 24 hours for guests, and after 30 days for signed-in users unless they choose to keep it."
       }
     }
   },
@@ -133,5 +140,30 @@
   "nav": {
     "label": "Page sections",
     "privacy": "Privacy"
+  },
+  "processing": {
+    "title": "Processing",
+    "stages": {
+      "checking": "Checking file",
+      "reading": "Reading document",
+      "findingTerms": "Finding key terms",
+      "findingAttention": "Looking for points that need attention"
+    },
+    "rejected": {
+      "title": "This document is not supported",
+      "body": "Bayanuk supports job offers and employment contracts only.",
+      "action": "Upload another document"
+    },
+    "failed": {
+      "title": "We could not read this file",
+      "action": "Try again"
+    },
+    "notFound": {
+      "title": "Document not found",
+      "action": "Upload a document"
+    }
+  },
+  "result": {
+    "ready": "Your analysis is ready."
   }
 }

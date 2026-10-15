@@ -2,20 +2,33 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Database\Factories\UserFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password'])]
-#[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
-    /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, HasUuids, Notifiable;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'name',
+        'email',
+        'email_verified_at',
+        'google_id',
+        'locale',
+        'terms_version',
+        'terms_accepted_at',
+        'ai_training_opt_in',
+        'keep_documents',
+    ];
 
     /**
      * Get the attributes that should be cast.
@@ -26,7 +39,39 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'password' => 'hashed',
+            'terms_accepted_at' => 'datetime',
+            'ai_training_opt_in' => 'boolean',
+            'keep_documents' => 'boolean',
+            'deleted_at' => 'datetime',
         ];
+    }
+
+    protected function email(): Attribute
+    {
+        return Attribute::make(set: fn (string $value) => mb_strtolower($value));
+    }
+
+    /**
+     * Get the documents for the user.
+     */
+    public function documents(): HasMany
+    {
+        return $this->hasMany(Document::class);
+    }
+
+    /**
+     * Get the chat sessions for the user.
+     */
+    public function chatSessions(): HasMany
+    {
+        return $this->hasMany(ChatSession::class);
+    }
+
+    /**
+     * Get the comparisons for the user.
+     */
+    public function comparisons(): HasMany
+    {
+        return $this->hasMany(Comparison::class);
     }
 }
