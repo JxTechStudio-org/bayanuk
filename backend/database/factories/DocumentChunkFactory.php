@@ -17,9 +17,9 @@ class DocumentChunkFactory extends Factory
             'page_number' => 1,
             'chunk_index' => 0,
             'content' => fake()->sentence(15),
-            'token_count' => fake()->numberBetween(20, 100),
-            'embedding' => array_fill(0, 1536, 0.1),
-            'embedding_model' => 'text-embedding-3-small',
+            'token_count' => fake()->numberBetween(100, 500),
+            'embedding' => array_fill(0, 1024, 0.1),
+            'embedding_model' => 'voyage-4',
         ];
     }
 }

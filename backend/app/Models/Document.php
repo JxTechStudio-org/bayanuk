@@ -2,12 +2,11 @@
 
 namespace App\Models;
 
+use App\Enums\AnalysisStatus;
+use App\Enums\DeletionReason;
 use App\Enums\DocumentLanguage;
 use App\Enums\DocumentStatus;
 use App\Enums\DocumentType;
-use App\Enums\AnalysisStatus;
-use App\Enums\DeletionReason;
-use App\Models\DeletionLog;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;

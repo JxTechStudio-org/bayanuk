@@ -20,7 +20,7 @@ return new class extends Migration
         });
 
         Schema::table('usage_events', function (Blueprint $table) {
-            $table->index('created_at');   
+            $table->index('created_at');
         });
     }
 
@@ -38,7 +38,7 @@ return new class extends Migration
         });
 
         Schema::table('usage_events', function (Blueprint $table) {
-            $table->dropIndex(['created_at']);   
+            $table->dropIndex(['created_at']);
         });
     }
 };
