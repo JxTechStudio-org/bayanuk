@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\AnalysisStatus;
 use App\Enums\DeletionReason;
+use App\Models\DeletionLog;
 use App\Enums\DocumentLanguage;
 use App\Enums\DocumentStatus;
 use App\Enums\DocumentType;
