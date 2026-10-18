@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\AnalysisStatus;
+use Database\Factories\AnalysisFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -11,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Analysis extends Model
 {
+    /** @use HasFactory<AnalysisFactory> */
     use HasFactory, HasUuids;
 
     protected $fillable = [
@@ -39,21 +41,33 @@ class Analysis extends Model
         'duration_ms' => 'integer',
     ];
 
+    /**
+     * @return BelongsTo<Document, $this>
+     */
     public function document(): BelongsTo
     {
         return $this->belongsTo(Document::class);
     }
 
+    /**
+     * @return HasMany<ExtractedTerm, $this>
+     */
     public function extractedTerms(): HasMany
     {
         return $this->hasMany(ExtractedTerm::class);
     }
 
+    /**
+     * @return HasMany<Finding, $this>
+     */
     public function findings(): HasMany
     {
         return $this->hasMany(Finding::class);
     }
 
+    /**
+     * @return HasMany<AnalysisFeedback, $this>
+     */
     public function feedback(): HasMany
     {
         return $this->hasMany(AnalysisFeedback::class);

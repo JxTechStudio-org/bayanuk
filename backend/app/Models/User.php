@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -11,6 +12,7 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
+    /** @use HasFactory<UserFactory> */
     use HasFactory, HasUuids, Notifiable;
 
     /**
@@ -46,6 +48,9 @@ class User extends Authenticatable
         ];
     }
 
+    /**
+     * @return Attribute<string, string>
+     */
     protected function email(): Attribute
     {
         return Attribute::make(set: fn (string $value) => mb_strtolower($value));
@@ -53,6 +58,8 @@ class User extends Authenticatable
 
     /**
      * Get the documents for the user.
+     *
+     * @return HasMany<Document, $this>
      */
     public function documents(): HasMany
     {
@@ -61,6 +68,8 @@ class User extends Authenticatable
 
     /**
      * Get the chat sessions for the user.
+     *
+     * @return HasMany<ChatSession, $this>
      */
     public function chatSessions(): HasMany
     {
@@ -69,6 +78,8 @@ class User extends Authenticatable
 
     /**
      * Get the comparisons for the user.
+     *
+     * @return HasMany<Comparison, $this>
      */
     public function comparisons(): HasMany
     {

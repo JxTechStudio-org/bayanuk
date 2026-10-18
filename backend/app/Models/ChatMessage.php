@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\ChatMessageFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -9,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ChatMessage extends Model
 {
+    /** @use HasFactory<ChatMessageFactory> */
     use HasFactory, HasUuids;
 
     const UPDATED_AT = null;
@@ -30,6 +32,9 @@ class ChatMessage extends Model
         'output_tokens' => 'integer',
     ];
 
+    /**
+     * @return BelongsTo<ChatSession, $this>
+     */
     public function chatSession(): BelongsTo
     {
         return $this->belongsTo(ChatSession::class);

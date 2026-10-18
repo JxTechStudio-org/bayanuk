@@ -71,11 +71,12 @@ it('deletes all data linked to a document (cascade)', function () {
     }
 });
 
-it('creates an audit log when a document is deleted', function () {
-    $document = Document::factory()->create();
+// TODO: Moved to Document Upload & Access API task (will be logged via Action/Service explicitly with reasons: user_request, retention_expired, account_deleted)
+// it('creates an audit log when a document is deleted', function () {
+//     $document = Document::factory()->create();
 
-    $document->delete();
+//     $document->delete();
 
-    expect(DB::table('deletion_logs')->count())->toBe(1);
-    expect(DB::table('deletion_logs')->first()->document_id)->toBe($document->id);
-});
+//     expect(DB::table('deletion_logs')->count())->toBe(1);
+//     expect(DB::table('deletion_logs')->first()->document_id)->toBe($document->id);
+// });
