@@ -42,7 +42,7 @@ it('asks the backend for a guest token, then sends it in X-Guest-Token', async (
     '/api/v1/documents/1/status': [Response.json({ id: '1' })],
   })
 
-  await request('/documents/1/status')
+  await request('/documents/1/status', {}, { guestToken: 'guest' })
 
   expect(calls(fetch).map((call) => call.url)).toEqual([
     '/sanctum/csrf-cookie',
@@ -60,7 +60,10 @@ it('asks for one token when two requests start together', async () => {
     '/api/v1/documents/1/status': [Response.json({}), Response.json({})],
   })
 
-  await Promise.all([request('/documents/1/status'), request('/documents/1/status')])
+  await Promise.all([
+    request('/documents/1/status', {}, { guestToken: 'guest' }),
+    request('/documents/1/status', {}, { guestToken: 'guest' }),
+  ])
 
   expect(calls(fetch).filter((call) => call.url === '/api/v1/guest-token')).toHaveLength(1)
 })
@@ -102,11 +105,63 @@ it('replaces a guest token the backend does not accept, and repeats the request 
     ],
   })
 
-  await request('/documents/1/status')
+  await request('/documents/1/status', {}, { guestToken: 'guest' })
 
   const statusCalls = calls(fetch).filter((call) => call.url === '/api/v1/documents/1/status')
   expect(statusCalls.map((call) => call.headers['X-Guest-Token'])).toEqual(['old-token', 'new-token'])
   expect(localStorage.getItem('bayanuk.guestToken')).toBe('new-token')
+})
+
+it('sends no guest token on a request that is not about documents', async () => {
+  localStorage.setItem('bayanuk.guestToken', 'guest-1')
+  const fetch = fakeApi({ '/api/v1/me': [Response.json({ id: 'user-1' })] })
+
+  await request('/me')
+
+  expect(calls(fetch)[0].headers['X-Guest-Token']).toBeUndefined()
+})
+
+it('sends the stored guest token on a sign-in request, to claim the guest documents', async () => {
+  localStorage.setItem('bayanuk.guestToken', 'guest-1')
+  document.cookie = 'XSRF-TOKEN=csrf-1; path=/'
+  const fetch = fakeApi({ '/api/v1/auth/magic-link/verify': [Response.json({ user: {} })] })
+
+  await request('/auth/magic-link/verify', { method: 'POST' }, { guestToken: 'claim' })
+
+  expect(calls(fetch)[0].headers['X-Guest-Token']).toBe('guest-1')
+})
+
+it('never asks for a new guest token on a sign-in request', async () => {
+  document.cookie = 'XSRF-TOKEN=csrf-1; path=/'
+  const fetch = fakeApi({ '/api/v1/auth/magic-link/verify': [Response.json({ user: {} })] })
+
+  await request('/auth/magic-link/verify', { method: 'POST' }, { guestToken: 'claim' })
+
+  expect(calls(fetch).map((call) => call.url)).toEqual(['/api/v1/auth/magic-link/verify'])
+  expect(calls(fetch)[0].headers['X-Guest-Token']).toBeUndefined()
+})
+
+it('repeats a sign-in request without the guest token when the backend does not accept it', async () => {
+  localStorage.setItem('bayanuk.guestToken', 'old-token')
+  document.cookie = 'XSRF-TOKEN=csrf-1; path=/'
+  const fetch = fakeApi({
+    '/api/v1/auth/magic-link/verify': [
+      Response.json({ error: { code: 'invalid_guest_token', message: '' } }, { status: 400 }),
+      Response.json({ user: {} }),
+    ],
+  })
+
+  await request('/auth/magic-link/verify', { method: 'POST' }, { guestToken: 'claim' })
+
+  expect(calls(fetch).map((call) => call.headers['X-Guest-Token'])).toEqual(['old-token', undefined])
+  expect(localStorage.getItem('bayanuk.guestToken')).toBeNull()
+})
+
+it('reads an answer with no body, such as 204', async () => {
+  document.cookie = 'XSRF-TOKEN=csrf-1; path=/'
+  fakeApi({ '/api/v1/auth/logout': [new Response(null, { status: 204 })] })
+
+  await expect(request('/auth/logout', { method: 'POST' })).resolves.toBeUndefined()
 })
 
 it('turns an error answer into an ApiError with its status, code and message', async () => {
