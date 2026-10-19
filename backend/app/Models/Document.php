@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Enums\AnalysisStatus;
+use App\Enums\DeletionReason;
+use App\Models\DeletionLog;
 use App\Enums\DocumentLanguage;
 use App\Enums\DocumentStatus;
 use App\Enums\DocumentType;
@@ -79,5 +82,18 @@ class Document extends Model
     public function chatSessions(): HasMany
     {
         return $this->hasMany(ChatSession::class);
+    }
+
+    protected static function booted()
+    {
+        // automatically create an audit log entry when a document is deleted
+        static::deleted(function ($document) {
+            DeletionLog::create([
+                'document_id' => $document->id,
+                'reason' => DeletionReason::USER_REQUEST,
+                'file_deleted' => true,
+                'deleted_at' => now(),
+            ]);
+        });
     }
 }
