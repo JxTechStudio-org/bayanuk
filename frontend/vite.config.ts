@@ -1,10 +1,24 @@
+import { rmSync } from 'node:fs'
 import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    {
+      // Integration contract, section 12: the mock API is never part of the production build.
+      // The mock code is already left out (src/main.tsx loads it only when VITE_API_MOCK is true),
+      // but Vite copies everything in public/, so its service worker file is removed after the build.
+      name: 'remove-mock-service-worker',
+      apply: 'build',
+      closeBundle() {
+        rmSync(fileURLToPath(new URL('./dist/mockServiceWorker.js', import.meta.url)), { force: true })
+      },
+    },
+  ],
   resolve: {
     alias: {
       // "@/..." means "src/..."
