@@ -16,6 +16,12 @@ export class ApiError extends Error {
   }
 }
 
+// Integration contract, section 4: the API sends a translated message that is safe to show.
+// The fallback covers a lost connection and an empty message.
+export function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof ApiError && error.message ? error.message : fallback
+}
+
 // The API could not be reached (no connection, for example).
 const networkError = () => new ApiError(0, '', '')
 

@@ -1,11 +1,12 @@
 import { ShieldCheck } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AppHeader } from '@/features/shared/components/AppHeader'
+import { AppHeader } from './AppHeader'
 
-// The frame of the pages after upload: the header, the soft background from the top of the
-// landing page, one card for the content, and the privacy line from the landing page (MVP 9).
-export function AnalysisLayout({ children }: { children: ReactNode }) {
+// The frame of the pages outside the landing page (processing, result, sign-in): the header,
+// the soft background from the top of the landing page, one card for the content,
+// and the privacy line from the landing page (MVP 9).
+export function CardLayout({ children }: { children: ReactNode }) {
   const { t } = useTranslation()
 
   return (

@@ -2,7 +2,7 @@ import { CloudUpload, LoaderCircle } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
-import { ApiError } from '@/lib/api'
+import { errorMessage } from '@/lib/api'
 import { useUploadDocument } from '../hooks/useUploadDocument'
 import { type FileProblem, validateFile } from '../utils/validateFile'
 
@@ -61,10 +61,11 @@ export function UploadEntry() {
     }
   }, [handleFile])
 
-  // The API sends a translated message; our own text is the fallback.
-  const apiMessage =
-    upload.error instanceof ApiError && upload.error.message ? upload.error.message : t('upload.errors.generic')
-  const message = problem ? t(`upload.errors.${problem}`) : upload.isError ? apiMessage : null
+  const message = problem
+    ? t(`upload.errors.${problem}`)
+    : upload.isError
+      ? errorMessage(upload.error, t('upload.errors.generic'))
+      : null
 
   return (
     <div>

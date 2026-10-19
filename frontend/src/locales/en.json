@@ -180,5 +180,27 @@
   },
   "result": {
     "ready": "Your analysis is ready."
+  },
+  "signIn": {
+    "title": "Sign in",
+    "body": "Sign in to save your analysis, ask more questions, and compare.",
+    "google": "Continue with Google",
+    "or": "or",
+    "email": "Your email",
+    "send": "Send sign-in link",
+    "sending": "Sending...",
+    "consent": "By continuing, you agree to the Terms and the Privacy Policy.",
+    "errors": {
+      "email": "Enter a valid email address.",
+      "generic": "We could not complete this. Try again."
+    },
+    "checkEmail": {
+      "title": "Check your email",
+      "sentTo": "We sent a sign-in link to",
+      "validFor": "The link works for 15 minutes, and only once.",
+      "resend": "Send the link again",
+      "resent": "We sent a new link.",
+      "changeEmail": "Use another email"
+    }
   }
 }
