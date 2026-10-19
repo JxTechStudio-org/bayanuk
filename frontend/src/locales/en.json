@@ -202,5 +202,34 @@
       "resent": "We sent a new link.",
       "changeEmail": "Use another email"
     }
+  },
+  "auth": {
+    "waiting": "Signing you in...",
+    "newLink": "Get a new link",
+    "tryAgain": "Try again",
+    "expired": {
+      "title": "This link has expired",
+      "body": "A link works for 15 minutes only. Get a new link."
+    },
+    "used": {
+      "title": "This link was already used",
+      "body": "Each link works only once. Get a new link."
+    },
+    "invalid": {
+      "title": "This link is not valid",
+      "body": "Check that you opened the full link from the email, or get a new link."
+    },
+    "failed": {
+      "title": "We could not sign you in",
+      "body": "Something went wrong while signing you in. Try again."
+    },
+    "googleCancelled": {
+      "title": "Sign-in was not completed",
+      "body": "You cancelled signing in with Google."
+    },
+    "googleFailed": {
+      "title": "We could not sign you in with Google",
+      "body": "Try again, or sign in with an email link."
+    }
   }
 }

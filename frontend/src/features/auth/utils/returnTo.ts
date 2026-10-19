@@ -16,6 +16,15 @@ export function saveReturnTo(path: string) {
   }
 }
 
+// Reads the saved page without forgetting it, for a sign-in that has to start again.
+export function peekReturnTo(): string {
+  try {
+    return safePath(localStorage.getItem(STORAGE_KEY))
+  } catch {
+    return '/'
+  }
+}
+
 // Reads the saved page once, then forgets it.
 export function takeReturnTo(): string {
   try {
