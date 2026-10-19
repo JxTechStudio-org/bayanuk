@@ -1,4 +1,4 @@
-Integration Contract: Frontend and Backend
+# Integration Contract: Frontend and Backend
 
 How the Bayanuk frontend (`frontend/`) and backend (`backend/`) talk to each other. Both sides build against this document, so connecting them later is plug-in, not rework.
 
