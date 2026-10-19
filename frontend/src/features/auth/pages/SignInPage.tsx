@@ -19,7 +19,7 @@ export function SignInPage() {
   if (user) return <Navigate to={next} replace />
 
   return (
-    <CardLayout>
+    <CardLayout privacyLine={false}>
       {sentTo ? (
         <CheckEmail email={sentTo} onChangeEmail={() => setSentTo(null)} />
       ) : (
