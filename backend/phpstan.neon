@@ -5,7 +5,3 @@ parameters:
     paths:
         - app/
     level: 6
-    ignoreErrors:
-        - '#Class App\\Models\\.* uses generic trait Illuminate\\Database\\Eloquent\\Factories\\HasFactory but does not specify its types#'
-        - '#Method App\\Models\\.* return type with generic class Illuminate\\Database\\Eloquent\\Relations\\.* does not specify its types#'
-        - '#Method App\\Models\\User::email\(\) return type with generic class Illuminate\\Database\\Eloquent\\Casts\\Attribute does not specify its types#'

@@ -59,7 +59,7 @@ Backend for **Bayanuk**, an AI review service for job offers and employment cont
    AWS_USE_PATH_STYLE_ENDPOINT=true
    AWS_ENDPOINT=http://127.0.0.1:9000
 ```
-   Google sign-in, ClamAV, and AI provider settings (`GOOGLE_*`, `CLAMAV_*`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`) can stay empty until those features are implemented.
+   Google sign-in, ClamAV, and AI provider settings (`GOOGLE_*`, `CLAMAV_*`, `GEMINI_API_KEY`, `VOYAGE_API_KEY`, `BAYANUK_DAILY_AI_BUDGET_USD`) can stay empty until those features are implemented.
 
 5. **Start and set up RustFS (S3-compatible storage):**
    - Run RustFS with Docker (port 9000 is the S3 API, port 9001 is the web console):

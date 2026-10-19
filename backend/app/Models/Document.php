@@ -3,11 +3,10 @@
 namespace App\Models;
 
 use App\Enums\AnalysisStatus;
-use App\Enums\DeletionReason;
-use App\Models\DeletionLog;
 use App\Enums\DocumentLanguage;
 use App\Enums\DocumentStatus;
 use App\Enums\DocumentType;
+use Database\Factories\DocumentFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -18,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Document extends Model
 {
+    /** @use HasFactory<DocumentFactory> */
     use HasFactory, HasUuids;
 
     protected $fillable = [
@@ -51,26 +51,41 @@ class Document extends Model
         'expires_at' => 'datetime',
     ];
 
+    /**
+     * @return BelongsTo<User, $this>
+     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * @return HasMany<DocumentPage, $this>
+     */
     public function pages(): HasMany
     {
         return $this->hasMany(DocumentPage::class);
     }
 
+    /**
+     * @return HasMany<DocumentChunk, $this>
+     */
     public function chunks(): HasMany
     {
         return $this->hasMany(DocumentChunk::class);
     }
 
+    /**
+     * @return HasMany<Analysis, $this>
+     */
     public function analyses(): HasMany
     {
         return $this->hasMany(Analysis::class);
     }
 
+    /**
+     * @return HasOne<Analysis, $this>
+     */
     public function latestAnalysis(): HasOne
     {
         return $this->hasOne(Analysis::class)->ofMany(
@@ -79,21 +94,11 @@ class Document extends Model
         );
     }
 
+    /**
+     * @return HasMany<ChatSession, $this>
+     */
     public function chatSessions(): HasMany
     {
         return $this->hasMany(ChatSession::class);
-    }
-
-    protected static function booted()
-    {
-        // automatically create an audit log entry when a document is deleted
-        static::deleted(function ($document) {
-            DeletionLog::create([
-                'document_id' => $document->id,
-                'reason' => DeletionReason::USER_REQUEST,
-                'file_deleted' => true,
-                'deleted_at' => now(),
-            ]);
-        });
     }
 }
