@@ -5,16 +5,20 @@ import { Button } from '@/components/ui/button'
 import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { AnalysisLayout } from '../components/AnalysisLayout'
+import { ProcessingNotice, type Notice } from '../components/ProcessingNotice'
 import { ProcessingStages } from '../components/ProcessingStages'
 import { useDocumentStatus } from '../hooks/useDocumentStatus'
 import { stageIndex } from '../utils/stages'
+
+// After this many failed checks in a row, the page says the connection is lost.
+const FAILURES_BEFORE_OFFLINE_NOTICE = 3
 
 // Shown right after upload. It polls the status and ends in one of three states:
 // ready (go to the result), rejected (not a supported document), or failed (could not be read).
 export function ProcessingPage() {
   const { id = '' } = useParams()
   const { t } = useTranslation()
-  const { data, error } = useDocumentStatus(id)
+  const { data, error, failureCount, failureReason, fetchStatus } = useDocumentStatus(id)
   // Sent by the upload (useUploadDocument). A page opened from a link has no name, and the line is hidden.
   const fileName = (useLocation().state as { fileName?: string } | null)?.fileName
 
@@ -64,6 +68,20 @@ export function ProcessingPage() {
     )
   }
 
+  // Why nothing is moving yet, most important first. The checks keep running in every case:
+  // the browser is offline (checks wait for the connection) or several checks failed to reach the API,
+  // the daily AI budget paused the document, or the document waits in the queue.
+  const offline =
+    fetchStatus === 'paused' ||
+    (failureReason instanceof ApiError && failureReason.status === 0 && failureCount >= FAILURES_BEFORE_OFFLINE_NOTICE)
+  const notice: Notice | null = offline
+    ? 'offline'
+    : data?.status_detail === 'ai_budget_reached'
+      ? 'paused'
+      : data?.status === 'uploaded'
+        ? 'queued'
+        : null
+
   return (
     <AnalysisLayout>
       <span className="grid size-12 place-items-center rounded-full bg-tint text-teal-deep">
@@ -73,6 +91,7 @@ export function ProcessingPage() {
       {fileName ? <FileName name={fileName} /> : null}
       <div className="mt-6" aria-live="polite">
         <ProcessingStages current={data ? stageIndex(data.status) : 0} />
+        {notice ? <ProcessingNotice notice={notice} /> : null}
       </div>
     </AnalysisLayout>
   )

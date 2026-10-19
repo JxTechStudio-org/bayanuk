@@ -3,7 +3,8 @@ import type { DocumentStatus } from '@/features/analysis/types'
 
 // A fake API that follows docs/integration-contract.md. Only used in development, when VITE_API_MOCK=true.
 //
-// Pick the outcome by file name: a name with "reject" ends as rejected, "fail" ends as failed.
+// Pick the outcome by file name: a name with "reject" ends as rejected, "fail" ends as failed,
+// and "budget" pauses while analyzing, as when the daily AI budget is reached.
 const FLOW: DocumentStatus[] = ['uploaded', 'scanning', 'extracting', 'classifying', 'analyzing', 'indexing', 'ready']
 const SECONDS_PER_STEP = 2
 const CSRF_TOKEN = 'mock-csrf-token'
@@ -11,7 +12,7 @@ const CSRF_TOKEN = 'mock-csrf-token'
 interface FakeDocument {
   guestToken: string
   startedAt: number
-  outcome: 'ready' | 'rejected' | 'failed'
+  outcome: 'ready' | 'rejected' | 'failed' | 'paused'
 }
 
 const guestTokens = new Set<string>()
@@ -58,7 +59,13 @@ export const handlers = [
     documents.set(id, {
       guestToken,
       startedAt: Date.now(),
-      outcome: name.includes('reject') ? 'rejected' : name.includes('fail') ? 'failed' : 'ready',
+      outcome: name.includes('reject')
+        ? 'rejected'
+        : name.includes('fail')
+          ? 'failed'
+          : name.includes('budget')
+            ? 'paused'
+            : 'ready',
     })
     await delay(600)
     return HttpResponse.json({ id, status: 'uploaded' }, { status: 202 })
@@ -81,6 +88,9 @@ export const handlers = [
     }
     if (document.outcome === 'failed' && step >= FLOW.indexOf('extracting')) {
       return HttpResponse.json({ id: params.id, status: 'failed', status_detail: 'file_unreadable' })
+    }
+    if (document.outcome === 'paused' && step >= FLOW.indexOf('analyzing')) {
+      return HttpResponse.json({ id: params.id, status: 'analyzing', status_detail: 'ai_budget_reached' })
     }
     const status = FLOW[Math.min(step, FLOW.length - 1)]
     return HttpResponse.json({ id: params.id, status, status_detail: null })

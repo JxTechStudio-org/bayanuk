@@ -81,3 +81,37 @@ it('keeps the stages on screen when the connection drops', async () => {
   await expect(screen.findByRole('alert', undefined, { timeout: 500 })).rejects.toThrow()
   expect(screen.getByRole('heading', { name: ar.processing.title })).toBeInTheDocument()
 })
+
+it('says the document is in the queue while it waits', async () => {
+  apiAnswers({ id: '123', status: 'uploaded', status_detail: null })
+  renderPage()
+  expect(await screen.findByText(ar.processing.notices.queued)).toBeInTheDocument()
+})
+
+it('says the document is paused when the daily AI budget is reached', async () => {
+  apiAnswers({ id: '123', status: 'analyzing', status_detail: 'ai_budget_reached' })
+  renderPage()
+  expect(await screen.findByText(ar.processing.notices.paused)).toBeInTheDocument()
+  // The stages stay on screen, at the stage the document reached.
+  expect(screen.getByText(ar.processing.stages.findingTerms).closest('li')).toHaveAttribute('aria-current', 'step')
+})
+
+it('says the connection is lost after several failed checks, and keeps trying', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  const fetch = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('Failed to fetch'))
+  renderPage()
+
+  // One failed check is not enough to say the connection is lost.
+  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1))
+  expect(screen.queryByText(ar.processing.notices.offline)).not.toBeInTheDocument()
+
+  // The third failed check in a row shows the message.
+  await vi.advanceTimersByTimeAsync(4000)
+  expect(await screen.findByText(ar.processing.notices.offline)).toBeInTheDocument()
+
+  // The connection comes back: the message goes away and the stages continue.
+  fetch.mockResolvedValue(Response.json({ id: '123', status: 'extracting', status_detail: null }))
+  await vi.advanceTimersByTimeAsync(2000)
+  await waitFor(() => expect(screen.queryByText(ar.processing.notices.offline)).not.toBeInTheDocument())
+  vi.useRealTimers()
+})
