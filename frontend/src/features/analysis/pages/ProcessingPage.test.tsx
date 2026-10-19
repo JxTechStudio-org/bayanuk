@@ -40,23 +40,37 @@ it('opens the result when the document is ready', async () => {
   expect(await screen.findByText('result page')).toBeInTheDocument()
 })
 
-it('explains a rejected document, with the reason from the API', async () => {
-  apiAnswers({ id: '123', status: 'rejected', status_detail: 'This is a lease contract.' })
+it('explains a rejected document with the message for its reason code', async () => {
+  apiAnswers({ id: '123', status: 'rejected', status_detail: 'too_many_pages' })
   renderPage()
   expect(await screen.findByRole('heading', { name: ar.processing.rejected.title })).toBeInTheDocument()
-  expect(screen.getByText('This is a lease contract.')).toBeInTheDocument()
+  expect(screen.getByText(ar.processing.reasons.too_many_pages)).toBeInTheDocument()
 })
 
-it('explains a file that could not be read', async () => {
-  apiAnswers({ id: '123', status: 'failed', status_detail: null })
+it('explains a failed document with the message for its reason code', async () => {
+  apiAnswers({ id: '123', status: 'failed', status_detail: 'file_unreadable' })
   renderPage()
   expect(await screen.findByRole('heading', { name: ar.processing.failed.title })).toBeInTheDocument()
+  expect(screen.getByText(ar.processing.reasons.file_unreadable)).toBeInTheDocument()
+})
+
+it('shows the title only for a reason code it does not know', async () => {
+  apiAnswers({ id: '123', status: 'failed', status_detail: 'a_new_reason' })
+  renderPage()
+  expect(await screen.findByRole('heading', { name: ar.processing.failed.title })).toBeInTheDocument()
+  expect(screen.queryByText(/a_new_reason/)).not.toBeInTheDocument()
 })
 
 it('says when the document does not exist', async () => {
-  apiAnswers({ error: { code: 'not_found', message: '' } }, 404)
+  apiAnswers({ error: { code: 'document_not_found', message: '' } }, 404)
   renderPage()
   expect(await screen.findByRole('heading', { name: ar.processing.notFound.title })).toBeInTheDocument()
+})
+
+it('says when the document was deleted after the retention period', async () => {
+  apiAnswers({ error: { code: 'document_expired', message: '' } }, 410)
+  renderPage()
+  expect(await screen.findByRole('heading', { name: ar.processing.expired.title })).toBeInTheDocument()
 })
 
 it('keeps the stages on screen when the connection drops', async () => {

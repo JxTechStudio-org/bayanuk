@@ -20,28 +20,34 @@ export function ProcessingPage() {
 
   if (data?.status === 'ready') return <Navigate to={`/d/${id}/result`} replace />
 
-  // Only a 404 means the document is not there. Other errors (a lost connection, for example)
-  // keep the stages on screen, and the next check every 2 seconds tries again.
+  // Only a 404 (not found) or a 410 (deleted after the retention period) ends the page with an error.
+  // Other errors (a lost connection, for example) keep the stages on screen, and the next check tries again.
+  const errorStatus = error instanceof ApiError ? error.status : null
   const outcome =
-    error instanceof ApiError && error.status === 404
+    errorStatus === 404
       ? 'notFound'
-      : data?.status === 'rejected' || data?.status === 'failed'
-        ? data.status
-        : null
+      : errorStatus === 410
+        ? 'expired'
+        : data?.status === 'rejected' || data?.status === 'failed'
+          ? data.status
+          : null
 
   if (outcome) {
-    // The API sends a user-safe reason (status_detail). Only a rejected document has our own text as a fallback.
-    const body = data?.status_detail || (outcome === 'rejected' ? t('processing.rejected.body') : null)
+    // A rejected or deleted document is expected behavior, not an error, so it gets the calm style.
+    const calm = outcome === 'rejected' || outcome === 'expired'
+    // status_detail is a code, and each code has its own translated reason.
+    // A code this version does not know yet shows the title only.
+    const body = data?.status_detail ? t(`processing.reasons.${data.status_detail}`, { defaultValue: '' }) : null
     return (
       <AnalysisLayout>
         <div role="alert">
           <span
             className={cn(
               'grid size-12 place-items-center rounded-full',
-              outcome === 'rejected' ? 'bg-muted text-muted-foreground' : 'bg-destructive/10 text-destructive',
+              calm ? 'bg-muted text-muted-foreground' : 'bg-destructive/10 text-destructive',
             )}
           >
-            {outcome === 'rejected' ? (
+            {calm ? (
               <FileX aria-hidden="true" className="size-6" />
             ) : (
               <CircleAlert aria-hidden="true" className="size-6" />

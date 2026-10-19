@@ -151,16 +151,27 @@
     },
     "rejected": {
       "title": "This document is not supported",
-      "body": "Bayanuk supports job offers and employment contracts only.",
       "action": "Upload another document"
     },
     "failed": {
-      "title": "We could not read this file",
+      "title": "We could not analyze this file",
       "action": "Try again"
     },
     "notFound": {
       "title": "Document not found",
       "action": "Upload a document"
+    },
+    "expired": {
+      "title": "This document was deleted",
+      "action": "Upload a document"
+    },
+    "reasons": {
+      "unsafe_file": "The file did not pass the safety check.",
+      "too_many_pages": "The file has more than 30 pages. Bayanuk reads up to 30 pages.",
+      "not_employment_document": "Bayanuk supports job offers and employment contracts only.",
+      "file_unreadable": "We could not read this file.",
+      "analysis_failed": "Something went wrong during the analysis. Try again.",
+      "ai_budget_reached": "New analyses are paused for today. Try again tomorrow."
     }
   },
   "result": {

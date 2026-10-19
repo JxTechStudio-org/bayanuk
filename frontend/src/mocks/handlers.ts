@@ -75,11 +75,12 @@ export const handlers = [
     const step = Math.floor((Date.now() - document.startedAt) / 1000 / SECONDS_PER_STEP)
 
     // Rejected after classifying, failed while extracting (Technical Plan, section 5).
+    // Section 6: status_detail is a code.
     if (document.outcome === 'rejected' && step >= FLOW.indexOf('classifying')) {
-      return HttpResponse.json({ id: params.id, status: 'rejected', status_detail: null })
+      return HttpResponse.json({ id: params.id, status: 'rejected', status_detail: 'not_employment_document' })
     }
     if (document.outcome === 'failed' && step >= FLOW.indexOf('extracting')) {
-      return HttpResponse.json({ id: params.id, status: 'failed', status_detail: null })
+      return HttpResponse.json({ id: params.id, status: 'failed', status_detail: 'file_unreadable' })
     }
     const status = FLOW[Math.min(step, FLOW.length - 1)]
     return HttpResponse.json({ id: params.id, status, status_detail: null })
