@@ -24,8 +24,13 @@ it('explains why a file is refused, before sending it', async () => {
 })
 
 it('sends one file at a time', async () => {
-  // The API never answers, so the first upload stays in progress.
-  const fetch = vi.spyOn(globalThis, 'fetch').mockReturnValue(new Promise(() => {}))
+  // The CSRF cookie arrives, but the upload never answers, so the first upload stays in progress.
+  const fetch = vi
+    .spyOn(globalThis, 'fetch')
+    .mockImplementation((input) =>
+      String(input).startsWith('/sanctum') ? Promise.resolve(new Response(null, { status: 204 })) : new Promise(() => {}),
+    )
+  const uploads = () => fetch.mock.calls.filter(([input]) => input === '/api/v1/documents').length
   const user = userEvent.setup()
   const { container } = renderWithProviders(<UploadEntry />)
   const input = container.querySelector<HTMLInputElement>('input[type="file"]')!
@@ -34,5 +39,5 @@ it('sends one file at a time', async () => {
   expect(await screen.findByRole('button', { name: ar.upload.uploading })).toBeDisabled()
 
   await user.upload(input, new File(['%PDF'], 'second.pdf', { type: 'application/pdf' }))
-  expect(fetch).toHaveBeenCalledTimes(1)
+  expect(uploads()).toBe(1)
 })

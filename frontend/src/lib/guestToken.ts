@@ -1,26 +1,31 @@
 const STORAGE_KEY = 'bayanuk.guestToken'
 
-// Technical Plan, section 7: guests send an X-Guest-Token header,
-// a random value created by the frontend and kept in the browser.
-function createToken(): string {
-  const bytes = new Uint8Array(32)
-  crypto.getRandomValues(bytes)
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
-}
-
+// Integration contract, section 5: the backend issues the guest token, and the frontend
+// keeps it in the browser. If storage is blocked, the token is kept for this visit only.
 let memoryToken: string | null = null
 
-export function getGuestToken(): string {
+export function readGuestToken(): string | null {
   try {
-    let token = localStorage.getItem(STORAGE_KEY)
-    if (!token) {
-      token = createToken()
-      localStorage.setItem(STORAGE_KEY, token)
-    }
-    return token
+    return localStorage.getItem(STORAGE_KEY)
   } catch {
-    // Storage is blocked: keep one token for this visit.
-    memoryToken ??= createToken()
     return memoryToken
+  }
+}
+
+export function saveGuestToken(token: string) {
+  memoryToken = token
+  try {
+    localStorage.setItem(STORAGE_KEY, token)
+  } catch {
+    // Storage is blocked: the token stays in memory.
+  }
+}
+
+export function clearGuestToken() {
+  memoryToken = null
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // Storage is blocked: nothing was saved there.
   }
 }
