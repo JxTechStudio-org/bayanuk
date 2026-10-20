@@ -1,5 +1,6 @@
 import { Clock, PauseCircle, WifiOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { cn } from '@/lib/utils'
 
 export type Notice = 'offline' | 'paused' | 'queued'
 
@@ -11,7 +12,13 @@ export function ProcessingNotice({ notice }: { notice: Notice }) {
   const Icon = ICONS[notice]
 
   return (
-    <p className="mt-6 flex items-start gap-2 rounded-lg bg-muted p-3 text-sm text-muted-foreground">
+    // The pause lasts until the next day, so it uses the attention colour from the landing page to stand out.
+    <p
+      className={cn(
+        'mt-6 flex items-start gap-2 rounded-lg p-3 text-sm',
+        notice === 'paused' ? 'bg-amber-50 font-medium text-amber-800' : 'bg-muted text-muted-foreground',
+      )}
+    >
       <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
       {t(`processing.notices.${notice}`)}
     </p>
