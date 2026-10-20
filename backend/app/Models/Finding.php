@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\FindingCategory;
 use App\Enums\FindingSeverity;
 use App\Enums\FindingSource;
+use Database\Factories\FindingFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -12,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Finding extends Model
 {
+    /** @use HasFactory<FindingFactory> */
     use HasFactory, HasUuids;
 
     public $timestamps = false;
@@ -37,6 +39,9 @@ class Finding extends Model
         'sort_order' => 'integer',
     ];
 
+    /**
+     * @return BelongsTo<Analysis, $this>
+     */
     public function analysis(): BelongsTo
     {
         return $this->belongsTo(Analysis::class);
