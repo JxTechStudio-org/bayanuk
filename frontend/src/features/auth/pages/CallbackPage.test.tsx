@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import '@/app/i18n'
 import ar from '@/locales/ar.json'
 import { renderWithProviders } from '@/test/renderWithProviders'
-import { GoogleCallbackPage } from './GoogleCallbackPage'
+import { CallbackPage } from './CallbackPage'
 
 function meAnswers(answer: () => Response) {
   return vi.spyOn(globalThis, 'fetch').mockImplementation(async () => answer())
@@ -13,7 +13,7 @@ function meAnswers(answer: () => Response) {
 function renderPage(path: string) {
   renderWithProviders(
     <Routes>
-      <Route path="/auth/callback" element={<GoogleCallbackPage />} />
+      <Route path="/auth/callback" element={<CallbackPage />} />
       <Route path="/d/:id/result" element={<p>result page</p>} />
     </Routes>,
     { path },

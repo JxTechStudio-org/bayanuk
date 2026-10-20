@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { CardLayout } from '@/features/shared/components/CardLayout'
 import { CheckEmail } from '../components/CheckEmail'
-import { SignInForm } from '../components/SignInForm'
+import { GoogleButton } from '../components/GoogleButton'
+import { MagicLinkForm } from '../components/MagicLinkForm'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { safePath } from '../utils/returnTo'
 
@@ -26,7 +27,15 @@ export function SignInPage() {
         <>
           <h1 className="text-xl font-semibold md:text-2xl">{t('signIn.title')}</h1>
           <p className="mt-2 text-muted-foreground">{t('signIn.body')}</p>
-          <SignInForm next={next} onSent={setSentTo} />
+          <div className="mt-6">
+            <GoogleButton next={next} />
+          </div>
+          <p className="my-5 flex items-center gap-3 text-sm text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">
+            {t('signIn.or')}
+          </p>
+          <MagicLinkForm next={next} onSent={setSentTo} />
+          {/* Database Schema, users.terms_version: the version of the terms accepted is stored at sign-in. */}
+          <p className="mt-6 text-sm text-muted-foreground">{t('signIn.consent')}</p>
         </>
       )}
     </CardLayout>

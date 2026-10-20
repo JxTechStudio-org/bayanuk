@@ -43,6 +43,10 @@ The browser console shows `[MSW] Mocking enabled.` when it runs. It follows the 
 | Contains `reject` (for example `reject-lease.pdf`) | Rejected, `status_detail` = `not_employment_document` |
 | Contains `fail` (for example `fail-scan.pdf`) | Failed, `status_detail` = `file_unreadable` |
 | Contains `budget` (for example `budget-offer.pdf`) | Paused while analyzing, `status_detail` = `ai_budget_reached` |
+| Contains `limit` (for example `limit-offer.pdf`) | Upload refused: `429 upload_limit_reached` |
+| Contains `nobudget` (for example `nobudget-offer.pdf`) | Upload refused: `429 ai_budget_reached` |
+
+Every error has a code and a message in the interface language, like the real API (contract, section 4). The browser already stops a wrong type or a file over 10 MB, so those two errors show only if such a file is sent another way.
 
 Sign-in in the fake API:
 
@@ -133,7 +137,8 @@ frontend/
         utils/
           returnTo.ts      The page to come back to after sign-in
         components/
-          SignInForm.tsx         Google, the email field, the terms consent
+          GoogleButton.tsx       "Continue with Google"
+          MagicLinkForm.tsx      The email field that sends the sign-in link
           CheckEmail.tsx         "Check your email", send again
           AuthMessage.tsx        Waiting or a problem, on the two return pages
           AccountMenu.tsx        In the header: "Sign in", or the user menu
@@ -141,8 +146,8 @@ frontend/
           SaveInvite.tsx         Invites a guest to sign in, on the result page
         pages/
           SignInPage.tsx         /sign-in
-          VerifyLinkPage.tsx     /auth/verify, opened by the email link
-          GoogleCallbackPage.tsx /auth/callback, after Google
+          VerifyPage.tsx         /auth/verify, opened by the email link
+          CallbackPage.tsx       /auth/callback, after Google
       documents/
         pages/
           MyDocumentsPage.tsx    /documents, needs an account. Placeholder until the documents task
@@ -434,7 +439,7 @@ Choices made where the plan did not specify, with the reason for each.
 | 63 | `ResultPage` is a placeholder that says the analysis is ready | Processing has to end somewhere. The result dashboard is a separate task. |
 | 64 | `renderWithProviders` for tests, with an optional starting address | Components now need TanStack Query and the router. One helper avoids repeating that in every test. Pages that read the address (`/d/123`) start there. |
 | 65 | Only a `404` shows "Document not found" (and a `410` "This document was deleted", decision 75), and the checks stop there. Any other error keeps the stages on screen, and the next check tries again | A dropped connection for a few seconds should not tell the visitor their document is gone. Without the stop, a missing document would be asked about every 2 seconds for as long as the page is open. |
-| 66 | ~~`AnalysisLayout` in `features/analysis/components`~~ Moved by decision 89 | The processing and result pages share the same frame. One place to change it, and the pages only hold their own content. |
+| 66 | ~~`AnalysisLayout` in `features/analysis/components`~~ Moved by decision 90 | The processing and result pages share the same frame. One place to change it, and the pages only hold their own content. |
 | 67 | Tests for the processing page cover every state on the card: stages, ready, rejected, failed, not found, and a dropped connection. They replace `fetch` inside the test | These are the states the task asks for. Replacing `fetch` tests the real path through `lib/api.ts`, without the fake API. |
 | 68 | One upload at a time: while a file is uploading, the button is disabled and a dropped file is ignored | Otherwise a second drop during an upload sends a second document. A test covers it. |
 | 69 | ~~`ApiError` keeps the status and the message only~~ Replaced by decision 72 | `lib/api.ts` now reads the code (`invalid_guest_token`). |
@@ -457,25 +462,27 @@ The manager's Task 3 review, and the integration contract (`docs/integration-con
 | 79 | A `4xx` answer is never retried. A server error (`5xx`) is retried once | A `404` or `410` will not change, so the page shows it at once. |
 | 80 | While the daily AI budget pauses a document, the status is checked every 60 seconds instead of 2 | Contract, section 6. A page left open overnight would otherwise send thousands of requests. |
 | 81 | Each test starts with a stored guest token. `lib/api.test.ts` tests the token and CSRF flow on its own | The page tests stay about their own screens. The flow is tested once, in one place, with every case: new guest, shared call, CSRF header, `419`, rejected token, error format. |
+| 82 | The fake API answers every error with its code and a message in the interface language, and the upload errors can be tried by file name (`limit`, `nobudget`). Tests cover each upload error on the upload button | The manager's Fix list: "Mocks use the contract's error codes and responses" and "Upload errors: file type, file size, daily limit, AI budget reached". The messages stand in for the backend's own. A real daily count would block the fake API after 2 uploads, so the file name picks the error, like the other outcomes. |
 
 ### Task 4
 
 | # | Decision | Reason |
 | --- | --- | --- |
-| 82 | The branch starts from the Task 3 review branch, not from `development` | Task 4 needs the guest token and CSRF code from the review, which is not merged yet. |
-| 83 | Each request says how it uses the guest token: `'guest'` (a guest's document request), `'claim'` (a sign-in request) or none | Contract, section 5: the token goes only with document and question requests, while not signed in, and once at sign-in to claim. A sign-in request never asks for a new token: there is nothing to claim. |
-| 84 | Who is signed in comes from `GET /me`, loaded once and kept (`useCurrentUser`). Document requests wait for it | Contract, section 11 and Technical Plan, section 7. Waiting means a signed-in user never gets a guest token by mistake. |
-| 85 | The terms version is a constant, `2026-10`, sent with the email link request and the Google request | The Task 4 card asks for the consent at sign-in, and the Database Schema requires `users.terms_version` and `terms_accepted_at`. The terms and privacy pages do not exist yet, so the value and the links are open questions (see "For the backend"). |
-| 86 | The page to come back to is saved in the browser (`bayanuk.returnTo`), and only an address inside the site is accepted | Contract, section 11. The email link and Google both come back in a new page load. Accepting only "/..." stops a link from sending the user to another site after sign-in. |
-| 87 | The email link token is sent once, even when React runs the effect twice in development | The link works only once (Database Schema, `login_tokens`). A second request would answer "already used". A test renders the page in `StrictMode` to check it. |
-| 88 | Cancelling Google has its own text; every other Google failure shares one | Cancelling is the user's choice, not an error. The other two codes mean the same to the user: try again. |
-| 89 | `AnalysisLayout` moved to `features/shared/components/CardLayout`, with a `privacyLine` option | The sign-in pages use the same frame. The privacy line talks about "your document", so pages without a document leave it out. |
-| 90 | `errorMessage()` in `lib/api.ts` | The upload, the sign-in form and the email link page all show the API's message with our fallback. One function instead of three copies. |
-| 91 | Google's logo is not shown on its button | Google's logo is a trademark with its own rules. The button text names Google. |
-| 92 | The account menu uses Radix `DropdownMenu` directly, with the page direction | `radix-ui` is already installed with shadcn/ui (see "Libraries"), and it gives keyboard use and screen reader support. On a phone the button shows the icon only, and the email moves inside the menu, so the header stays on one line. |
-| 93 | Sign-out leaves the page first, at once (`flushSync`), then forgets the user | On a page that needs an account, forgetting the user first would open sign-in instead of the home page. |
-| 94 | `/documents` is a placeholder page, protected by `RequireSignIn` | The card asks to protect pages that need an account. The documents list is a separate task, like the result page placeholder (decision 63). |
-| 95 | The fake API keeps its data in `sessionStorage` | Google sign-in reloads the page, which used to clear the fake session. It also means a reload no longer shows "Document not found". |
+| 83 | The branch starts from the Task 3 review branch, not from `development` | Task 4 needs the guest token and CSRF code from the review, which is not merged yet. |
+| 84 | Each request says how it uses the guest token: `'guest'` (a guest's document request), `'claim'` (a sign-in request) or none | Contract, section 5: the token goes only with document and question requests, while not signed in, and once at sign-in to claim. A sign-in request never asks for a new token: there is nothing to claim. |
+| 85 | Who is signed in comes from `GET /me`, loaded once and kept (`useCurrentUser`). Document requests wait for it | Contract, section 11 and Technical Plan, section 7. Waiting means a signed-in user never gets a guest token by mistake. |
+| 86 | The terms version is a constant, `2026-10`, sent with the email link request and the Google request | The Task 4 card asks for the consent at sign-in, and the Database Schema requires `users.terms_version` and `terms_accepted_at`. The terms and privacy pages do not exist yet, so the value and the links are open questions (see "For the backend"). |
+| 87 | The page to come back to is saved in the browser (`bayanuk.returnTo`), and only an address inside the site is accepted | Contract, section 11. The email link and Google both come back in a new page load. Accepting only "/..." stops a link from sending the user to another site after sign-in. |
+| 88 | The email link token is sent once, even when React runs the effect twice in development | The link works only once (Database Schema, `login_tokens`). A second request would answer "already used". A test renders the page in `StrictMode` to check it. |
+| 89 | Cancelling Google has its own text; every other Google failure shares one | Cancelling is the user's choice, not an error. The other two codes mean the same to the user: try again. |
+| 90 | `AnalysisLayout` moved to `features/shared/components/CardLayout`, with a `privacyLine` option | The sign-in pages use the same frame. The privacy line talks about "your document", so pages without a document leave it out. |
+| 91 | `errorMessage()` in `lib/api.ts` | The upload, the sign-in form and the email link page all show the API's message with our fallback. One function instead of three copies. |
+| 92 | Google's logo is not shown on its button | Google's logo is a trademark with its own rules. The button text names Google. |
+| 93 | The account menu uses Radix `DropdownMenu` directly, with the page direction | `radix-ui` is already installed with shadcn/ui (see "Libraries"), and it gives keyboard use and screen reader support. On a phone the button shows the icon only, and the email moves inside the menu, so the header stays on one line. |
+| 94 | Sign-out leaves the page first, at once (`flushSync`), then forgets the user | On a page that needs an account, forgetting the user first would open sign-in instead of the home page. |
+| 95 | `/documents` is a placeholder page, protected by `RequireSignIn` | The card asks to protect pages that need an account. The documents list is a separate task, like the result page placeholder (decision 63). |
+| 96 | The fake API keeps its data in `sessionStorage` | Google sign-in reloads the page, which used to clear the fake session. It also means a reload no longer shows "Document not found". |
+| 97 | The sign-in files use the names in the Technical Plan v1.3, section 4: `MagicLinkForm`, `GoogleButton`, `VerifyPage`, `CallbackPage` | The plan names them, so the code matches the document. |
 
 ## Differences from the Technical Plan
 

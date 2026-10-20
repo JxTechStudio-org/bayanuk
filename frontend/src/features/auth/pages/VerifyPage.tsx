@@ -16,7 +16,7 @@ type LinkCode = keyof typeof LINK_PROBLEMS
 
 // /auth/verify?token=...: the page the email link opens. It sends the token with POST, never GET,
 // because email scanners open links on their own (integration contract, section 10).
-export function VerifyLinkPage() {
+export function VerifyPage() {
   const { t } = useTranslation()
   const token = useSearchParams()[0].get('token')
   const finishSignIn = useFinishSignIn()

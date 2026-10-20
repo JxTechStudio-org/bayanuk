@@ -17,6 +17,8 @@ export function AccountMenu() {
   if (isPending) return null
 
   if (!user) {
+    // On the sign-in page itself, the link would lead to the same page.
+    if (pathname === '/sign-in') return null
     // After sign-in, the user comes back to this page.
     const next = encodeURIComponent(pathname + search)
     return (

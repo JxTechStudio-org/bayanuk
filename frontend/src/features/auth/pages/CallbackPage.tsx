@@ -11,7 +11,7 @@ import { peekReturnTo } from '../utils/returnTo'
 // /auth/callback: the page the backend sends the user to after Google (integration contract, section 11).
 // On success the session cookie is already set, so the page loads the user and finishes the sign-in.
 // On failure the address has ?error=google_cancelled, google_invalid_state or google_sign_in_failed.
-export function GoogleCallbackPage() {
+export function CallbackPage() {
   const { t } = useTranslation()
   const error = useSearchParams()[0].get('error')
   const finishSignIn = useFinishSignIn()

@@ -3,9 +3,9 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import { ProcessingPage } from '@/features/analysis/pages/ProcessingPage'
 import { ResultPage } from '@/features/analysis/pages/ResultPage'
 import { RequireSignIn } from '@/features/auth/components/RequireSignIn'
-import { GoogleCallbackPage } from '@/features/auth/pages/GoogleCallbackPage'
+import { CallbackPage } from '@/features/auth/pages/CallbackPage'
 import { SignInPage } from '@/features/auth/pages/SignInPage'
-import { VerifyLinkPage } from '@/features/auth/pages/VerifyLinkPage'
+import { VerifyPage } from '@/features/auth/pages/VerifyPage'
 import { MyDocumentsPage } from '@/features/documents/pages/MyDocumentsPage'
 import { LandingPage } from '@/features/landing/pages/LandingPage'
 import { queryClient } from './queryClient'
@@ -16,8 +16,8 @@ const router = createBrowserRouter([
   { path: '/d/:id', element: <ProcessingPage /> },
   { path: '/d/:id/result', element: <ResultPage /> },
   { path: '/sign-in', element: <SignInPage /> },
-  { path: '/auth/verify', element: <VerifyLinkPage /> },
-  { path: '/auth/callback', element: <GoogleCallbackPage /> },
+  { path: '/auth/verify', element: <VerifyPage /> },
+  { path: '/auth/callback', element: <CallbackPage /> },
   {
     path: '/documents',
     element: (

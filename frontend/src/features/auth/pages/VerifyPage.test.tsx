@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import '@/app/i18n'
 import ar from '@/locales/ar.json'
 import { renderWithProviders } from '@/test/renderWithProviders'
-import { VerifyLinkPage } from './VerifyLinkPage'
+import { VerifyPage } from './VerifyPage'
 
 const user = { id: 'u1', name: null, email: 'sara@example.com', locale: 'ar', keep_documents: false }
 
@@ -24,7 +24,7 @@ function renderPage(path: string) {
   renderWithProviders(
     <StrictMode>
       <Routes>
-        <Route path="/auth/verify" element={<VerifyLinkPage />} />
+        <Route path="/auth/verify" element={<VerifyPage />} />
         <Route path="/d/:id/result" element={<p>result page</p>} />
       </Routes>
     </StrictMode>,

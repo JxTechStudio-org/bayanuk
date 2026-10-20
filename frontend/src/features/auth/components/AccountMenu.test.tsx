@@ -52,3 +52,11 @@ it('signs out and goes to the home page', async () => {
   expect(await screen.findByText('home page')).toBeInTheDocument()
   expect(fetch.mock.calls.some(([input, init]) => input === '/api/v1/auth/logout' && init?.method === 'POST')).toBe(true)
 })
+
+it('does not offer to sign in on the sign-in page itself', async () => {
+  const fetch = fakeSession(false)
+  renderWithProviders(<AccountMenu />, { path: '/sign-in' })
+  await vi.waitFor(() => expect(fetch).toHaveBeenCalled())
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  expect(screen.queryByRole('link', { name: ar.account.signIn })).not.toBeInTheDocument()
+})
