@@ -43,6 +43,10 @@ The browser console shows `[MSW] Mocking enabled.` when it runs. It follows the 
 | Contains `reject` (for example `reject-lease.pdf`) | Rejected, `status_detail` = `not_employment_document` |
 | Contains `fail` (for example `fail-scan.pdf`) | Failed, `status_detail` = `file_unreadable` |
 | Contains `budget` (for example `budget-offer.pdf`) | Paused while analyzing, `status_detail` = `ai_budget_reached` |
+| Contains `limit` (for example `limit-offer.pdf`) | Upload refused: `429 upload_limit_reached` |
+| Contains `nobudget` (for example `nobudget-offer.pdf`) | Upload refused: `429 ai_budget_reached` |
+
+Every error has a code and a message in the interface language, like the real API (contract, section 4). The browser already stops a wrong type or a file over 10 MB, so those two errors show only if such a file is sent another way.
 
 The fake documents and guest tokens live in memory, so refreshing the processing page gets a new guest token and shows "Document not found". The real API keeps them in the database.
 
@@ -397,6 +401,7 @@ The manager's Task 3 review, and the integration contract (`docs/integration-con
 | 79 | A `4xx` answer is never retried. A server error (`5xx`) is retried once | A `404` or `410` will not change, so the page shows it at once. |
 | 80 | While the daily AI budget pauses a document, the status is checked every 60 seconds instead of 2 | Contract, section 6. A page left open overnight would otherwise send thousands of requests. |
 | 81 | Each test starts with a stored guest token. `lib/api.test.ts` tests the token and CSRF flow on its own | The page tests stay about their own screens. The flow is tested once, in one place, with every case: new guest, shared call, CSRF header, `419`, rejected token, error format. |
+| 82 | The fake API answers every error with its code and a message in the interface language, and the upload errors can be tried by file name (`limit`, `nobudget`). Tests cover each upload error on the upload button | The manager's Fix list: "Mocks use the contract's error codes and responses" and "Upload errors: file type, file size, daily limit, AI budget reached". The messages stand in for the backend's own. A real daily count would block the fake API after 2 uploads, so the file name picks the error, like the other outcomes. |
 
 ## Differences from the Technical Plan
 
