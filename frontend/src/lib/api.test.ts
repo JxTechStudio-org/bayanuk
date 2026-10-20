@@ -109,7 +109,7 @@ it('replaces a guest token the backend does not accept, and repeats the request 
   expect(localStorage.getItem('bayanuk.guestToken')).toBe('new-token')
 })
 
-it('turns an error answer into an ApiError with its status, code and message', async () => {
+it('turns an error answer into an ApiError with its status and message', async () => {
   localStorage.setItem('bayanuk.guestToken', 'guest-1')
   fakeApi({
     '/api/v1/documents/1/status': [
@@ -120,5 +120,5 @@ it('turns an error answer into an ApiError with its status, code and message', a
   const error = await request('/documents/1/status').catch((caught: unknown) => caught)
 
   expect(error).toBeInstanceOf(ApiError)
-  expect(error).toMatchObject({ status: 404, code: 'document_not_found', message: 'Not found.' })
+  expect(error).toMatchObject({ status: 404, message: 'Not found.' })
 })

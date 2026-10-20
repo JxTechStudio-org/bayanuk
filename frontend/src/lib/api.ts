@@ -4,20 +4,18 @@ import { clearGuestToken, readGuestToken, saveGuestToken } from './guestToken'
 // Integration contract: JSON under /api/v1, one error format { error: { code, message } }.
 const BASE_URL = '/api/v1'
 
-// The HTTP status (0 when the API could not be reached), the error code, and the API's translated message.
+// The HTTP status (0 when the API could not be reached) and the API's translated message.
 export class ApiError extends Error {
   readonly status: number
-  readonly code: string
 
-  constructor(status: number, code: string, message: string) {
+  constructor(status: number, message: string) {
     super(message)
     this.status = status
-    this.code = code
   }
 }
 
 // The API could not be reached (no connection, for example).
-const networkError = () => new ApiError(0, '', '')
+const networkError = () => new ApiError(0, '')
 
 // Integration contract, section 2: Laravel Sanctum keeps the CSRF token in the XSRF-TOKEN cookie,
 // and the frontend sends it back in the X-XSRF-TOKEN header.
@@ -56,7 +54,7 @@ async function send(path: string, init: RequestInit, token?: string): Promise<Re
 async function readBody<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const body = await response.json().catch(() => null)
-    throw new ApiError(response.status, body?.error?.code ?? '', body?.error?.message ?? '')
+    throw new ApiError(response.status, body?.error?.message ?? '')
   }
   return response.json() as Promise<T>
 }
