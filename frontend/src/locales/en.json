@@ -231,5 +231,16 @@
       "title": "We could not sign you in with Google",
       "body": "Try again, or sign in with an email link."
     }
+  },
+  "account": {
+    "signIn": "Sign in",
+    "menu": "Your account",
+    "documents": "My documents",
+    "signOut": "Sign out",
+    "upload": "Upload a document",
+    "invite": {
+      "title": "Keep this analysis",
+      "body": "Sign in to save it to your account. Without an account, the document is deleted automatically after 24 hours."
+    }
   }
 }

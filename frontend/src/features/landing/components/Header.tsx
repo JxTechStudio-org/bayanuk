@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { AccountMenu } from '@/features/auth/components/AccountMenu'
 import { LanguageSwitcher } from '@/features/shared/components/LanguageSwitcher'
 import { Logo } from '@/features/shared/components/Logo'
 
@@ -25,7 +26,8 @@ export function Header() {
             </a>
           ))}
         </nav>
-        <div className="ms-auto">
+        <div className="ms-auto flex items-center gap-2">
+          <AccountMenu />
           <LanguageSwitcher />
         </div>
       </div>

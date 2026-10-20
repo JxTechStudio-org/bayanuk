@@ -21,11 +21,26 @@ interface FakeDocument {
   outcome: 'ready' | 'rejected' | 'failed' | 'paused'
 }
 
-const guestTokens = new Set<string>()
-const documents = new Map<string, FakeDocument>()
-const signInLinks = new Map<string, { email: string; used: boolean }>()
-// The real API keeps the session in a cookie. The fake one keeps one signed-in user in memory.
-let currentUser: User | null = null
+// The fake data is kept in sessionStorage, so it survives a page reload (Google sign-in reloads the page)
+// and is gone when the tab closes. The real API keeps the session in a cookie and the rest in the database.
+const STORAGE_KEY = 'bayanuk.fakeApi'
+const saved = JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? '{}')
+const guestTokens = new Set<string>(saved.guestTokens ?? [])
+const documents = new Map<string, FakeDocument>(saved.documents ?? [])
+const signInLinks = new Map<string, { email: string; used: boolean }>(saved.signInLinks ?? [])
+let currentUser: User | null = saved.currentUser ?? null
+
+function save() {
+  sessionStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({
+      guestTokens: [...guestTokens],
+      documents: [...documents],
+      signInLinks: [...signInLinks],
+      currentUser,
+    }),
+  )
+}
 
 // Section 4: one error format for every error.
 function error(status: number, code: string, details?: Record<string, string[]>) {
@@ -55,6 +70,7 @@ function signIn(email: string, request: Request): User {
   for (const document of documents.values()) {
     if (guestToken && document.owner === guestToken) document.owner = currentUser.id
   }
+  save()
   return currentUser
 }
 
@@ -67,6 +83,7 @@ export const handlers = [
     if (!hasCsrfToken(request)) return error(419, 'csrf_token_mismatch')
     const token = crypto.randomUUID()
     guestTokens.add(token)
+    save()
     return HttpResponse.json({ token }, { status: 201 })
   }),
 
@@ -84,6 +101,7 @@ export const handlers = [
 
     const token = crypto.randomUUID()
     signInLinks.set(token, { email: email.toLowerCase(), used: false })
+    save()
     await delay(600)
     console.info(`[Fake API] Sign-in link for ${email}: ${location.origin}/auth/verify?token=${token}`)
     return new HttpResponse(null, { status: 202 })
@@ -113,6 +131,7 @@ export const handlers = [
   http.post('/api/v1/auth/logout', ({ request }) => {
     if (!hasCsrfToken(request)) return error(419, 'csrf_token_mismatch')
     currentUser = null
+    save()
     return new HttpResponse(null, { status: 204 })
   }),
 
@@ -137,6 +156,7 @@ export const handlers = [
             ? 'paused'
             : 'ready',
     })
+    save()
     await delay(600)
     return HttpResponse.json({ id, status: 'uploaded' }, { status: 202 })
   }),

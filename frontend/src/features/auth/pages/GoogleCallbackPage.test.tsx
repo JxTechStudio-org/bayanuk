@@ -37,12 +37,13 @@ it('loads the user, deletes the guest token, and returns to the saved page', asy
 })
 
 it('says sign-in was not completed when the user cancelled on Google', async () => {
-  const fetch = meAnswers(() => Response.json({}))
+  meAnswers(() => Response.json({ error: { code: 'unauthorized', message: '' } }, { status: 401 }))
   renderPage('/auth/callback?error=google_cancelled')
 
   expect(await screen.findByRole('heading', { name: ar.auth.googleCancelled.title })).toBeInTheDocument()
   expect(screen.getByRole('link', { name: ar.auth.tryAgain })).toHaveAttribute('href', '/sign-in?next=%2Fd%2F1%2Fresult')
-  expect(fetch).not.toHaveBeenCalled()
+  // Not signed in, so the guest keeps the token and the documents.
+  expect(localStorage.getItem('bayanuk.guestToken')).toBe('test-guest-token')
 })
 
 it.each(['google_invalid_state', 'google_sign_in_failed'])('explains a failed Google sign-in (%s)', async (error) => {
