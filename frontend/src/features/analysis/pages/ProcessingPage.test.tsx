@@ -92,6 +92,8 @@ it('says the document is paused when the daily AI budget is reached', async () =
   apiAnswers({ id: '123', status: 'analyzing', status_detail: 'ai_budget_reached' })
   renderPage()
   expect(await screen.findByText(ar.processing.notices.paused)).toBeInTheDocument()
+  // The title says the analysis is paused, not that it is running.
+  expect(screen.getByRole('heading', { name: ar.processing.pausedTitle })).toBeInTheDocument()
   // The stages stay on screen, at the stage the document reached.
   expect(screen.getByText(ar.processing.stages.findingTerms).closest('li')).toHaveAttribute('aria-current', 'step')
 })

@@ -143,6 +143,7 @@
   },
   "processing": {
     "title": "Processing",
+    "pausedTitle": "Analysis paused",
     "stages": {
       "checking": "Checking file",
       "reading": "Reading document",
