@@ -32,16 +32,16 @@ const MESSAGES: Record<string, { ar: string; en: string }> = {
     en: 'The file is larger than the allowed limit (10 MB).',
   },
   upload_limit_reached: {
-    ar: 'وصلت للحد اليومي للرفع. حاول مرة ثانية غدًا.',
+    ar: 'وصلت إلى الحد اليومي للرفع. حاول مرة أخرى غدًا.',
     en: 'You reached the daily upload limit. Try again tomorrow.',
   },
   ai_budget_reached: {
-    ar: 'توقفت التحليلات الجديدة لهذا اليوم. حاول مرة ثانية غدًا.',
+    ar: 'توقفت التحليلات الجديدة لهذا اليوم. حاول مرة أخرى غدًا.',
     en: 'New analyses are paused for today. Try again tomorrow.',
   },
   document_not_found: { ar: 'لم نجد هذا المستند.', en: 'Document not found.' },
   invalid_guest_token: { ar: 'رقم الزائر غير صحيح.', en: 'The guest token is not valid.' },
-  csrf_token_mismatch: { ar: 'انتهت الجلسة. حاول مرة ثانية.', en: 'The session expired. Try again.' },
+  csrf_token_mismatch: { ar: 'انتهت الجلسة. حاول مرة أخرى.', en: 'The session expired. Try again.' },
 }
 
 function error(request: Request, status: number, code: string) {

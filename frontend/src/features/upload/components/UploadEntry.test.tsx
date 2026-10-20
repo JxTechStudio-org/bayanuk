@@ -59,7 +59,7 @@ it('explains a file that is too large, before sending it', async () => {
 it.each([
   [422, 'file_type_not_supported', 'نوع الملف غير مدعوم.'],
   [422, 'file_too_large', 'حجم الملف يتجاوز الحد المسموح به (10 ميجابايت).'],
-  [429, 'upload_limit_reached', 'وصلت للحد اليومي للرفع.'],
+  [429, 'upload_limit_reached', 'وصلت إلى الحد اليومي للرفع.'],
   [429, 'ai_budget_reached', 'توقفت التحليلات الجديدة لهذا اليوم.'],
 ])('shows the API message for a %i %s answer', async (status, code, message) => {
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) =>
