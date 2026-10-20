@@ -275,7 +275,7 @@ Every call goes through `lib/api.ts` (contract, sections 2, 4 and 5). It:
 - gets the CSRF cookie before the first request that changes data, and sends it back in `X-XSRF-TOKEN`;
 - asks the backend for a guest token the first time (`POST /guest-token`), keeps it, and sends it in `X-Guest-Token`;
 - repeats a request once after `419` (new CSRF cookie) or `invalid_guest_token` (new guest token);
-- turns the error format `{ "error": { "code", "message" } }` into an `ApiError` with the HTTP status, the code and the message.
+- turns the error format `{ "error": { "code", "message" } }` into an `ApiError` with the HTTP status and the message, and reads the code where it decides the next step (`invalid_guest_token`).
 
 ### Text sources
 
@@ -393,7 +393,7 @@ The manager's Task 3 review, and the integration contract (`docs/integration-con
 | # | Decision | Reason |
 | --- | --- | --- |
 | 71 | The backend issues the guest token (`POST /guest-token`). The frontend asks for it before the first request, keeps it in the browser, and sends it only in `X-Guest-Token`. Requests that start together share one call | The Integration Contract card (contract, section 5). Sharing the call means two requests at the same moment never get two tokens. If storage is blocked, the token is kept for the visit, as in decision 8. |
-| 72 | `ApiError` keeps the HTTP status, the code and the message | The code decides what to do: `invalid_guest_token` gets a new token. The status still decides the end states. |
+| 72 | `ApiError` keeps the HTTP status and the message. The error code is read from the answer only where it decides the next step | The code `invalid_guest_token` gets a new token. The status decides the end states, and the message is shown to the visitor. Nothing else in Task 3 needs the code, so `ApiError` does not keep it. |
 | 73 | The CSRF flow: `GET /sanctum/csrf-cookie` before the first request that changes data, the token in `X-XSRF-TOKEN`, and one repeat after `419`. A Vite proxy sends `/api` and `/sanctum` to `localhost:8000` | Contract, section 2. The proxy puts the frontend and the backend on one address in development, so the Sanctum cookies work, as nginx does in production. |
 | 74 | `status_detail` is a code, and each code has its own text in `processing.reasons`. A code this version does not know shows the title only | Contract, section 6. The backend sends the same code in both languages, and the visitor never sees a raw code. The failed title became "We could not analyze this file", because a failure is not always about reading. |
 | 75 | A `410` (`document_expired`) stops the checks and shows "This document was deleted", in the calm style of a rejected document | Contract, section 6. A deleted document is expected behaviour after the retention period, not an error. The contract does not set the period, so the text does not name one. |
