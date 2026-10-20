@@ -12,11 +12,12 @@ export function ProcessingNotice({ notice }: { notice: Notice }) {
   const Icon = ICONS[notice]
 
   return (
-    // The pause lasts until the next day, so it uses the attention colour from the landing page to stand out.
+    // A pause or a lost connection needs the user's attention, so they use the attention colour from the
+    // landing page. Waiting in the queue is normal, so it stays quiet.
     <p
       className={cn(
         'mt-6 flex items-start gap-2 rounded-lg p-3 text-sm',
-        notice === 'paused' ? 'bg-amber-50 font-medium text-amber-800' : 'bg-muted text-muted-foreground',
+        notice === 'queued' ? 'bg-muted text-muted-foreground' : 'bg-amber-50 font-medium text-amber-800',
       )}
     >
       <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
