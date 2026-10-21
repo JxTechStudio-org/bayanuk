@@ -85,20 +85,29 @@ async function issueGuestToken(): Promise<string> {
   return token
 }
 
-export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+// Integration contract, section 5: the guest token goes only with a guest's document and question requests.
+// Such a request passes { guest: true }, and a token is issued first if there is none.
+// Any other request sends no guest token and never asks for one.
+export async function request<T>(
+  path: string,
+  init: RequestInit = {},
+  { guest = false }: { guest?: boolean } = {},
+): Promise<T> {
+  const token = () => (guest ? guestToken() : Promise.resolve(undefined))
+
   // Section 2: get the CSRF cookie before the first request that changes data.
   if ((init.method ?? 'GET') !== 'GET' && !readCsrfToken()) await fetchCsrfCookie()
 
-  let response = await send(path, init, await guestToken())
+  let response = await send(path, init, await token())
 
   // Section 2: an expired CSRF token (419) is refreshed, and the request is repeated once.
   // Section 5: a guest token the backend does not accept is deleted, and the request is repeated once with a new one.
   if (response.status === 419) {
     await fetchCsrfCookie()
-    response = await send(path, init, await guestToken())
-  } else if ((await errorCode(response)) === 'invalid_guest_token') {
+    response = await send(path, init, await token())
+  } else if (guest && (await errorCode(response)) === 'invalid_guest_token') {
     clearGuestToken()
-    response = await send(path, init, await guestToken())
+    response = await send(path, init, await token())
   }
 
   return readBody<T>(response)

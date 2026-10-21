@@ -42,7 +42,7 @@ it('asks the backend for a guest token, then sends it in X-Guest-Token', async (
     '/api/v1/documents/1/status': [Response.json({ id: '1' })],
   })
 
-  await request('/documents/1/status')
+  await request('/documents/1/status', {}, { guest: true })
 
   expect(calls(fetch).map((call) => call.url)).toEqual([
     '/sanctum/csrf-cookie',
@@ -60,7 +60,8 @@ it('asks for one token when two requests start together', async () => {
     '/api/v1/documents/1/status': [Response.json({}), Response.json({})],
   })
 
-  await Promise.all([request('/documents/1/status'), request('/documents/1/status')])
+  const status = () => request('/documents/1/status', {}, { guest: true })
+  await Promise.all([status(), status()])
 
   expect(calls(fetch).filter((call) => call.url === '/api/v1/guest-token')).toHaveLength(1)
 })
@@ -72,7 +73,7 @@ it('sends the CSRF token from the cookie on a request that changes data', async 
     '/api/v1/documents': [Response.json({ id: '1', status: 'uploaded' }, { status: 202 })],
   })
 
-  await request('/documents', { method: 'POST' })
+  await request('/documents', { method: 'POST' }, { guest: true })
 
   expect(calls(fetch)[1].headers['X-XSRF-TOKEN']).toBe('csrf-1')
 })
@@ -87,7 +88,10 @@ it('refreshes the CSRF cookie and repeats the request once after a 419', async (
     ],
   })
 
-  await expect(request('/documents', { method: 'POST' })).resolves.toEqual({ id: '1', status: 'uploaded' })
+  await expect(request('/documents', { method: 'POST' }, { guest: true })).resolves.toEqual({
+    id: '1',
+    status: 'uploaded',
+  })
   expect(calls(fetch).filter((call) => call.url === '/api/v1/documents')).toHaveLength(2)
 })
 
@@ -102,11 +106,30 @@ it('replaces a guest token the backend does not accept, and repeats the request 
     ],
   })
 
-  await request('/documents/1/status')
+  await request('/documents/1/status', {}, { guest: true })
 
   const statusCalls = calls(fetch).filter((call) => call.url === '/api/v1/documents/1/status')
   expect(statusCalls.map((call) => call.headers['X-Guest-Token'])).toEqual(['old-token', 'new-token'])
   expect(localStorage.getItem('bayanuk.guestToken')).toBe('new-token')
+})
+
+it('sends no guest token, and asks for none, on a request that is not a guest document request', async () => {
+  localStorage.setItem('bayanuk.guestToken', 'guest-1')
+  const fetch = fakeApi({ '/api/v1/me': [Response.json({ id: 'user-1' })] })
+
+  await request('/me')
+
+  expect(calls(fetch).map((call) => call.url)).toEqual(['/api/v1/me'])
+  expect(calls(fetch)[0].headers['X-Guest-Token']).toBeUndefined()
+})
+
+it('does not issue a guest token for a request that does not need one', async () => {
+  const fetch = fakeApi({ '/api/v1/me': [Response.json({ id: 'user-1' })] })
+
+  await request('/me')
+
+  expect(calls(fetch).map((call) => call.url)).toEqual(['/api/v1/me'])
+  expect(localStorage.getItem('bayanuk.guestToken')).toBeNull()
 })
 
 it('turns an error answer into an ApiError with its status and message', async () => {
@@ -117,7 +140,7 @@ it('turns an error answer into an ApiError with its status and message', async (
     ],
   })
 
-  const error = await request('/documents/1/status').catch((caught: unknown) => caught)
+  const error = await request('/documents/1/status', {}, { guest: true }).catch((caught: unknown) => caught)
 
   expect(error).toBeInstanceOf(ApiError)
   expect(error).toMatchObject({ status: 404, message: 'Not found.' })
