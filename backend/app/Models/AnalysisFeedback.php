@@ -25,6 +25,9 @@ class AnalysisFeedback extends Model
         'rating' => 'integer',
     ];
 
+    /**
+     * @return BelongsTo<Analysis, $this>
+     */
     public function analysis(): BelongsTo
     {
         return $this->belongsTo(Analysis::class);

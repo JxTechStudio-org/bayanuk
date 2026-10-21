@@ -35,17 +35,24 @@ The backend is built in parallel, so in development a fake API answers instead (
 VITE_API_MOCK=true
 ```
 
-The browser console shows `[MSW] Mocking enabled.` when it runs. It follows the API contract in the Technical Plan (section 7) and the status flow in the Database Schema. Document IDs are UUIDs, as in the real API. A document moves one status every 2 seconds, and the file name picks the outcome:
+The browser console shows `[MSW] Mocking enabled.` when it runs. It follows the integration contract (`docs/integration-contract.md` at the root of the repository): it sets the CSRF cookie, issues guest tokens, refuses a request without them (`419`, `400`), and answers another guest's document with `404`. Document IDs are UUIDs, as in the real API. A document moves one status every 2 seconds, and the file name picks the outcome:
 
 | File name | Outcome |
 | --- | --- |
 | Any PDF or DOCX | Ready after about 12 seconds |
-| Contains `reject` (for example `reject-lease.pdf`) | Rejected: not a job offer or employment contract |
-| Contains `fail` (for example `fail-scan.pdf`) | Failed: the file could not be read |
+| Contains `reject` (for example `reject-lease.pdf`) | Rejected, `status_detail` = `not_employment_document` |
+| Contains `fail` (for example `fail-scan.pdf`) | Failed, `status_detail` = `file_unreadable` |
+| Contains `budget` (for example `budget-offer.pdf`) | Paused while analyzing, `status_detail` = `ai_budget_reached` |
+| Contains `limit` (for example `limit-offer.pdf`) | Upload refused: `429 upload_limit_reached` |
+| Contains `nobudget` (for example `nobudget-offer.pdf`) | Upload refused: `429 ai_budget_reached` |
 
-The fake documents live in memory, so refreshing the processing page shows "Document not found". The real API keeps them in the database.
+Every error has a code and a message in the interface language, like the real API (contract, section 4). The browser already stops a wrong type or a file over 10 MB, so those two errors show only if such a file is sent another way.
 
-To use the real API, set `VITE_API_MOCK=false` in a `.env.development.local` file (not committed). The production build never includes the fake API.
+Safari cannot pass a file chosen on the page to the fake API's service worker ("Unable to read form data file"). So, with the fake API on, `uploadDocument.ts` copies the file into memory before sending it. With the real API the file is sent as it is.
+
+The fake documents and guest tokens live in memory, so refreshing the processing page gets a new guest token and shows "Document not found". The real API keeps them in the database.
+
+To use the real API, set `VITE_API_MOCK=false` in a `.env.development.local` file (not committed). Vite then sends `/api` and `/sanctum` to the backend on `http://localhost:8000` (decision 73). The production build never includes the fake API (decision 76).
 
 ## Commands
 
@@ -75,12 +82,12 @@ The built site is in `/app/frontend/dist` inside the `frontend-build` stage. The
 frontend/
   index.html               Page shell. Starts as Arabic, right to left. Links the icons.
   components.json          shadcn/ui settings (Radix, RTL, where components go)
-  vite.config.ts           Vite, Tailwind, the "@/" shortcut, test settings
+  vite.config.ts           Vite, Tailwind, the "@/" shortcut, the dev proxy, test settings
   public/
     favicon.svg            Browser tab icon (modern browsers)
     favicon-32.png         Browser tab icon (older browsers)
     apple-touch-icon.png   iPhone home screen icon, 180 x 180
-    mockServiceWorker.js   Made by MSW for the fake API. Not edited by hand
+    mockServiceWorker.js   Made by MSW for the fake API. Not edited by hand. Removed from the build
   .env.development         Turns the fake API on in development
   src/
     main.tsx               Entry point. Starts the fake API first in development
@@ -102,10 +109,11 @@ frontend/
         hooks/
           useDocumentStatus.ts   Asks for the status every 2 seconds until processing ends
         utils/
-          stages.ts        Maps the 7 statuses to the 4 progress stages
+          stages.ts        Maps the statuses to the 4 progress stages
         components/
           AnalysisLayout.tsx     The frame of the pages after upload: header, card, privacy line
           ProcessingStages.tsx   The 4 stages: done, in progress, waiting
+          ProcessingNotice.tsx   The line under the stages: in the queue, paused, or offline
         pages/
           ProcessingPage.tsx     /d/:id, shown right after upload
           ResultPage.tsx         /d/:id/result, placeholder until the result task
@@ -136,8 +144,8 @@ frontend/
         components/
           UploadEntry.tsx  The "Choose a file" button, and drop anywhere on the page
     lib/
-      api.ts               Every call to the API: base path, headers, error format
-      guestToken.ts        The guest token sent with every call
+      api.ts               Every call to the API: base path, headers, CSRF, guest token, error format
+      guestToken.ts        Keeps the guest token the backend issued
       utils.ts             The `cn` helper, created by the shadcn CLI (see decision 48)
     mocks/
       handlers.ts          The fake API (development only)
@@ -243,15 +251,16 @@ Real photos, free for commercial use. Resized to at most 1600 pixels at 75% qual
 
 ## Upload and processing
 
-The flow from MVP 5, steps 2 and 3, and the API from the Technical Plan, section 7.
+The flow from MVP 5, steps 2 and 3. The API follows the integration contract (`docs/integration-contract.md`).
 
 1. **Choose or drop a file.** The "Choose a file" button opens the file picker. A file can also be dropped anywhere on the page.
 2. **Check it in the browser.** PDF or DOCX, up to 10 MB (MVP 4.2). If not, a message shows under the button and nothing is sent.
 3. **Send it.** `POST /api/v1/documents`, as a form with one field, `file`. The API answers `202` with the new document's `id`.
-4. **Show the processing page** at `/d/{id}`, with the file name. It asks `GET /api/v1/documents/{id}/status` every 2 seconds and stops when processing ends.
-5. **End in one of three states:** `ready` opens `/d/{id}/result`, `rejected` says the document is not supported, `failed` says the file could not be read.
+4. **Show the processing page** at `/d/{id}`, with the file name. It asks `GET /api/v1/documents/{id}/status` every 2 seconds and stops when processing ends, or on `404` or `410`.
+5. **Explain any wait** with one line under the stages: in the queue (`uploaded`), paused by the daily AI budget, or offline.
+6. **End in one of these states:** `ready` opens `/d/{id}/result`. `rejected` and `failed` show a title and the translated reason from `status_detail`. `404` shows "Document not found", and `410` shows "This document was deleted".
 
-The API has 7 statuses (Database Schema), and the visitor sees 4 stages (MVP 5, step 3). The Database Schema says: "The frontend polls the status and maps each value to a friendly progress label."
+The API has 9 statuses (Database Schema). The 6 processing statuses map to the 4 stages the visitor sees (MVP 5, step 3). The Database Schema says: "The frontend polls the status and maps each value to a friendly progress label."
 
 | API status | Stage shown |
 | --- | --- |
@@ -260,18 +269,28 @@ The API has 7 statuses (Database Schema), and the visitor sees 4 stages (MVP 5, 
 | `classifying`, `analyzing` | Finding key terms |
 | `indexing` | Looking for points that need attention |
 
-Every call goes through `lib/api.ts`, which adds the `/api/v1` base path, the `X-Guest-Token` header, the interface language (`Accept-Language`), and turns the error format `{ "error": { "code", "message" } }` into an `ApiError` with the HTTP status and the message.
+Every call goes through `lib/api.ts` (contract, sections 2, 4 and 5). It:
+
+- adds the `/api/v1` base path, the interface language (`Accept-Language`) and the cookies;
+- gets the CSRF cookie before the first request that changes data, and sends it back in `X-XSRF-TOKEN`;
+- asks the backend for a guest token the first time (`POST /guest-token`), keeps it, and sends it in `X-Guest-Token`;
+- repeats a request once after `419` (new CSRF cookie) or `invalid_guest_token` (new guest token);
+- turns the error format `{ "error": { "code", "message" } }` into an `ApiError` with the HTTP status and the message, and reads the code where it decides the next step (`invalid_guest_token`).
 
 ### Text sources
 
 | Text | From |
 | --- | --- |
 | The four stages | MVP 5, step 3, word for word in English |
-| "Bayanuk supports job offers and employment contracts only" | MVP 4.1 |
-| "We could not read this file" | Technical Plan, section 5, step 2 |
+| "Bayanuk supports job offers and employment contracts only" (reason `not_employment_document`) | MVP 4.1 |
+| "We could not read this file" (reason `file_unreadable`) | Technical Plan, section 5, step 2 |
+| "More than 30 pages" (reason `too_many_pages`) | MVP 4.2 |
+| "Your document is in the queue and will start shortly" | Integration contract, section 6 |
+| The connection lost message | The manager's Task 3 review: the connection is lost and the system is trying to reconnect |
+| The paused message | AI Stack v2.0, section 4.3: analyses "pause with a clear message until the next day" |
 | File type and size errors | MVP 4.2 |
 | The privacy line under the processing card | The landing page line, MVP 9 |
-| The other end-state titles, the buttons, "Uploading", "Drop the file here" | Interface labels, our choice |
+| The other end-state titles, the other reasons (`unsafe_file`, `analysis_failed`), the buttons, "Uploading", "Drop the file here" | Interface labels, our choice |
 
 ## Decisions
 
@@ -345,27 +364,46 @@ Choices made where the plan did not specify, with the reason for each.
 | # | Decision | Reason |
 | --- | --- | --- |
 | 49 | TanStack Query for every API call: `useMutation` for the upload, `useQuery` for the status | The plan names it. It gives loading and error states, and repeats the status check every 2 seconds with one setting (`refetchInterval`), which stops when processing ends. |
-| 50 | A fake API with MSW, in development only | The backend is built at the same time. The fake API follows the plan's contract, so the frontend can be built and tested now, without waiting and without touching the backend folder. It runs only when `VITE_API_MOCK=true`, and its code is never in the production build (checked in `dist`). MSW's `mockServiceWorker.js` sits in `public/`, so it is copied to `dist` as it is, but nothing starts it in production. |
+| 50 | A fake API with MSW, in development only | The backend is built at the same time. The fake API follows the plan's contract, so the frontend can be built and tested now, without waiting and without touching the backend folder. It runs only when `VITE_API_MOCK=true`, and its code is never in the production build (checked in `dist`). MSW's `mockServiceWorker.js` sits in `public/`, and is removed from `dist` after the build (decision 76). |
 | 51 | The fake outcome is chosen by the file name (`reject`, `fail`) | The simplest way to try all three endings by hand, with no extra screen or setting. |
 | 52 | The API base is the relative path `/api/v1`, with no `VITE_API_BASE_URL` | The plan serves the frontend and `/api/v1` from the same nginx (section 2), so the browser reaches the API on the same address. It also keeps the Sanctum cookie on the same site. |
 | 53 | Every call sends `credentials: 'include'` | Signed-in users use Sanctum SPA cookie sessions (plan, section 7). Guests are not affected. |
-| 54 | The guest token is 32 random bytes from `crypto.getRandomValues`, saved in the browser (`bayanuk.guestToken`) | The plan: "random value created by the frontend and kept in the browser". `crypto` is the browser's secure random source. If storage is blocked, one token is kept for the visit, as in decision 8. |
+| 54 | ~~The guest token is 32 random bytes made in the browser~~ Replaced by decision 71 | The Integration Contract card decided that the backend issues it. |
 | 55 | The browser checks type and size only; the API checks the page count (30) | A browser cannot count DOCX pages reliably. The plan's pipeline checks pages on the server (section 5, step 1), and the server checks everything again anyway. |
 | 56 | A file is also accepted by its extension (`.pdf`, `.docx`), whatever type the browser reports | Some systems report an empty or unusual type for these files. The server checks the real content anyway (plan, section 5, step 1). |
 | 57 | A file can be dropped anywhere on the page, with a full-page "Drop the file here" layer | MVP 5, step 2: "The user drops a PDF or DOCX". A small drop zone is easy to miss on a long page. |
 | 58 | A failed upload is not repeated on its own; a failed status check is tried once more | Sending a file twice could create two documents. Asking for the status again is safe. |
-| 59 | The API's error message is shown when it sends one, and ours otherwise | The plan says API errors carry "a translated message". Ours covers network errors and an empty message. The same applies to `status_detail` on the processing page. |
+| 59 | The API's error message is shown when it sends one, and ours otherwise | The plan says API errors carry "a translated message". Ours covers network errors and an empty message. `status_detail` is a code with our own translated text (decision 74). |
 | 60 | The processing page shows the file name | The Database Schema says `original_filename` is "shown to the owner only". It helps a visitor who uploads two offers to compare. The name is passed with the page change, so it is not sent anywhere. |
 | 61 | No progress bar and no time estimate on the processing page | The four stages already show the progress. The MVP's "under 60 seconds" is a target for the team, not a promise to visitors (same reason as decision 28). |
 | 62 | `Logo` and `AppHeader` in `features/shared/components` | The processing page needs the logo and the language switch (decision 21) without the landing page links. The landing `Header` now uses the same `Logo`. |
 | 63 | `ResultPage` is a placeholder that says the analysis is ready | Processing has to end somewhere. The result dashboard is a separate task. |
 | 64 | `renderWithProviders` for tests, with an optional starting address | Components now need TanStack Query and the router. One helper avoids repeating that in every test. Pages that read the address (`/d/123`) start there. |
-| 65 | Only a `404` shows "Document not found", and the checks stop there. Any other error keeps the stages on screen, and the next check tries again | A dropped connection for a few seconds should not tell the visitor their document is gone. Without the stop, a missing document would be asked about every 2 seconds for as long as the page is open. |
+| 65 | Only a `404` shows "Document not found" (and a `410` "This document was deleted", decision 75), and the checks stop there. Any other error keeps the stages on screen, and the next check tries again | A dropped connection for a few seconds should not tell the visitor their document is gone. Without the stop, a missing document would be asked about every 2 seconds for as long as the page is open. |
 | 66 | `AnalysisLayout` in `features/analysis/components` | The processing and result pages share the same frame. One place to change it, and the pages only hold their own content. |
 | 67 | Tests for the processing page cover every state on the card: stages, ready, rejected, failed, not found, and a dropped connection. They replace `fetch` inside the test | These are the states the task asks for. Replacing `fetch` tests the real path through `lib/api.ts`, without the fake API. |
 | 68 | One upload at a time: while a file is uploading, the button is disabled and a dropped file is ignored | Otherwise a second drop during an upload sends a second document. A test covers it. |
-| 69 | `ApiError` keeps the HTTP status and the message only, not the error `code` | Nothing in the frontend reads the code yet: the page shows the API's translated message, and only the status decides "not found". The code is added when a screen needs it. |
-| 70 | Only the rejected state has our own fallback text under its title | For a rejected document, "Bayanuk supports job offers and employment contracts only" fits the most common reason. For a failed file and a missing document, the title says enough, so there is no empty text in the language files. |
+| 69 | ~~`ApiError` keeps the status and the message only~~ Replaced by decision 72 | `lib/api.ts` now reads the code (`invalid_guest_token`). |
+| 70 | ~~Only the rejected state has our own fallback text~~ Replaced by decision 74 | Every reason now has its own text. |
+
+### Task 3 review changes
+
+The manager's Task 3 review, and the integration contract (`docs/integration-contract.md`).
+
+| # | Decision | Reason |
+| --- | --- | --- |
+| 71 | The backend issues the guest token (`POST /guest-token`). The frontend asks for it before the first request, keeps it in the browser, and sends it only in `X-Guest-Token`. Requests that start together share one call | The Integration Contract card (contract, section 5). Sharing the call means two requests at the same moment never get two tokens. If storage is blocked, the token is kept for the visit, as in decision 8. |
+| 72 | `ApiError` keeps the HTTP status and the message. The error code is read from the answer only where it decides the next step | The code `invalid_guest_token` gets a new token. The status decides the end states, and the message is shown to the visitor. Nothing else in Task 3 needs the code, so `ApiError` does not keep it. |
+| 73 | The CSRF flow: `GET /sanctum/csrf-cookie` before the first request that changes data, the token in `X-XSRF-TOKEN`, and one repeat after `419`. A Vite proxy sends `/api` and `/sanctum` to `localhost:8000` | Contract, section 2. The proxy puts the frontend and the backend on one address in development, so the Sanctum cookies work, as nginx does in production. |
+| 74 | `status_detail` is a code, and each code has its own text in `processing.reasons`. A code this version does not know shows the title only | Contract, section 6. The backend sends the same code in both languages, and the visitor never sees a raw code. The failed title became "We could not analyze this file", because a failure is not always about reading. |
+| 75 | A `410` (`document_expired`) stops the checks and shows "This document was deleted", in the calm style of a rejected document | Contract, section 6. A deleted document is expected behaviour after the retention period, not an error. The contract does not set the period, so the text does not name one. |
+| 76 | `mockServiceWorker.js` is removed from `dist` after the build, by a small plugin in `vite.config.ts` | The manager's review and contract, section 12: the mock is never part of the production build. Vite copies all of `public/` to `dist`, and the mock code itself was already left out. The file stays in `public/`, so the fake API still works in development and tests. |
+| 77 | One line under the stages explains a wait: offline first, then paused, then in the queue | The manager asked that the visitor always knows what is happening. Only one line shows, the most important one. |
+| 78 | "Offline" shows at once when the browser reports no connection, or after 3 failed checks in a row when the API cannot be reached. The check repeats every 2 seconds until it works, and the line goes away | The manager's review: a message "after a few failed attempts". The browser knows at once when it is offline. 3 checks take about 4 seconds, enough to skip a short drop. The line uses the attention colour (amber), like the pause (decision 80); the queue line stays grey, because waiting is normal. |
+| 79 | A `4xx` answer is never retried. A server error (`5xx`) is retried once | A `404` or `410` will not change, so the page shows it at once. |
+| 80 | While the daily AI budget pauses a document, the status is checked every 60 seconds instead of 2. The page says it is paused: the title "Analysis paused", a pause sign on the current stage instead of the turning one, and the message in the attention colour (amber, as on the landing page) | Contract, section 6. A page left open overnight would otherwise send thousands of requests. A turning stage and the title "Processing" would say the work is going on, and the pause lasts until the next day, so it must not be missed. |
+| 81 | Each test starts with a stored guest token. `lib/api.test.ts` tests the token and CSRF flow on its own | The page tests stay about their own screens. The flow is tested once, in one place, with every case: new guest, shared call, CSRF header, `419`, rejected token, error format. |
+| 82 | The fake API answers every error with its code and a message in the interface language, and the upload errors can be tried by file name (`limit`, `nobudget`). Tests cover each upload error on the upload button | The manager's Fix list: "Mocks use the contract's error codes and responses" and "Upload errors: file type, file size, daily limit, AI budget reached". The messages stand in for the backend's own. A real daily count would block the fake API after 2 uploads, so the file name picks the error, like the other outcomes. |
 
 ## Differences from the Technical Plan
 
@@ -386,21 +424,11 @@ Points that need an answer before or after launch. Nothing here blocks Task 2.
 | 4 | Privacy and Terms pages | Footer | Links added when the pages exist (decision 30). |
 | 5 | Final English spelling and domain of "Bayanuk" | English interface, tab title | Uses "Bayanuk". MVP "Open questions" lists it. |
 
-### For the backend (Task 3)
+### For the backend
 
-Assumptions the frontend makes about the API. To confirm with the backend before connecting the two.
-
-| # | Assumption | Where |
-| --- | --- | --- |
-| 1 | The upload form field is named `file` | `uploadDocument.ts` |
-| 2 | `POST /documents` answers `202` with `{ "id", "status" }` | `uploadDocument.ts` |
-| 3 | `GET /documents/{id}/status` answers `{ "id", "status", "status_detail" }`, with `status_detail` a user-safe reason or `null` | `features/analysis/types.ts` |
-| 4 | A document that does not exist, or belongs to someone else, answers `404` | `ProcessingPage.tsx` shows "Document not found" |
-| 5 | `rejected` and `failed` come with a `status_detail`, because a document can be rejected for different reasons (not a job offer, more than 30 pages, unsafe file; plan, section 5) | Without it, the page falls back to "Bayanuk supports job offers and employment contracts only", which only fits one of these reasons |
-| 6 | The error codes for a file that is too large, the wrong type, too many pages, or over the upload limit | `UploadEntry.tsx` shows the API's message, so new codes need no frontend change |
-| 7 | The address of the API in local development (for example `localhost:8000`), to add a Vite proxy for `/api` | `vite.config.ts` |
+The assumptions listed here in Task 3 are now agreed with the backend in the integration contract (`docs/integration-contract.md`).
 
 ## Next
 
-- Connect to the real API once the backend is ready: confirm the points above and add the Vite proxy.
+- Connect to the real API once the backend endpoints are ready: set `VITE_API_MOCK=false` (see "The fake API").
 - Result task: the result dashboard at `/d/{id}/result`.

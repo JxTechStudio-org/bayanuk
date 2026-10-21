@@ -15,8 +15,8 @@ class AnalysisFactory extends Factory
         return [
             'document_id' => Document::factory(),
             'status' => 'succeeded',
-            'provider' => 'openai',
-            'model' => 'gpt-4o',
+            'provider' => 'gemini',
+            'model' => 'gemini-3.8-flash',
             'prompt_version' => '1.0',
             'schema_version' => '1.0',
             'result' => [
@@ -26,9 +26,9 @@ class AnalysisFactory extends Factory
             ],
             'summary' => fake()->paragraph(),
             'summary_language' => 'ar',
-            'input_tokens' => 1200,
-            'output_tokens' => 400,
-            'cost_usd' => 0.01500,
+            'input_tokens' => 18000,
+            'output_tokens' => 2000,
+            'cost_usd' => 0.02100,
             'duration_ms' => 1500,
         ];
     }
