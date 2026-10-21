@@ -143,6 +143,7 @@
   },
   "processing": {
     "title": "Processing",
+    "pausedTitle": "Analysis paused",
     "stages": {
       "checking": "Checking file",
       "reading": "Reading document",
@@ -151,16 +152,31 @@
     },
     "rejected": {
       "title": "This document is not supported",
-      "body": "Bayanuk supports job offers and employment contracts only.",
       "action": "Upload another document"
     },
     "failed": {
-      "title": "We could not read this file",
+      "title": "We could not analyze this file",
       "action": "Try again"
     },
     "notFound": {
       "title": "Document not found",
       "action": "Upload a document"
+    },
+    "expired": {
+      "title": "This document was deleted",
+      "action": "Upload a document"
+    },
+    "reasons": {
+      "unsafe_file": "The file did not pass the safety check.",
+      "too_many_pages": "The file has more than 30 pages, which is the limit.",
+      "not_employment_document": "Bayanuk supports job offers and employment contracts only.",
+      "file_unreadable": "We could not read this file.",
+      "analysis_failed": "Something went wrong during the analysis. Try again."
+    },
+    "notices": {
+      "queued": "Your document is in the queue and will start shortly.",
+      "paused": "The daily analysis limit was reached, so your document is paused. It will continue on its own tomorrow.",
+      "offline": "The internet connection was lost. We are trying to reconnect, and this page will update on its own when it is back."
     }
   },
   "result": {
