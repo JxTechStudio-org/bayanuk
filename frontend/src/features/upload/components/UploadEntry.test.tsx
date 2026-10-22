@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, expect, it, vi } from 'vitest'
 import '@/app/i18n'
 import ar from '@/locales/ar.json'
+import { fakeSession } from '@/test/fakeUser'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { UploadEntry } from './UploadEntry'
 
@@ -43,7 +44,7 @@ it('sends one file at a time', async () => {
 })
 
 it('explains a file that is too large, before sending it', async () => {
-  const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 204 }))
+  const fetch = fakeSession(false)
   const user = userEvent.setup()
   const { container } = renderWithProviders(<UploadEntry />)
 
@@ -59,7 +60,7 @@ it('explains a file that is too large, before sending it', async () => {
 it.each([
   [422, 'file_type_not_supported', 'نوع الملف غير مدعوم.'],
   [422, 'file_too_large', 'حجم الملف يتجاوز الحد المسموح به (10 ميجابايت).'],
-  [429, 'upload_limit_reached', 'وصلت للحد اليومي للرفع.'],
+  [429, 'upload_limit_reached', 'وصلت إلى الحد اليومي للرفع.'],
   [429, 'ai_budget_reached', 'توقفت التحليلات الجديدة لهذا اليوم.'],
 ])('shows the API message for a %i %s answer', async (status, code, message) => {
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) =>

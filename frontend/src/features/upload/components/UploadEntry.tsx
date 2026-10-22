@@ -68,7 +68,9 @@ export function UploadEntry() {
       : null
 
   return (
-    <div>
+    // "contents": the button and the message sit directly in the hero's row of buttons, so the message
+    // takes its own line under the whole row instead of widening this part and pushing the next button.
+    <div className="contents">
       <Button
         size="lg"
         className="h-12 px-6 text-base font-semibold"
@@ -94,7 +96,7 @@ export function UploadEntry() {
         }}
       />
       {message ? (
-        <p role="alert" className="mt-3 text-sm text-destructive">
+        <p role="alert" className="order-last basis-full text-sm text-destructive">
           {message}
         </p>
       ) : null}

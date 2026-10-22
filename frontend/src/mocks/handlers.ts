@@ -23,17 +23,18 @@ interface FakeDocument {
   outcome: 'ready' | 'rejected' | 'failed' | 'paused'
 }
 
-// The fake data is kept in sessionStorage, so it survives a page reload (Google sign-in reloads the page)
-// and is gone when the tab closes. The real API keeps the session in a cookie and the rest in the database.
+// The fake data is kept in localStorage, so it survives a page reload (Google sign-in reloads the page)
+// and is shared by the browser's tabs: a sign-in link opened in a new tab works, as one opened from an email does.
+// The real API keeps the session in a cookie and the rest in the database.
 const STORAGE_KEY = 'bayanuk.fakeApi'
-const saved = JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? '{}')
+const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')
 const guestTokens = new Set<string>(saved.guestTokens ?? [])
 const documents = new Map<string, FakeDocument>(saved.documents ?? [])
 const signInLinks = new Map<string, { email: string; used: boolean }>(saved.signInLinks ?? [])
 let currentUser: User | null = saved.currentUser ?? null
 
 function save() {
-  sessionStorage.setItem(
+  localStorage.setItem(
     STORAGE_KEY,
     JSON.stringify({
       guestTokens: [...guestTokens],
@@ -56,20 +57,20 @@ const MESSAGES: Record<string, { ar: string; en: string }> = {
     en: 'The file is larger than the allowed limit (10 MB).',
   },
   upload_limit_reached: {
-    ar: 'وصلت للحد اليومي للرفع. حاول مرة ثانية غدًا.',
+    ar: 'وصلت إلى الحد اليومي للرفع. حاول مرة أخرى غدًا.',
     en: 'You reached the daily upload limit. Try again tomorrow.',
   },
   ai_budget_reached: {
-    ar: 'توقفت التحليلات الجديدة لهذا اليوم. حاول مرة ثانية غدًا.',
+    ar: 'توقفت التحليلات الجديدة لهذا اليوم. حاول مرة أخرى غدًا.',
     en: 'New analyses are paused for today. Try again tomorrow.',
   },
   document_not_found: { ar: 'لم نجد هذا المستند.', en: 'Document not found.' },
   invalid_guest_token: { ar: 'رقم الزائر غير صحيح.', en: 'The guest token is not valid.' },
-  csrf_token_mismatch: { ar: 'انتهت الجلسة. حاول مرة ثانية.', en: 'The session expired. Try again.' },
+  csrf_token_mismatch: { ar: 'انتهت الجلسة. حاول مرة أخرى.', en: 'The session expired. Try again.' },
   unauthorized: { ar: 'سجّل دخولك للمتابعة.', en: 'Sign in to continue.' },
   validation_error: { ar: 'تحقق من الحقول المحددة.', en: 'Please check the highlighted fields.' },
   magic_link_limit_reached: {
-    ar: 'طلبت روابط كثيرة. انتظر قليلًا ثم حاول مرة ثانية.',
+    ar: 'طلبت روابط كثيرة. انتظر قليلًا ثم حاول مرة أخرى.',
     en: 'You asked for too many links. Wait a little, then try again.',
   },
   link_expired: { ar: 'انتهت صلاحية الرابط.', en: 'This link has expired.' },

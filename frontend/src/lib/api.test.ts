@@ -177,3 +177,25 @@ it('turns an error answer into an ApiError with its status, code and message', a
   expect(error).toBeInstanceOf(ApiError)
   expect(error).toMatchObject({ status: 404, code: 'document_not_found', message: 'Not found.' })
 })
+
+it('keeps the messages of each field from a validation_error', async () => {
+  fakeApi({
+    '/sanctum/csrf-cookie': [new Response(null, { status: 204 })],
+    '/api/v1/auth/magic-link': [
+      Response.json(
+        {
+          error: {
+            code: 'validation_error',
+            message: 'Please check the highlighted fields.',
+            details: { email: ['Enter a valid email address.'] },
+          },
+        },
+        { status: 422 },
+      ),
+    ],
+  })
+
+  const error = await request('/auth/magic-link', { method: 'POST' }).catch((caught: unknown) => caught)
+
+  expect(error).toMatchObject({ status: 422, details: { email: ['Enter a valid email address.'] } })
+})

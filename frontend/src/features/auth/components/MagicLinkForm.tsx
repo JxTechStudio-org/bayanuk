@@ -2,7 +2,7 @@ import { LoaderCircle, Mail } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
-import { errorMessage } from '@/lib/api'
+import { ApiError, errorMessage } from '@/lib/api'
 import { useSignInLink } from '../hooks/useSignInLink'
 import { saveReturnTo } from '../utils/returnTo'
 
@@ -34,11 +34,11 @@ export function MagicLinkForm({ next, onSent }: Props) {
     link.mutate(value, { onSuccess: () => onSent(value) })
   }
 
+  // A validation_error names what is wrong with the email (integration contract, section 10).
+  const emailProblem = link.error instanceof ApiError ? link.error.details.email?.[0] : undefined
   const message = invalid
     ? t('signIn.errors.email')
-    : link.isError
-      ? errorMessage(link.error, t('signIn.errors.generic'))
-      : null
+    : (emailProblem ?? (link.isError ? errorMessage(link.error, t('signIn.errors.generic')) : null))
 
   return (
     <form noValidate onSubmit={sendLink}>
@@ -53,7 +53,7 @@ export function MagicLinkForm({ next, onSent }: Props) {
         dir="ltr"
         value={email}
         onChange={(event) => setEmail(event.target.value)}
-        aria-invalid={invalid || undefined}
+        aria-invalid={invalid || Boolean(emailProblem) || undefined}
         aria-describedby={message ? 'sign-in-error' : undefined}
         className="mt-2 block h-12 w-full rounded-lg border border-border bg-background px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive"
       />

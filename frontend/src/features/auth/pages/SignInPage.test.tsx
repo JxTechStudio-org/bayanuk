@@ -103,6 +103,29 @@ it('shows the message from the API when too many links were asked for', async ()
   expect(await screen.findByRole('alert')).toHaveTextContent('Too many requests.')
 })
 
+it('shows the field message when the API refuses the email (validation_error)', async () => {
+  fakeApi(() =>
+    Response.json(
+      {
+        error: {
+          code: 'validation_error',
+          message: 'Please check the highlighted fields.',
+          details: { email: ['Enter a valid email address.'] },
+        },
+      },
+      { status: 422 },
+    ),
+  )
+  const user = userEvent.setup()
+  renderPage()
+
+  await user.type(await screen.findByLabelText(ar.signIn.email), 'sara@example.com')
+  await user.click(screen.getByRole('button', { name: ar.signIn.send }))
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('Enter a valid email address.')
+  expect(screen.getByLabelText(ar.signIn.email)).toHaveAttribute('aria-invalid', 'true')
+})
+
 it('sends a signed-in user straight to the next page', async () => {
   vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
     Response.json({ id: 'u1', name: null, email: 'sara@example.com', locale: 'ar', keep_documents: false }),

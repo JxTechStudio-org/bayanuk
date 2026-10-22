@@ -48,6 +48,8 @@ The browser console shows `[MSW] Mocking enabled.` when it runs. It follows the 
 
 Every error has a code and a message in the interface language, like the real API (contract, section 4). The browser already stops a wrong type or a file over 10 MB, so those two errors show only if such a file is sent another way.
 
+Safari cannot pass a file chosen on the page to the fake API's service worker ("Unable to read form data file"). So, with the fake API on, `uploadDocument.ts` copies the file into memory before sending it. With the real API the file is sent as it is.
+
 Sign-in in the fake API:
 
 | To try | Do this |
@@ -58,7 +60,7 @@ Sign-in in the fake API:
 | Google | Press "Continue with Google": it signs in a test user at once |
 | A failed Google sign-in | Open `/auth/callback?error=google_cancelled` or `?error=google_sign_in_failed` |
 
-The fake data (documents, guest tokens, the signed-in user) is kept in `sessionStorage`, so it survives a page reload and is gone when the tab closes. The real API keeps the session in a cookie and the rest in the database.
+The fake data (documents, guest tokens, sign-in links, the signed-in user) is kept in `localStorage` (`bayanuk.fakeApi`), so it survives a page reload and works across tabs: the sign-in link from the console can be opened in a new tab, like a link from an email. To start over, remove `bayanuk.fakeApi` from the browser storage. The real API keeps the session in a cookie and the rest in the database.
 
 To use the real API, set `VITE_API_MOCK=false` in a `.env.development.local` file (not committed). Vite then sends `/api` and `/sanctum` to the backend on `http://localhost:8000` (decision 73). The production build never includes the fake API (decision 76).
 
@@ -311,7 +313,7 @@ Every call goes through `lib/api.ts` (contract, sections 2, 4 and 5). It:
 - gets the CSRF cookie before the first request that changes data, and sends it back in `X-XSRF-TOKEN`;
 - for a guest's document request, asks the backend for a guest token the first time (`POST /guest-token`), keeps it, and sends it in `X-Guest-Token`. A signed-in user's requests, and requests that are not about documents, send no guest token. Sign-in requests send the stored token, if any, to claim the guest's documents;
 - repeats a request once after `419` (new CSRF cookie) or `invalid_guest_token` (a new guest token, or none for a sign-in request);
-- turns the error format `{ "error": { "code", "message" } }` into an `ApiError` with the HTTP status, the code and the message.
+- turns the error format `{ "error": { "code", "message" } }` into an `ApiError` with the HTTP status, the code, the message and, for `validation_error`, the messages of each field (`details`).
 
 ### Text sources
 
@@ -451,16 +453,16 @@ The manager's Task 3 review, and the integration contract (`docs/integration-con
 
 | # | Decision | Reason |
 | --- | --- | --- |
-| 71 | The backend issues the guest token (`POST /guest-token`). The frontend asks for it before the first request, keeps it in the browser, and sends it only in `X-Guest-Token`. Requests that start together share one call | The Integration Contract card (contract, section 5). Sharing the call means two requests at the same moment never get two tokens. If storage is blocked, the token is kept for the visit, as in decision 8. |
-| 72 | `ApiError` keeps the HTTP status, the code and the message | The code decides what to do: `invalid_guest_token` gets a new token. The status still decides the end states. |
+| 71 | The backend issues the guest token (`POST /guest-token`). The frontend asks for it before a guest's first document request, keeps it in the browser, and sends it only in `X-Guest-Token`, only with a guest's document and question requests (`request(..., { guest: true })`). Requests that start together share one call | The Integration Contract card and contract, section 5. Other requests never send a token or ask for one. Sharing the call means two requests at the same moment never get two tokens. If storage is blocked, the token is kept for the visit, as in decision 8. A signed-in user sends no guest token, and sends it once at sign-in to claim the guest's documents: this comes with the sign-in task, which adds who is signed in. |
+| 72 | `ApiError` keeps the HTTP status and the message. The error code is read from the answer only where it decides the next step | The code `invalid_guest_token` gets a new token. The status decides the end states, and the message is shown to the visitor. Nothing else in Task 3 needs the code, so `ApiError` does not keep it. |
 | 73 | The CSRF flow: `GET /sanctum/csrf-cookie` before the first request that changes data, the token in `X-XSRF-TOKEN`, and one repeat after `419`. A Vite proxy sends `/api` and `/sanctum` to `localhost:8000` | Contract, section 2. The proxy puts the frontend and the backend on one address in development, so the Sanctum cookies work, as nginx does in production. |
 | 74 | `status_detail` is a code, and each code has its own text in `processing.reasons`. A code this version does not know shows the title only | Contract, section 6. The backend sends the same code in both languages, and the visitor never sees a raw code. The failed title became "We could not analyze this file", because a failure is not always about reading. |
 | 75 | A `410` (`document_expired`) stops the checks and shows "This document was deleted", in the calm style of a rejected document | Contract, section 6. A deleted document is expected behaviour after the retention period, not an error. The contract does not set the period, so the text does not name one. |
 | 76 | `mockServiceWorker.js` is removed from `dist` after the build, by a small plugin in `vite.config.ts` | The manager's review and contract, section 12: the mock is never part of the production build. Vite copies all of `public/` to `dist`, and the mock code itself was already left out. The file stays in `public/`, so the fake API still works in development and tests. |
 | 77 | One line under the stages explains a wait: offline first, then paused, then in the queue | The manager asked that the visitor always knows what is happening. Only one line shows, the most important one. |
-| 78 | "Offline" shows at once when the browser reports no connection, or after 3 failed checks in a row when the API cannot be reached. The check repeats every 2 seconds until it works, and the line goes away | The manager's review: a message "after a few failed attempts". The browser knows at once when it is offline. 3 checks take about 4 seconds, enough to skip a short drop. |
+| 78 | "Offline" shows at once when the browser reports no connection, or after 3 failed checks in a row when the API cannot be reached. The check repeats every 2 seconds until it works, and the line goes away | The manager's review: a message "after a few failed attempts". The browser knows at once when it is offline. 3 checks take about 4 seconds, enough to skip a short drop. The line uses the attention colour (amber), like the pause (decision 80); the queue line stays grey, because waiting is normal. |
 | 79 | A `4xx` answer is never retried. A server error (`5xx`) is retried once | A `404` or `410` will not change, so the page shows it at once. |
-| 80 | While the daily AI budget pauses a document, the status is checked every 60 seconds instead of 2 | Contract, section 6. A page left open overnight would otherwise send thousands of requests. |
+| 80 | While the daily AI budget pauses a document, the status is checked every 60 seconds instead of 2. The page says it is paused: the title "Analysis paused", a pause sign on the current stage instead of the turning one, and the message in the attention colour (amber, as on the landing page) | Contract, section 6. A page left open overnight would otherwise send thousands of requests. A turning stage and the title "Processing" would say the work is going on, and the pause lasts until the next day, so it must not be missed. |
 | 81 | Each test starts with a stored guest token. `lib/api.test.ts` tests the token and CSRF flow on its own | The page tests stay about their own screens. The flow is tested once, in one place, with every case: new guest, shared call, CSRF header, `419`, rejected token, error format. |
 | 82 | The fake API answers every error with its code and a message in the interface language, and the upload errors can be tried by file name (`limit`, `nobudget`). Tests cover each upload error on the upload button | The manager's Fix list: "Mocks use the contract's error codes and responses" and "Upload errors: file type, file size, daily limit, AI budget reached". The messages stand in for the backend's own. A real daily count would block the fake API after 2 uploads, so the file name picks the error, like the other outcomes. |
 
@@ -469,7 +471,7 @@ The manager's Task 3 review, and the integration contract (`docs/integration-con
 | # | Decision | Reason |
 | --- | --- | --- |
 | 83 | The branch starts from the Task 3 review branch, not from `development` | Task 4 needs the guest token and CSRF code from the review, which is not merged yet. |
-| 84 | Each request says how it uses the guest token: `'guest'` (a guest's document request), `'claim'` (a sign-in request) or none | Contract, section 5: the token goes only with document and question requests, while not signed in, and once at sign-in to claim. A sign-in request never asks for a new token: there is nothing to claim. |
+| 84 | Each request says how it uses the guest token: `'guest'` (a guest's document request), `'claim'` (a sign-in request) or none. This replaces `{ guest: true }` from decision 71, and a signed-in user's document requests send none | Contract, section 5: the token goes only with document and question requests, while not signed in, and once at sign-in to claim. A sign-in request never asks for a new token: there is nothing to claim. |
 | 85 | Who is signed in comes from `GET /me`, loaded once and kept (`useCurrentUser`). Document requests wait for it | Contract, section 11 and Technical Plan, section 7. Waiting means a signed-in user never gets a guest token by mistake. |
 | 86 | The terms version is a constant, `2026-10`, sent with the email link request and the Google request | The Task 4 card asks for the consent at sign-in, and the Database Schema requires `users.terms_version` and `terms_accepted_at`. The terms and privacy pages do not exist yet, so the value and the links are open questions (see "For the backend"). |
 | 87 | The page to come back to is saved in the browser (`bayanuk.returnTo`), and only an address inside the site is accepted | Contract, section 11. The email link and Google both come back in a new page load. Accepting only "/..." stops a link from sending the user to another site after sign-in. |
@@ -481,8 +483,11 @@ The manager's Task 3 review, and the integration contract (`docs/integration-con
 | 93 | The account menu uses Radix `DropdownMenu` directly, with the page direction | `radix-ui` is already installed with shadcn/ui (see "Libraries"), and it gives keyboard use and screen reader support. On a phone the button shows the icon only, and the email moves inside the menu, so the header stays on one line. |
 | 94 | Sign-out leaves the page first, at once (`flushSync`), then forgets the user | On a page that needs an account, forgetting the user first would open sign-in instead of the home page. |
 | 95 | `/documents` is a placeholder page, protected by `RequireSignIn` | The card asks to protect pages that need an account. The documents list is a separate task, like the result page placeholder (decision 63). |
-| 96 | The fake API keeps its data in `sessionStorage` | Google sign-in reloads the page, which used to clear the fake session. It also means a reload no longer shows "Document not found". |
+| 96 | The fake API keeps its data in `localStorage` | Google sign-in reloads the page, which used to clear the fake session, and a sign-in link is opened in a new tab, as from an email. `sessionStorage` is kept per tab, so a link opened in a new tab was "not valid". It also means a reload no longer shows "Document not found". |
 | 97 | The sign-in files use the names in the Technical Plan v1.3, section 4: `MagicLinkForm`, `GoogleButton`, `VerifyPage`, `CallbackPage` | The plan names them, so the code matches the document. |
+| 98 | `ApiError` keeps the error code again, and the `details` of a `validation_error` | Task 4 needs both (decision 72 left the code out while only Task 3 used it). The email link page picks its message from the code (`link_expired`, `link_used`, `link_invalid`), and the email form shows the field message from `details`. |
+| 99 | A `validation_error` on the email request shows the email's own message under the field, and marks the field as not valid | Contract, sections 4 and 10, and the Task 4 card: "show `magic_link_limit_reached` and `validation_error`". The browser checks the email first, so this shows only when the backend refuses an email the browser accepted. |
+| 100 | Any `401` forgets the signed-in user, so a page that needs an account sends the user to sign in, and back to the same page afterwards | Contract, section 4: "The frontend sends the user to sign in", and the Task 4 card: "401 sends the user to sign in". It is done once, in the query client (`app/queryClient.ts`), so every request is covered, also the ones added by later tasks. |
 
 ## Differences from the Technical Plan
 

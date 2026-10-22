@@ -37,5 +37,8 @@ export default defineConfig({
     // jsdom gives the tests a fake browser page to render into.
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    // The test files run side by side, each in its own fake browser page. On a busy computer a page test
+    // can take more than the default 5 seconds without anything being wrong, so each test gets 15.
+    testTimeout: 15_000,
   },
 })

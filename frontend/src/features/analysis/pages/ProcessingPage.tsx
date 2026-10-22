@@ -1,4 +1,4 @@
-import { CircleAlert, FileSearch, FileText, FileX } from 'lucide-react'
+import { CircleAlert, FileSearch, FileText, FileX, PauseCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
@@ -74,9 +74,10 @@ export function ProcessingPage() {
   const offline =
     fetchStatus === 'paused' ||
     (failureReason instanceof ApiError && failureReason.status === 0 && failureCount >= FAILURES_BEFORE_OFFLINE_NOTICE)
+  const paused = data?.status_detail === 'ai_budget_reached'
   const notice: Notice | null = offline
     ? 'offline'
-    : data?.status_detail === 'ai_budget_reached'
+    : paused
       ? 'paused'
       : data?.status === 'uploaded'
         ? 'queued'
@@ -84,13 +85,20 @@ export function ProcessingPage() {
 
   return (
     <CardLayout>
-      <span className="grid size-12 place-items-center rounded-full bg-tint text-teal-deep">
-        <FileSearch aria-hidden="true" className="size-6" />
-      </span>
-      <h1 className="mt-4 text-xl font-semibold md:text-2xl">{t('processing.title')}</h1>
+      {/* A paused document says so in the title too, so the pause cannot be missed. */}
+      {paused ? (
+        <span className="grid size-12 place-items-center rounded-full bg-amber-50 text-amber-800">
+          <PauseCircle aria-hidden="true" className="size-6" />
+        </span>
+      ) : (
+        <span className="grid size-12 place-items-center rounded-full bg-tint text-teal-deep">
+          <FileSearch aria-hidden="true" className="size-6" />
+        </span>
+      )}
+      <h1 className="mt-4 text-xl font-semibold md:text-2xl">{t(paused ? 'processing.pausedTitle' : 'processing.title')}</h1>
       {fileName ? <FileName name={fileName} /> : null}
       <div className="mt-6" aria-live="polite">
-        <ProcessingStages current={data ? stageIndex(data.status) : 0} />
+        <ProcessingStages current={data ? stageIndex(data.status) : 0} paused={paused} />
         {notice ? <ProcessingNotice notice={notice} /> : null}
       </div>
     </CardLayout>

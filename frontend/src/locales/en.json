@@ -143,6 +143,7 @@
   },
   "processing": {
     "title": "Processing",
+    "pausedTitle": "Analysis paused",
     "stages": {
       "checking": "Checking file",
       "reading": "Reading document",
@@ -167,7 +168,7 @@
     },
     "reasons": {
       "unsafe_file": "The file did not pass the safety check.",
-      "too_many_pages": "The file has more than 30 pages. Bayanuk reads up to 30 pages.",
+      "too_many_pages": "The file has more than 30 pages, which is the limit.",
       "not_employment_document": "Bayanuk supports job offers and employment contracts only.",
       "file_unreadable": "We could not read this file.",
       "analysis_failed": "Something went wrong during the analysis. Try again."
@@ -175,7 +176,7 @@
     "notices": {
       "queued": "Your document is in the queue and will start shortly.",
       "paused": "The daily analysis limit was reached, so your document is paused. It will continue on its own tomorrow.",
-      "offline": "The internet connection was lost. We are trying to reconnect, and this page will update when it is back."
+      "offline": "The internet connection was lost. We are trying to reconnect, and this page will update on its own when it is back."
     }
   },
   "result": {
