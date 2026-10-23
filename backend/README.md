@@ -20,7 +20,7 @@ Backend for **Bayanuk**, an AI review service for job offers and employment cont
 
 2. **Start PostgreSQL (with pgvector) and Redis using Docker:**
 ```bash
-   docker run -d --name bayanuk-db -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=bayanuk -p 5432:5432 pgvector/pgvector:pg17
+   docker run -d --name bayanuk-db -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=bayanuk -p 5432:5432 pgvector/pgvector:pg16
    docker run -d --name bayanuk-redis -p 6379:6379 redis:7
 ```
    - The `vector` extension is enabled automatically by the first migration, so no manual SQL is needed.
