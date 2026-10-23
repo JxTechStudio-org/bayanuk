@@ -9,10 +9,12 @@ import { VerifyPage } from './VerifyPage'
 
 const user = { id: 'u1', name: null, email: 'sara@example.com', locale: 'ar', keep_documents: false }
 
-// The verify request answers with `answer`. It returns the fake fetch to read what was sent.
+// The verify request answers with `answer`, and GET /me with the signed-in user.
+// It returns the fake fetch to read what was sent.
 function verifyAnswers(answer: () => Response | Promise<Response>) {
   return vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
     if (String(input).startsWith('/sanctum')) return new Response(null, { status: 204 })
+    if (String(input) === '/api/v1/me') return Response.json(user)
     return answer()
   })
 }
@@ -42,7 +44,7 @@ afterEach(() => {
 })
 
 it('signs in once with POST, claims the guest documents, and returns to the saved page', async () => {
-  const fetch = verifyAnswers(() => Response.json({ user }))
+  const fetch = verifyAnswers(() => new Response(null, { status: 204 }))
   renderPage('/auth/verify?token=abc')
 
   expect(await screen.findByText('result page')).toBeInTheDocument()
@@ -73,7 +75,7 @@ it.each([
 })
 
 it('treats a page with no token as a link that is not valid, and sends nothing', async () => {
-  const fetch = verifyAnswers(() => Response.json({ user }))
+  const fetch = verifyAnswers(() => new Response(null, { status: 204 }))
   renderPage('/auth/verify')
 
   expect(await screen.findByRole('heading', { name: ar.auth.invalid.title })).toBeInTheDocument()

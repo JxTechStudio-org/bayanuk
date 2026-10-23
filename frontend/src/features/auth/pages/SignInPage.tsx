@@ -34,7 +34,8 @@ export function SignInPage() {
             {t('signIn.or')}
           </p>
           <MagicLinkForm next={next} onSent={setSentTo} />
-          {/* Database Schema, users.terms_version: the version of the terms accepted is stored at sign-in. */}
+          {/* Shown before both ways of signing in. Signing in is the acceptance: the backend stores the terms version
+              and the time when it creates the account (Database Schema, users.terms_version and terms_accepted_at). */}
           <p className="mt-6 text-sm text-muted-foreground">{t('signIn.consent')}</p>
         </>
       )}

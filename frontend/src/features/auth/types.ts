@@ -1,9 +1,5 @@
-// Technical Plan, section 7 (GET /me) and Database Schema, section 3.1 (users).
+// Technical Plan, section 7 (GET /me): the signed-in user. Only the fields the frontend uses:
+// the email shows in the account menu. The settings (locale, keep_documents, PATCH /me) are a later task.
 export interface User {
-  id: string
-  // Optional: magic link users may not give a name.
-  name: string | null
   email: string
-  locale: 'ar' | 'en'
-  keep_documents: boolean
 }

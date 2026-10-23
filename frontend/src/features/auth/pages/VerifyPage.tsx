@@ -22,7 +22,7 @@ export function VerifyPage() {
   const finishSignIn = useFinishSignIn()
   const verify = useMutation({
     mutationFn: verifySignInLink,
-    onSuccess: ({ user }) => finishSignIn(user),
+    onSuccess: (user) => finishSignIn(user),
   })
   const { mutate } = verify
   const sent = useRef(false)

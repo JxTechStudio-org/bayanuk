@@ -128,7 +128,6 @@ frontend/
           ResultPage.tsx         /d/:id/result, placeholder until the result task
       auth/
         types.ts           The user from GET /me
-        terms.ts           The terms version sent at sign-in
         api/               One file per call: /me, the email link, its check, Google, sign-out
         hooks/
           useCurrentUser.ts      The signed-in user, or null for a guest
@@ -473,7 +472,7 @@ The manager's Task 3 review, and the integration contract (`docs/integration-con
 | 83 | The branch starts from the Task 3 review branch, not from `development` | Task 4 needs the guest token and CSRF code from the review, which is not merged yet. |
 | 84 | Each request says how it uses the guest token: `'guest'` (a guest's document request), `'claim'` (a sign-in request) or none. This replaces `{ guest: true }` from decision 71, and a signed-in user's document requests send none | Contract, section 5: the token goes only with document and question requests, while not signed in, and once at sign-in to claim. A sign-in request never asks for a new token: there is nothing to claim. |
 | 85 | Who is signed in comes from `GET /me`, loaded once and kept (`useCurrentUser`). Document requests wait for it | Contract, section 11 and Technical Plan, section 7. Waiting means a signed-in user never gets a guest token by mistake. |
-| 86 | The terms version is a constant, `2026-10`, sent with the email link request and the Google request | The Task 4 card asks for the consent at sign-in, and the Database Schema requires `users.terms_version` and `terms_accepted_at`. The terms and privacy pages do not exist yet, so the value and the links are open questions (see "For the backend"). |
+| 86 | The consent line has no checkbox: signing in, by email or Google, means accepting the terms. The frontend sends no terms version | The Task 4 card: "Consent to terms and privacy is shown at sign-in". The contract's sign-in requests have no terms field (sections 10 and 11). Which terms are current is known by the backend, so it stores `users.terms_version` and `terms_accepted_at` (Database Schema, section 3.1) when it creates the account. A version sent by the browser could also be changed by anyone. |
 | 87 | The page to come back to is saved in the browser (`bayanuk.returnTo`), and only an address inside the site is accepted | Contract, section 11. The email link and Google both come back in a new page load. Accepting only "/..." stops a link from sending the user to another site after sign-in. |
 | 88 | The email link token is sent once, even when React runs the effect twice in development | The link works only once (Database Schema, `login_tokens`). A second request would answer "already used". A test renders the page in `StrictMode` to check it. |
 | 89 | Cancelling Google has its own text; every other Google failure shares one | Cancelling is the user's choice, not an error. The other two codes mean the same to the user: try again. |
@@ -483,11 +482,12 @@ The manager's Task 3 review, and the integration contract (`docs/integration-con
 | 93 | The account menu uses Radix `DropdownMenu` directly, with the page direction | `radix-ui` is already installed with shadcn/ui (see "Libraries"), and it gives keyboard use and screen reader support. On a phone the button shows the icon only, and the email moves inside the menu, so the header stays on one line. |
 | 94 | Sign-out leaves the page first, at once (`flushSync`), then forgets the user | On a page that needs an account, forgetting the user first would open sign-in instead of the home page. |
 | 95 | `/documents` is a placeholder page, protected by `RequireSignIn` | The card asks to protect pages that need an account. The documents list is a separate task, like the result page placeholder (decision 63). |
-| 96 | The fake API keeps its data in `localStorage` | Google sign-in reloads the page, which used to clear the fake session, and a sign-in link is opened in a new tab, as from an email. `sessionStorage` is kept per tab, so a link opened in a new tab was "not valid". It also means a reload no longer shows "Document not found". |
+| 96 | The fake API keeps its data in `localStorage` | Google sign-in reloads the page, which used to clear the fake session, and a sign-in link is opened in a new tab, as from an email. `sessionStorage` is kept per tab, so a link opened in a new tab was "not valid". When one tab changes the data (for example, signs in), the other tabs read it again, so they all see the same session. It also means a reload no longer shows "Document not found". |
 | 97 | The sign-in files use the names in the Technical Plan v1.3, section 4: `MagicLinkForm`, `GoogleButton`, `VerifyPage`, `CallbackPage` | The plan names them, so the code matches the document. |
 | 98 | `ApiError` keeps the error code again, and the `details` of a `validation_error` | Task 4 needs both (decision 72 left the code out while only Task 3 used it). The email link page picks its message from the code (`link_expired`, `link_used`, `link_invalid`), and the email form shows the field message from `details`. |
 | 99 | A `validation_error` on the email request shows the email's own message under the field, and marks the field as not valid | Contract, sections 4 and 10, and the Task 4 card: "show `magic_link_limit_reached` and `validation_error`". The browser checks the email first, so this shows only when the backend refuses an email the browser accepted. |
 | 100 | Any `401` forgets the signed-in user, so a page that needs an account sends the user to sign in, and back to the same page afterwards | Contract, section 4: "The frontend sends the user to sign in", and the Task 4 card: "401 sends the user to sign in". It is done once, in the query client (`app/queryClient.ts`), so every request is covered, also the ones added by later tasks. |
+| 101 | After the email link is verified, the user is loaded from `GET /me`, as after Google | The Technical Plan (section 7.4) and the contract (section 10) do not set the verify answer's body, only that the backend sets the session cookie. Loading `/me` works with any success answer, and both ways of signing in end the same way. |
 
 ## Differences from the Technical Plan
 
@@ -512,17 +512,9 @@ Points that need an answer before or after launch.
 
 The assumptions listed here in Task 3 are now agreed with the backend in the integration contract (`docs/integration-contract.md`).
 
-Task 4 assumptions, not in the contract yet. To confirm with the backend:
+Task 4 uses only what the contract (sections 5, 10 and 11) and the Technical Plan v1.3 (sections 7.2 to 7.4) set. From the answers, the frontend reads only `email` from `GET /me` and `url` from `POST /auth/google/redirect` (contract, section 11). The email link, verify and sign-out answers are read only for success or error. After the email link, as after Google, the user is loaded from `GET /me`.
 
-| # | Assumption | Where |
-| --- | --- | --- |
-| 1 | `POST /auth/magic-link` takes `{ "email", "terms_version" }` and answers `202` | `requestSignInLink.ts` |
-| 2 | `POST /auth/google/redirect` takes `{ "terms_version" }` | `startGoogleSignIn.ts` |
-| 3 | `POST /auth/magic-link/verify` answers `200 { "user": { ... } }`, the same user as `GET /me` | `verifySignInLink.ts` |
-| 4 | `GET /me` answers `{ "id", "name", "email", "locale", "keep_documents" }`, or `401 unauthorized` for a guest | `auth/types.ts`, `getCurrentUser.ts` |
-| 5 | `POST /auth/logout` answers `204` | `signOut.ts` |
-
-For the manager: the terms version (`2026-10` for now, in `auth/terms.ts`) and the links to the Terms and Privacy pages, once they exist (open question 4).
+For the manager: the links to the Terms and Privacy pages in the consent line, once the pages exist (open question 4).
 
 ## Next
 

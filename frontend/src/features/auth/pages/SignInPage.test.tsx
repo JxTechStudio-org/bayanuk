@@ -5,7 +5,6 @@ import { afterEach, expect, it, vi } from 'vitest'
 import '@/app/i18n'
 import ar from '@/locales/ar.json'
 import { renderWithProviders } from '@/test/renderWithProviders'
-import { TERMS_VERSION } from '../terms'
 import { SignInPage } from './SignInPage'
 
 const guest = () => Response.json({ error: { code: 'unauthorized', message: '' } }, { status: 401 })
@@ -62,7 +61,7 @@ it('does not send an email that is not valid', async () => {
   expect(linkRequests(fetch)).toHaveLength(0)
 })
 
-it('sends the link with the terms version, then says to check the email', async () => {
+it('sends the link, then says to check the email', async () => {
   const fetch = fakeApi()
   const user = userEvent.setup()
   renderPage()
@@ -72,7 +71,7 @@ it('sends the link with the terms version, then says to check the email', async 
 
   expect(await screen.findByRole('heading', { name: ar.signIn.checkEmail.title })).toBeInTheDocument()
   expect(screen.getByText('sara@example.com')).toBeInTheDocument()
-  expect(linkRequests(fetch)).toEqual([{ email: 'sara@example.com', terms_version: TERMS_VERSION }])
+  expect(linkRequests(fetch)).toEqual([{ email: 'sara@example.com' }])
   // The page to return to after sign-in is kept for when the link is opened.
   expect(localStorage.getItem('bayanuk.returnTo')).toBe('/d/1/result')
 })

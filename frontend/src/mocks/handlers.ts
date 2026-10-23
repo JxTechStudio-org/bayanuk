@@ -1,6 +1,5 @@
 import { delay, http, HttpResponse } from 'msw'
 import type { DocumentStatus } from '@/features/analysis/types'
-import type { User } from '@/features/auth/types'
 
 // A fake API that follows docs/integration-contract.md. Only used in development, when VITE_API_MOCK=true.
 //
@@ -16,6 +15,15 @@ const FLOW: DocumentStatus[] = ['uploaded', 'scanning', 'extracting', 'classifyi
 const SECONDS_PER_STEP = 2
 const CSRF_TOKEN = 'mock-csrf-token'
 
+// The user the fake GET /me answers with: the users fields from the Database Schema, section 3.1.
+interface FakeUser {
+  id: string
+  name: string | null
+  email: string
+  locale: 'ar' | 'en'
+  keep_documents: boolean
+}
+
 interface FakeDocument {
   // The owner: a guest token, or a user once signed in.
   owner: string
@@ -27,11 +35,28 @@ interface FakeDocument {
 // and is shared by the browser's tabs: a sign-in link opened in a new tab works, as one opened from an email does.
 // The real API keeps the session in a cookie and the rest in the database.
 const STORAGE_KEY = 'bayanuk.fakeApi'
-const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')
-const guestTokens = new Set<string>(saved.guestTokens ?? [])
-const documents = new Map<string, FakeDocument>(saved.documents ?? [])
-const signInLinks = new Map<string, { email: string; used: boolean }>(saved.signInLinks ?? [])
-let currentUser: User | null = saved.currentUser ?? null
+const guestTokens = new Set<string>()
+const documents = new Map<string, FakeDocument>()
+const signInLinks = new Map<string, { email: string; used: boolean }>()
+let currentUser: FakeUser | null = null
+
+function load() {
+  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')
+  guestTokens.clear()
+  documents.clear()
+  signInLinks.clear()
+  for (const token of saved.guestTokens ?? []) guestTokens.add(token)
+  for (const [id, document] of saved.documents ?? []) documents.set(id, document)
+  for (const [token, link] of saved.signInLinks ?? []) signInLinks.set(token, link)
+  currentUser = saved.currentUser ?? null
+}
+
+load()
+// Each tab runs its own copy of the fake API. When another tab changes the data (for example, signs in
+// from the email link), this tab reads it again, so every tab sees the same session, like the real API.
+window.addEventListener('storage', (event) => {
+  if (event.key === STORAGE_KEY) load()
+})
 
 function save() {
   localStorage.setItem(
@@ -101,14 +126,13 @@ function ownerOf(request: Request) {
 }
 
 // Signs the user in and moves the guest's documents to the account (section 5, the guest claim).
-function signIn(email: string, request: Request): User {
+function signIn(email: string, request: Request) {
   currentUser = { id: crypto.randomUUID(), name: null, email, locale: 'ar', keep_documents: false }
   const guestToken = guestTokenOf(request)
   for (const document of documents.values()) {
     if (guestToken && document.owner === guestToken) document.owner = currentUser.id
   }
   save()
-  return currentUser
 }
 
 export const handlers = [
@@ -154,7 +178,8 @@ export const handlers = [
     if (!link) return error(request, 400, 'link_invalid')
 
     link.used = true
-    return HttpResponse.json({ user: signIn(link.email, request) })
+    signIn(link.email, request)
+    return new HttpResponse(null, { status: 204 })
   }),
 
   // Google cannot be reached from here: the fake API signs in a test user and returns the frontend page
