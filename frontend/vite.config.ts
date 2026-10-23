@@ -19,6 +19,21 @@ export default defineConfig({
       },
     },
   ],
+  build: {
+    rolldownOptions: {
+      output: {
+        // The libraries go in their own files, apart from our code. They change rarely, so after an update
+        // of the site the browser keeps them from its cache and downloads only our changed code.
+        // React and the router are the largest, so they get one file and the other libraries another.
+        codeSplitting: {
+          groups: [
+            { name: 'react', test: /node_modules[\\/](react|react-dom|react-router|scheduler)[\\/]/ },
+            { name: 'vendor', test: /node_modules[\\/]/ },
+          ],
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       // "@/..." means "src/..."
@@ -37,5 +52,8 @@ export default defineConfig({
     // jsdom gives the tests a fake browser page to render into.
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    // The test files run side by side, each in its own fake browser page. On a busy computer a page test
+    // can take more than the default 5 seconds without anything being wrong, so each test gets 15.
+    testTimeout: 15_000,
   },
 })

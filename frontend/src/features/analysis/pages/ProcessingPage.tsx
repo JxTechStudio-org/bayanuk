@@ -4,7 +4,7 @@ import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { AnalysisLayout } from '../components/AnalysisLayout'
+import { CardLayout } from '@/features/shared/components/CardLayout'
 import { ProcessingNotice, type Notice } from '../components/ProcessingNotice'
 import { ProcessingStages } from '../components/ProcessingStages'
 import { useDocumentStatus } from '../hooks/useDocumentStatus'
@@ -43,7 +43,7 @@ export function ProcessingPage() {
     // A code this version does not know yet shows the title only.
     const body = data?.status_detail ? t(`processing.reasons.${data.status_detail}`, { defaultValue: '' }) : null
     return (
-      <AnalysisLayout>
+      <CardLayout>
         <div role="alert">
           <span
             className={cn(
@@ -64,7 +64,7 @@ export function ProcessingPage() {
             <Link to="/">{t(`processing.${outcome}.action`)}</Link>
           </Button>
         </div>
-      </AnalysisLayout>
+      </CardLayout>
     )
   }
 
@@ -84,7 +84,7 @@ export function ProcessingPage() {
         : null
 
   return (
-    <AnalysisLayout>
+    <CardLayout>
       {/* A paused document says so in the title too, so the pause cannot be missed. */}
       {paused ? (
         <span className="grid size-12 place-items-center rounded-full bg-amber-50 text-amber-800">
@@ -101,7 +101,7 @@ export function ProcessingPage() {
         <ProcessingStages current={data ? stageIndex(data.status) : 0} paused={paused} />
         {notice ? <ProcessingNotice notice={notice} /> : null}
       </div>
-    </AnalysisLayout>
+    </CardLayout>
   )
 }
 

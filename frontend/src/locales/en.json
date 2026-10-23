@@ -181,5 +181,67 @@
   },
   "result": {
     "ready": "Your analysis is ready."
+  },
+  "signIn": {
+    "title": "Sign in",
+    "body": "Sign in to save your analysis, ask more questions, and compare.",
+    "google": "Continue with Google",
+    "or": "or",
+    "email": "Your email",
+    "send": "Send sign-in link",
+    "sending": "Sending...",
+    "consent": "By continuing, you agree to the Terms and the Privacy Policy.",
+    "errors": {
+      "email": "Enter a valid email address.",
+      "generic": "We could not complete this. Try again."
+    },
+    "checkEmail": {
+      "title": "Check your email",
+      "sentTo": "We sent a sign-in link to",
+      "validFor": "The link works for 15 minutes, and only once.",
+      "resend": "Send the link again",
+      "resent": "We sent a new link.",
+      "changeEmail": "Use another email"
+    }
+  },
+  "auth": {
+    "waiting": "Signing you in...",
+    "newLink": "Get a new link",
+    "tryAgain": "Try again",
+    "expired": {
+      "title": "This link has expired",
+      "body": "A link works for 15 minutes only. Get a new link."
+    },
+    "used": {
+      "title": "This link was already used",
+      "body": "Each link works only once. Get a new link."
+    },
+    "invalid": {
+      "title": "This link is not valid",
+      "body": "Check that you opened the full link from the email, or get a new link."
+    },
+    "failed": {
+      "title": "We could not sign you in",
+      "body": "Something went wrong while signing you in. Try again."
+    },
+    "googleCancelled": {
+      "title": "Sign-in was not completed",
+      "body": "You cancelled signing in with Google."
+    },
+    "googleFailed": {
+      "title": "We could not sign you in with Google",
+      "body": "Try again, or sign in with an email link."
+    }
+  },
+  "account": {
+    "signIn": "Sign in",
+    "menu": "Your account",
+    "documents": "My documents",
+    "signOut": "Sign out",
+    "upload": "Upload a document",
+    "invite": {
+      "title": "Keep this analysis",
+      "body": "Sign in to save it to your account. Without an account, the document is deleted automatically after 24 hours."
+    }
   }
 }
