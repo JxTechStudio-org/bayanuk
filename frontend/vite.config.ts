@@ -19,6 +19,21 @@ export default defineConfig({
       },
     },
   ],
+  build: {
+    rolldownOptions: {
+      output: {
+        // The libraries go in their own files, apart from our code. They change rarely, so after an update
+        // of the site the browser keeps them from its cache and downloads only our changed code.
+        // React and the router are the largest, so they get one file and the other libraries another.
+        codeSplitting: {
+          groups: [
+            { name: 'react', test: /node_modules[\\/](react|react-dom|react-router|scheduler)[\\/]/ },
+            { name: 'vendor', test: /node_modules[\\/]/ },
+          ],
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       // "@/..." means "src/..."
