@@ -59,7 +59,7 @@ pipeline {
                 script {
                     env.IMAGE_TAG = sh(script: 'git rev-parse --short=8 HEAD', returnStdout: true).trim()
                 }
-                sh 'docker build --pull -t $IMAGE:$IMAGE_TAG .'
+                sh 'docker build --pull --target production -t $IMAGE:$IMAGE_TAG .'
             }
         }
     }

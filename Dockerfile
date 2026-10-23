@@ -41,3 +41,15 @@ WORKDIR /var/www/html
 
 # Local development: the code is bind-mounted by docker-compose.yml
 FROM base AS development
+
+# Production image (built by Jenkins, tagged with the commit SHA)
+FROM base AS vendor
+COPY backend/composer.json backend/composer.lock ./
+RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-interaction
+
+FROM base AS production
+COPY --from=vendor /var/www/html/vendor ./vendor
+COPY backend/ .
+RUN composer dump-autoload --optimize --no-dev --no-scripts \
+    && mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
+    && chown -R www-data:www-data storage bootstrap/cache
