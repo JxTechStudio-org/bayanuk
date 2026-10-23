@@ -107,7 +107,7 @@ export function postJson(body: unknown): RequestInit {
 // - 'guest': a document or question request from a guest. A token is issued first if there is none.
 // - 'claim': a sign-in request. The stored token is sent, if any, so the guest documents move to the account.
 // Any other request sends no guest token.
-export type GuestTokenUse = 'guest' | 'claim'
+type GuestTokenUse = 'guest' | 'claim'
 
 function tokenFor(use: GuestTokenUse | undefined): Promise<string | undefined> {
   if (use === 'guest') return guestToken()
