@@ -2,7 +2,7 @@
 
 Frontend of Bayanuk (بيانك): a React single-page app in Arabic (right to left) and English (left to right).
 
-This README covers Task 1 (project setup), Task 2 (the landing page), Task 3 (the upload and processing flow) and the frontend part of the root Dockerfile. It explains how to run the project, how it is organised, where every text on the page comes from, and the decisions made where the Technical Plan left a choice open.
+This README covers Task 1 (project setup), Task 2 (the landing page), Task 3 (the upload and processing flow), Task 4 (sign-in and guest mode) and the frontend part of the root Dockerfile. It explains how to run the project, how it is organised, where every text on the page comes from, and the decisions made where the Technical Plan left a choice open.
 
 ## Requirements
 
@@ -48,7 +48,7 @@ The browser console shows `[MSW] Mocking enabled.` when it runs. It follows the 
 
 Every error has a code and a message in the interface language, like the real API (contract, section 4). The browser already stops a wrong type or a file over 10 MB, so those two errors show only if such a file is sent another way.
 
-Safari cannot pass a file chosen on the page to the fake API's service worker ("Unable to read form data file"). So, with the fake API on, `uploadDocument.ts` copies the file into memory before sending it. With the real API the file is sent as it is.
+Safari cannot pass a file chosen on the page to the fake API's service worker ("Unable to read form data file"). So, with the fake API on, `uploadDocument.ts` copies the file into memory before sending it. With the real API the file is sent as it is. Even so, Safari is slow to pass a large file to the service worker: a file of a few MB can stay on "Uploading" for about a minute, while a small file, or Chrome, takes under a second. This happens with the fake API only; to test large files with it, use Chrome.
 
 Sign-in in the fake API:
 
@@ -92,7 +92,7 @@ The built site is in `/app/frontend/dist` inside the `frontend-build` stage. The
 frontend/
   index.html               Page shell. Starts as Arabic, right to left. Links the icons.
   components.json          shadcn/ui settings (Radix, RTL, where components go)
-  vite.config.ts           Vite, Tailwind, the "@/" shortcut, the dev proxy, test settings
+  vite.config.ts           Vite, Tailwind, the "@/" shortcut, the dev proxy, the library files, test settings
   public/
     favicon.svg            Browser tab icon (modern browsers)
     favicon-32.png         Browser tab icon (older browsers)
@@ -104,7 +104,7 @@ frontend/
     index.css              Tailwind, the font, the brand colours, shadcn/ui colours
     app/
       App.tsx              Routes: which path shows which page
-      queryClient.ts       TanStack Query settings (retries)
+      queryClient.ts       TanStack Query settings: retries, and a 401 sends the user to sign in
       i18n.ts              Language setup, direction and tab title
     assets/
       brand/               Official logos, Arabic and English
@@ -337,10 +337,12 @@ MVP 4.2: "Guest mode: upload and see results without an account; sign in to save
 - **The header** shows "Sign in" to a guest, and a menu to a signed-in user: the email, My documents, Sign out. It is loaded once from `GET /me` (`401` means a guest).
 - **The result page invites a guest to sign in** to keep the analysis, without blocking anything (MVP 5, step 6).
 - **`/sign-in`** offers Google and the email link, and shows the terms consent. After the link is sent, it shows "Check your email" with "Send the link again".
-- **`/auth/verify?token=...`**, opened by the email link, sends the token with `POST` once, with the guest token to claim the guest's documents. An expired, used or unknown link shows a clear message and "Get a new link".
+- **`/auth/verify?token=...`**, opened by the email link, sends the token with `POST` once, with the guest token to claim the guest's documents, then loads the user from `/me`. An expired, used or unknown link shows a clear message and "Get a new link".
 - **`/auth/callback`**, after Google, loads `/me` and finishes the sign-in, or explains why it did not work.
 - **After any sign-in**, the guest token is deleted and the user goes back to the page they were on.
-- **A page that needs an account** (`/documents`) sends a guest to sign in, and back to the page afterwards.
+- **A page that needs an account** (`/documents`) sends a guest to sign in, and back to the page afterwards. Any `401` does the same, for example when the session ends.
+- **The email form** checks the address before sending. A `validation_error` shows the field's own message, and `magic_link_limit_reached` the API's message.
+- **The guest token** goes only with a guest's document requests, and once with a sign-in request. A signed-in user sends none, also when the file is chosen before `/me` has answered.
 
 ### Text sources
 
@@ -469,9 +471,9 @@ The manager's Task 3 review, and the integration contract (`docs/integration-con
 
 | # | Decision | Reason |
 | --- | --- | --- |
-| 83 | The branch starts from the Task 3 review branch, not from `development` | Task 4 needs the guest token and CSRF code from the review, which is not merged yet. |
+| 83 | The branch started from the Task 3 review branch, then took `development` once the review (#13) and the guest token fix (#15) were merged | Task 4 needs the guest token and CSRF code from the review. Taking `development` keeps this branch's changes to Task 4 only. |
 | 84 | Each request says how it uses the guest token: `'guest'` (a guest's document request), `'claim'` (a sign-in request) or none. This replaces `{ guest: true }` from decision 71, and a signed-in user's document requests send none | Contract, section 5: the token goes only with document and question requests, while not signed in, and once at sign-in to claim. A sign-in request never asks for a new token: there is nothing to claim. |
-| 85 | Who is signed in comes from `GET /me`, loaded once and kept (`useCurrentUser`). Document requests wait for it | Contract, section 11 and Technical Plan, section 7. Waiting means a signed-in user never gets a guest token by mistake. |
+| 85 | Who is signed in comes from `GET /me`, loaded once and kept (`useCurrentUser`). Document requests (the upload and the status check) wait for it | Contract, section 11 and Technical Plan, section 7. Waiting means a signed-in user never gets a guest token by mistake. |
 | 86 | The consent line has no checkbox: signing in, by email or Google, means accepting the terms. The frontend sends no terms version | The Task 4 card: "Consent to terms and privacy is shown at sign-in". The contract's sign-in requests have no terms field (sections 10 and 11). Which terms are current is known by the backend, so it stores `users.terms_version` and `terms_accepted_at` (Database Schema, section 3.1) when it creates the account. A version sent by the browser could also be changed by anyone. |
 | 87 | The page to come back to is saved in the browser (`bayanuk.returnTo`), and only an address inside the site is accepted | Contract, section 11. The email link and Google both come back in a new page load. Accepting only "/..." stops a link from sending the user to another site after sign-in. |
 | 88 | The email link token is sent once, even when React runs the effect twice in development | The link works only once (Database Schema, `login_tokens`). A second request would answer "already used". A test renders the page in `StrictMode` to check it. |
