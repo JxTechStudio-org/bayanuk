@@ -38,6 +38,8 @@ const STORAGE_KEY = 'bayanuk.fakeApi'
 const guestTokens = new Set<string>()
 const documents = new Map<string, FakeDocument>()
 const signInLinks = new Map<string, { email: string; used: boolean }>()
+// The accounts, by email: signing in again with the same email opens the same account and its documents.
+const users = new Map<string, FakeUser>()
 let currentUser: FakeUser | null = null
 
 function load() {
@@ -45,9 +47,11 @@ function load() {
   guestTokens.clear()
   documents.clear()
   signInLinks.clear()
+  users.clear()
   for (const token of saved.guestTokens ?? []) guestTokens.add(token)
   for (const [id, document] of saved.documents ?? []) documents.set(id, document)
   for (const [token, link] of saved.signInLinks ?? []) signInLinks.set(token, link)
+  for (const [email, user] of saved.users ?? []) users.set(email, user)
   currentUser = saved.currentUser ?? null
 }
 
@@ -65,6 +69,7 @@ function save() {
       guestTokens: [...guestTokens],
       documents: [...documents],
       signInLinks: [...signInLinks],
+      users: [...users],
       currentUser,
     }),
   )
@@ -127,10 +132,13 @@ function ownerOf(request: Request) {
 
 // Signs the user in and moves the guest's documents to the account (section 5, the guest claim).
 function signIn(email: string, request: Request) {
-  currentUser = { id: crypto.randomUUID(), name: null, email, locale: 'ar', keep_documents: false }
+  // The first sign-in creates the account; the next ones open it.
+  const user = users.get(email) ?? { id: crypto.randomUUID(), name: null, email, locale: 'ar', keep_documents: false }
+  users.set(email, user)
+  currentUser = user
   const guestToken = guestTokenOf(request)
   for (const document of documents.values()) {
-    if (guestToken && document.owner === guestToken) document.owner = currentUser.id
+    if (guestToken && document.owner === guestToken) document.owner = user.id
   }
   save()
 }

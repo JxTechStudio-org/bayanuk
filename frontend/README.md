@@ -60,7 +60,7 @@ Sign-in in the fake API:
 | Google | Press "Continue with Google": it signs in a test user at once |
 | A failed Google sign-in | Open `/auth/callback?error=google_cancelled` or `?error=google_sign_in_failed` |
 
-The fake data (documents, guest tokens, sign-in links, the signed-in user) is kept in `localStorage` (`bayanuk.fakeApi`), so it survives a page reload and works across tabs: the sign-in link from the console can be opened in a new tab, like a link from an email. To start over, remove `bayanuk.fakeApi` from the browser storage. The real API keeps the session in a cookie and the rest in the database.
+The fake data (documents, guest tokens, sign-in links, accounts, the signed-in user) is kept in `localStorage` (`bayanuk.fakeApi`), so it survives a page reload and works across tabs: the sign-in link from the console can be opened in a new tab, like a link from an email. Signing in again with the same email opens the same account and its documents. To start over, remove `bayanuk.fakeApi` from the browser storage. The real API keeps the session in a cookie and the rest in the database.
 
 To use the real API, set `VITE_API_MOCK=false` in a `.env.development.local` file (not committed). Vite then sends `/api` and `/sanctum` to the backend on `http://localhost:8000` (decision 73). The production build never includes the fake API (decision 76).
 
