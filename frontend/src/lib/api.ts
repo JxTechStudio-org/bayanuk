@@ -4,18 +4,29 @@ import { clearGuestToken, readGuestToken, saveGuestToken } from './guestToken'
 // Integration contract: JSON under /api/v1, one error format { error: { code, message } }.
 const BASE_URL = '/api/v1'
 
-// The HTTP status (0 when the API could not be reached) and the API's translated message.
+// The HTTP status (0 when the API could not be reached), the error code, the API's translated message,
+// and, for validation_error, the messages of each field (integration contract, section 4).
 export class ApiError extends Error {
   readonly status: number
+  readonly code: string
+  readonly details: Record<string, string[]>
 
-  constructor(status: number, message: string) {
+  constructor(status: number, code: string, message: string, details: Record<string, string[]> = {}) {
     super(message)
     this.status = status
+    this.code = code
+    this.details = details
   }
 }
 
+// Integration contract, section 4: the API sends a translated message that is safe to show.
+// The fallback covers a lost connection and an empty message.
+export function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof ApiError && error.message ? error.message : fallback
+}
+
 // The API could not be reached (no connection, for example).
-const networkError = () => new ApiError(0, '')
+const networkError = () => new ApiError(0, '', '')
 
 // Integration contract, section 2: Laravel Sanctum keeps the CSRF token in the XSRF-TOKEN cookie,
 // and the frontend sends it back in the X-XSRF-TOKEN header.
@@ -54,9 +65,11 @@ async function send(path: string, init: RequestInit, token?: string): Promise<Re
 async function readBody<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const body = await response.json().catch(() => null)
-    throw new ApiError(response.status, body?.error?.message ?? '')
+    throw new ApiError(response.status, body?.error?.code ?? '', body?.error?.message ?? '', body?.error?.details)
   }
-  return response.json() as Promise<T>
+  // Some answers have no body, for example 204 after sign-out.
+  const text = await response.text()
+  return (text ? JSON.parse(text) : undefined) as T
 }
 
 async function errorCode(response: Response): Promise<string | null> {
@@ -85,29 +98,41 @@ async function issueGuestToken(): Promise<string> {
   return token
 }
 
-// Integration contract, section 5: the guest token goes only with a guest's document and question requests.
-// Such a request passes { guest: true }, and a token is issued first if there is none.
-// Any other request sends no guest token and never asks for one.
+// The options for a request with a JSON body.
+export function postJson(body: unknown): RequestInit {
+  return { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+}
+
+// Integration contract, section 5: which requests carry the guest token.
+// - 'guest': a document or question request from a guest. A token is issued first if there is none.
+// - 'claim': a sign-in request. The stored token is sent, if any, so the guest documents move to the account.
+// Any other request sends no guest token.
+type GuestTokenUse = 'guest' | 'claim'
+
+function tokenFor(use: GuestTokenUse | undefined): Promise<string | undefined> {
+  if (use === 'guest') return guestToken()
+  return Promise.resolve(use === 'claim' ? (readGuestToken() ?? undefined) : undefined)
+}
+
 export async function request<T>(
   path: string,
   init: RequestInit = {},
-  { guest = false }: { guest?: boolean } = {},
+  { guestToken: use }: { guestToken?: GuestTokenUse } = {},
 ): Promise<T> {
-  const token = () => (guest ? guestToken() : Promise.resolve(undefined))
-
   // Section 2: get the CSRF cookie before the first request that changes data.
   if ((init.method ?? 'GET') !== 'GET' && !readCsrfToken()) await fetchCsrfCookie()
 
-  let response = await send(path, init, await token())
+  let response = await send(path, init, await tokenFor(use))
 
   // Section 2: an expired CSRF token (419) is refreshed, and the request is repeated once.
-  // Section 5: a guest token the backend does not accept is deleted, and the request is repeated once with a new one.
+  // Section 5: a guest token the backend does not accept is deleted, and the request is repeated once:
+  // a guest request with a new token, a sign-in request without one (there is nothing to claim).
   if (response.status === 419) {
     await fetchCsrfCookie()
-    response = await send(path, init, await token())
-  } else if (guest && (await errorCode(response)) === 'invalid_guest_token') {
+    response = await send(path, init, await tokenFor(use))
+  } else if ((await errorCode(response)) === 'invalid_guest_token') {
     clearGuestToken()
-    response = await send(path, init, await token())
+    response = await send(path, init, await tokenFor(use))
   }
 
   return readBody<T>(response)

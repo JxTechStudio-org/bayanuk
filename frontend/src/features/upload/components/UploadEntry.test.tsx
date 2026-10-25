@@ -1,10 +1,14 @@
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, it, vi } from 'vitest'
 import '@/app/i18n'
 import ar from '@/locales/ar.json'
+import { fakeSession, signedInUser } from '@/test/fakeUser'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { UploadEntry } from './UploadEntry'
+
+// GET /me answers that the visitor is a guest.
+const guest = () => Response.json({ error: { code: 'unauthorized', message: '' } }, { status: 401 })
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -24,12 +28,14 @@ it('explains why a file is refused, before sending it', async () => {
 })
 
 it('sends one file at a time', async () => {
-  // The CSRF cookie arrives, but the upload never answers, so the first upload stays in progress.
-  const fetch = vi
-    .spyOn(globalThis, 'fetch')
-    .mockImplementation((input) =>
-      String(input).startsWith('/sanctum') ? Promise.resolve(new Response(null, { status: 204 })) : new Promise(() => {}),
-    )
+  // The visitor is a guest and the CSRF cookie arrives, but the upload never answers,
+  // so the first upload stays in progress.
+  const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+    const url = String(input)
+    if (url === '/api/v1/me') return Promise.resolve(guest())
+    if (url.startsWith('/sanctum')) return Promise.resolve(new Response(null, { status: 204 }))
+    return new Promise(() => {})
+  })
   const uploads = () => fetch.mock.calls.filter(([input]) => input === '/api/v1/documents').length
   const user = userEvent.setup()
   const { container } = renderWithProviders(<UploadEntry />)
@@ -43,7 +49,7 @@ it('sends one file at a time', async () => {
 })
 
 it('explains a file that is too large, before sending it', async () => {
-  const fetch = vi.spyOn(globalThis, 'fetch')
+  const fetch = fakeSession(false)
   const user = userEvent.setup()
   const { container } = renderWithProviders(<UploadEntry />)
 
@@ -52,7 +58,7 @@ it('explains a file that is too large, before sending it', async () => {
   await user.upload(container.querySelector('input[type="file"]')!, big)
 
   expect(screen.getByRole('alert')).toHaveTextContent(ar.upload.errors.size)
-  expect(fetch).not.toHaveBeenCalled()
+  expect(fetch.mock.calls.some(([input]) => input === '/api/v1/documents')).toBe(false)
 })
 
 // Integration contract, section 4: the upload errors, with the message the API sends in the interface language.
@@ -62,11 +68,12 @@ it.each([
   [429, 'upload_limit_reached', 'وصلت إلى الحد اليومي للرفع.'],
   [429, 'ai_budget_reached', 'توقفت التحليلات الجديدة لهذا اليوم.'],
 ])('shows the API message for a %i %s answer', async (status, code, message) => {
-  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) =>
-    String(input).startsWith('/sanctum')
-      ? new Response(null, { status: 204 })
-      : Response.json({ error: { code, message } }, { status }),
-  )
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+    const url = String(input)
+    if (url === '/api/v1/me') return guest()
+    if (url.startsWith('/sanctum')) return new Response(null, { status: 204 })
+    return Response.json({ error: { code, message } }, { status })
+  })
   const user = userEvent.setup()
   const { container } = renderWithProviders(<UploadEntry />)
 
@@ -89,4 +96,30 @@ it('shows our own message when the API cannot be reached', async () => {
   )
 
   expect(await screen.findByRole('alert')).toHaveTextContent(ar.upload.errors.generic)
+})
+
+// Integration contract, section 5: a signed-in user sends no guest token, even when the file is chosen
+// before the app knows who is signed in.
+it('waits to know who is signed in, and sends no guest token for a signed-in user', async () => {
+  let answerMe: (response: Response) => void = () => {}
+  const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+    const url = String(input)
+    if (url === '/api/v1/me') return new Promise((resolve) => (answerMe = resolve))
+    if (url.startsWith('/sanctum')) return Promise.resolve(new Response(null, { status: 204 }))
+    return Promise.resolve(Response.json({ id: '1', status: 'uploaded' }, { status: 202 }))
+  })
+  const user = userEvent.setup()
+  const { container } = renderWithProviders(<UploadEntry />)
+
+  await user.upload(
+    container.querySelector('input[type="file"]')!,
+    new File(['%PDF'], 'offer.pdf', { type: 'application/pdf' }),
+  )
+  const uploads = () => fetch.mock.calls.filter(([input]) => input === '/api/v1/documents')
+  expect(uploads()).toHaveLength(0)
+
+  answerMe(Response.json(signedInUser))
+  await waitFor(() => expect(uploads()).toHaveLength(1))
+  const [, init] = uploads()[0]
+  expect((init?.headers as Record<string, string>)['X-Guest-Token']).toBeUndefined()
 })

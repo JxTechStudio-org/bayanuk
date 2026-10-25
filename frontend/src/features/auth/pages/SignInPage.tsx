@@ -1,0 +1,44 @@
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Navigate, useSearchParams } from 'react-router-dom'
+import { CardLayout } from '@/features/shared/components/CardLayout'
+import { CheckEmail } from '../components/CheckEmail'
+import { GoogleButton } from '../components/GoogleButton'
+import { MagicLinkForm } from '../components/MagicLinkForm'
+import { useCurrentUser } from '../hooks/useCurrentUser'
+import { safePath } from '../utils/returnTo'
+
+// /sign-in?next=/the/page: email magic link or Google (MVP 4.2). After the link is sent,
+// the same page shows "Check your email". A signed-in user goes straight to the next page.
+export function SignInPage() {
+  const { t } = useTranslation()
+  const [params] = useSearchParams()
+  const next = safePath(params.get('next'))
+  const { data: user } = useCurrentUser()
+  const [sentTo, setSentTo] = useState<string | null>(null)
+
+  if (user) return <Navigate to={next} replace />
+
+  return (
+    <CardLayout privacyLine={false}>
+      {sentTo ? (
+        <CheckEmail email={sentTo} onChangeEmail={() => setSentTo(null)} />
+      ) : (
+        <>
+          <h1 className="text-xl font-semibold md:text-2xl">{t('signIn.title')}</h1>
+          <p className="mt-2 text-muted-foreground">{t('signIn.body')}</p>
+          <div className="mt-6">
+            <GoogleButton next={next} />
+          </div>
+          <p className="my-5 flex items-center gap-3 text-sm text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">
+            {t('signIn.or')}
+          </p>
+          <MagicLinkForm next={next} onSent={setSentTo} />
+          {/* Shown before both ways of signing in. Signing in is the acceptance: the backend stores the terms version
+              and the time when it creates the account (Database Schema, users.terms_version and terms_accepted_at). */}
+          <p className="mt-6 text-sm text-muted-foreground">{t('signIn.consent')}</p>
+        </>
+      )}
+    </CardLayout>
+  )
+}

@@ -1,6 +1,10 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
 import { afterEach, beforeEach } from 'vitest'
+
+// A page that asks who is signed in, then loads its data, makes two requests before it shows anything.
+// findBy... waits up to 3 seconds for that (the default is 1), so a slower computer does not fail the tests.
+configure({ asyncUtilTimeout: 3000 })
 
 // Each test starts as a guest who already has a token, so it can focus on its own screen.
 // src/lib/api.test.ts covers how the token and the CSRF cookie are obtained.

@@ -7,18 +7,73 @@ import type { DocumentStatus } from '@/features/analysis/types'
 // and "budget" pauses while analyzing, as when the daily AI budget is reached.
 // Upload errors (section 4): a name with "limit" gets the daily upload limit, and "nobudget"
 // the daily AI budget. A wrong type or a file over 10 MB gets its error too, if sent.
+//
+// Sign-in: there is no email, so the sign-in link is printed in the browser console.
+// An email with "limit" gets the "too many requests" answer. The links /auth/verify?token=expired
+// and /auth/verify?token=used show those two errors. Google signs in at once as a test user.
 const FLOW: DocumentStatus[] = ['uploaded', 'scanning', 'extracting', 'classifying', 'analyzing', 'indexing', 'ready']
 const SECONDS_PER_STEP = 2
 const CSRF_TOKEN = 'mock-csrf-token'
 
+// The user the fake GET /me answers with: the users fields from the Database Schema, section 3.1.
+interface FakeUser {
+  id: string
+  name: string | null
+  email: string
+  locale: 'ar' | 'en'
+  keep_documents: boolean
+}
+
 interface FakeDocument {
-  guestToken: string
+  // The owner: a guest token, or a user once signed in.
+  owner: string
   startedAt: number
   outcome: 'ready' | 'rejected' | 'failed' | 'paused'
 }
 
+// The fake data is kept in localStorage, so it survives a page reload (Google sign-in reloads the page)
+// and is shared by the browser's tabs: a sign-in link opened in a new tab works, as one opened from an email does.
+// The real API keeps the session in a cookie and the rest in the database.
+const STORAGE_KEY = 'bayanuk.fakeApi'
 const guestTokens = new Set<string>()
 const documents = new Map<string, FakeDocument>()
+const signInLinks = new Map<string, { email: string; used: boolean }>()
+// The accounts, by email: signing in again with the same email opens the same account and its documents.
+const users = new Map<string, FakeUser>()
+let currentUser: FakeUser | null = null
+
+function load() {
+  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')
+  guestTokens.clear()
+  documents.clear()
+  signInLinks.clear()
+  users.clear()
+  for (const token of saved.guestTokens ?? []) guestTokens.add(token)
+  for (const [id, document] of saved.documents ?? []) documents.set(id, document)
+  for (const [token, link] of saved.signInLinks ?? []) signInLinks.set(token, link)
+  for (const [email, user] of saved.users ?? []) users.set(email, user)
+  currentUser = saved.currentUser ?? null
+}
+
+load()
+// Each tab runs its own copy of the fake API. When another tab changes the data (for example, signs in
+// from the email link), this tab reads it again, so every tab sees the same session, like the real API.
+window.addEventListener('storage', (event) => {
+  if (event.key === STORAGE_KEY) load()
+})
+
+function save() {
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({
+      guestTokens: [...guestTokens],
+      documents: [...documents],
+      signInLinks: [...signInLinks],
+      users: [...users],
+      currentUser,
+    }),
+  )
+}
 
 // Section 4: every error has a code and a message in the interface language (Accept-Language).
 // The real messages are written by the backend; these stand in for them.
@@ -42,11 +97,21 @@ const MESSAGES: Record<string, { ar: string; en: string }> = {
   document_not_found: { ar: 'لم نجد هذا المستند.', en: 'Document not found.' },
   invalid_guest_token: { ar: 'رقم الزائر غير صحيح.', en: 'The guest token is not valid.' },
   csrf_token_mismatch: { ar: 'انتهت الجلسة. حاول مرة أخرى.', en: 'The session expired. Try again.' },
+  unauthorized: { ar: 'سجّل دخولك للمتابعة.', en: 'Sign in to continue.' },
+  validation_error: { ar: 'تحقق من الحقول المحددة.', en: 'Please check the highlighted fields.' },
+  magic_link_limit_reached: {
+    ar: 'طلبت روابط كثيرة. انتظر قليلًا ثم حاول مرة أخرى.',
+    en: 'You asked for too many links. Wait a little, then try again.',
+  },
+  link_expired: { ar: 'انتهت صلاحية الرابط.', en: 'This link has expired.' },
+  link_used: { ar: 'استُخدم هذا الرابط من قبل.', en: 'This link was already used.' },
+  link_invalid: { ar: 'الرابط غير صحيح.', en: 'This link is not valid.' },
 }
 
-function error(request: Request, status: number, code: string) {
+function error(request: Request, status: number, code: string, details?: Record<string, string[]>) {
   const language = request.headers.get('Accept-Language') === 'en' ? 'en' : 'ar'
-  return HttpResponse.json({ error: { code, message: MESSAGES[code]?.[language] ?? '' } }, { status })
+  const message = MESSAGES[code]?.[language] ?? ''
+  return HttpResponse.json({ error: { code, message, ...(details ? { details } : {}) } }, { status })
 }
 
 // Section 2: a request that changes data needs the CSRF token from the cookie.
@@ -60,6 +125,24 @@ function guestTokenOf(request: Request) {
   return token && guestTokens.has(token) ? token : null
 }
 
+// Who owns the documents of this request: the signed-in user, or the guest.
+function ownerOf(request: Request) {
+  return currentUser?.id ?? guestTokenOf(request)
+}
+
+// Signs the user in and moves the guest's documents to the account (section 5, the guest claim).
+function signIn(email: string, request: Request) {
+  // The first sign-in creates the account; the next ones open it.
+  const user = users.get(email) ?? { id: crypto.randomUUID(), name: null, email, locale: 'ar', keep_documents: false }
+  users.set(email, user)
+  currentUser = user
+  const guestToken = guestTokenOf(request)
+  for (const document of documents.values()) {
+    if (guestToken && document.owner === guestToken) document.owner = user.id
+  }
+  save()
+}
+
 export const handlers = [
   http.get('/sanctum/csrf-cookie', () => {
     return new HttpResponse(null, { status: 204, headers: { 'Set-Cookie': `XSRF-TOKEN=${CSRF_TOKEN}; Path=/` } })
@@ -69,13 +152,63 @@ export const handlers = [
     if (!hasCsrfToken(request)) return error(request, 419, 'csrf_token_mismatch')
     const token = crypto.randomUUID()
     guestTokens.add(token)
+    save()
     return HttpResponse.json({ token }, { status: 201 })
+  }),
+
+  http.get('/api/v1/me', ({ request }) => {
+    return currentUser ? HttpResponse.json(currentUser) : error(request, 401, 'unauthorized')
+  }),
+
+  http.post('/api/v1/auth/magic-link', async ({ request }) => {
+    if (!hasCsrfToken(request)) return error(request, 419, 'csrf_token_mismatch')
+    const { email } = (await request.json()) as { email?: string }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return error(request, 422, 'validation_error', { email: ['Enter a valid email address.'] })
+    }
+    if (email.includes('limit')) return error(request, 429, 'magic_link_limit_reached')
+
+    const token = crypto.randomUUID()
+    signInLinks.set(token, { email: email.toLowerCase(), used: false })
+    save()
+    await delay(600)
+    console.info(`[Fake API] Sign-in link for ${email}: ${location.origin}/auth/verify?token=${token}`)
+    return new HttpResponse(null, { status: 202 })
+  }),
+
+  http.post('/api/v1/auth/magic-link/verify', async ({ request }) => {
+    if (!hasCsrfToken(request)) return error(request, 419, 'csrf_token_mismatch')
+    const { token = '' } = (await request.json()) as { token?: string }
+    await delay(600)
+    if (token === 'expired') return error(request, 410, 'link_expired')
+    const link = signInLinks.get(token)
+    if (token === 'used' || link?.used) return error(request, 410, 'link_used')
+    if (!link) return error(request, 400, 'link_invalid')
+
+    link.used = true
+    signIn(link.email, request)
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  // Google cannot be reached from here: the fake API signs in a test user and returns the frontend page
+  // the real backend would redirect to after Google.
+  http.post('/api/v1/auth/google/redirect', ({ request }) => {
+    if (!hasCsrfToken(request)) return error(request, 419, 'csrf_token_mismatch')
+    signIn('google.user@example.com', request)
+    return HttpResponse.json({ url: '/auth/callback' })
+  }),
+
+  http.post('/api/v1/auth/logout', ({ request }) => {
+    if (!hasCsrfToken(request)) return error(request, 419, 'csrf_token_mismatch')
+    currentUser = null
+    save()
+    return new HttpResponse(null, { status: 204 })
   }),
 
   http.post('/api/v1/documents', async ({ request }) => {
     if (!hasCsrfToken(request)) return error(request, 419, 'csrf_token_mismatch')
-    const guestToken = guestTokenOf(request)
-    if (!guestToken) return error(request, 400, 'invalid_guest_token')
+    const owner = ownerOf(request)
+    if (!owner) return error(request, 400, 'invalid_guest_token')
 
     const form = await request.formData()
     const file = form.get('file')
@@ -87,7 +220,7 @@ export const handlers = [
     // Document IDs are UUIDs (Technical Plan, section 8).
     const id = crypto.randomUUID()
     documents.set(id, {
-      guestToken,
+      owner,
       startedAt: Date.now(),
       outcome: name.includes('reject')
         ? 'rejected'
@@ -97,17 +230,18 @@ export const handlers = [
             ? 'paused'
             : 'ready',
     })
+    save()
     await delay(600)
     return HttpResponse.json({ id, status: 'uploaded' }, { status: 202 })
   }),
 
   http.get('/api/v1/documents/:id/status', ({ params, request }) => {
-    const guestToken = guestTokenOf(request)
-    if (!guestToken) return error(request, 400, 'invalid_guest_token')
+    const owner = ownerOf(request)
+    if (!owner) return error(request, 400, 'invalid_guest_token')
 
-    // Section 4: the same code for a missing document and another guest's document.
+    // Section 4: the same code for a missing document and someone else's document.
     const document = documents.get(String(params.id))
-    if (!document || document.guestToken !== guestToken) return error(request, 404, 'document_not_found')
+    if (!document || document.owner !== owner) return error(request, 404, 'document_not_found')
 
     const step = Math.floor((Date.now() - document.startedAt) / 1000 / SECONDS_PER_STEP)
 

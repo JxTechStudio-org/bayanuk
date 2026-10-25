@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useCurrentUser } from '@/features/auth/hooks/useCurrentUser'
 import { ApiError } from '@/lib/api'
 import { getDocumentStatus } from '../api/getDocumentStatus'
 import { isFinished } from '../utils/stages'
@@ -7,10 +8,13 @@ import { isFinished } from '../utils/stages'
 // or until the API says the document does not exist (404) or was deleted (410).
 // While the daily AI budget pauses the document, it is polled every 60 seconds instead,
 // so a page left open overnight does not send thousands of requests.
+// It waits until it is known whether the visitor is signed in, so a signed-in user never gets a guest token.
 export function useDocumentStatus(id: string) {
+  const { data: user, isPending: checkingUser } = useCurrentUser()
   return useQuery({
     queryKey: ['document-status', id],
-    queryFn: () => getDocumentStatus(id),
+    queryFn: () => getDocumentStatus(id, Boolean(user)),
+    enabled: !checkingUser,
     // When the API cannot be reached, the same check is retried every 2 seconds until it works,
     // so failureCount counts the failed checks in a row. A server error is retried once.
     // A 4xx answer (for example 404 or 410) is final and never retried.
