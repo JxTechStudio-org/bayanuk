@@ -3,11 +3,11 @@ name: bayanuk
 x-php: &php
   image: bayanuk-api:dev
   environment:
-    DB_HOST: ${DB_HOST:-postgres}
-    DB_PORT: ${DB_PORT:-5432}
-    REDIS_HOST: ${REDIS_HOST:-redis}
-    AWS_ENDPOINT: ${AWS_ENDPOINT:-http://rustfs:9000}
-    CLAMAV_HOST: ${CLAMAV_HOST:-clamav}
+    DB_HOST: postgres
+    DB_PORT: "5432"
+    REDIS_HOST: redis
+    AWS_ENDPOINT: http://rustfs:9000
+    CLAMAV_HOST: clamav
   volumes:
     - ./backend:/var/www/html
   restart: unless-stopped
@@ -25,11 +25,27 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "test -f /var/www/html/vendor/autoload.php"]
+      test: ["CMD-SHELL", "SCRIPT_NAME=/ping SCRIPT_FILENAME=/ping REQUEST_METHOD=GET cgi-fcgi -bind -connect 127.0.0.1:9000 | grep -q pong"]
       interval: 5s
       timeout: 3s
       retries: 60
       start_period: 120s
+
+    # Local only (--profile local). On the server the host nginx does this job.
+  nginx:
+    profiles: ["local"]
+    image: nginx:1.27-alpine
+    ports:
+      - "127.0.0.1:${APP_PORT:-8000}:80"
+    volumes:
+      - ./backend:/var/www/html:ro
+    configs:
+      - source: nginx_conf
+        target: /etc/nginx/conf.d/default.conf
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
 
   horizon:
     <<: *php
@@ -59,7 +75,7 @@ services:
       - source: postgres_init
         target: /docker-entrypoint-initdb.d/01-create-test-db.sh
     ports:
-      - "127.0.0.1:${FORWARD_DB_PORT:-5433}:5432"
+      - "127.0.0.1:${FORWARD_DB_PORT:-5466}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -87,7 +103,7 @@ services:
       - rustfs-data:/data
     ports:
       - "127.0.0.1:9000:9000"
-      - "127.0.0.1:9001:9001"
+      - "127.0.0.1:9010:9001"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:9000/health || exit 1"]
       interval: 10s
@@ -122,3 +138,28 @@ configs:
       psql -v ON_ERROR_STOP=1 --username "$$POSTGRES_USER" --dbname postgres <<'SQL'
       SELECT 'CREATE DATABASE bayanuk_test' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'bayanuk_test')\gexec
       SQL
+  
+  nginx_conf:
+    content: |
+      server {
+          listen 80;
+          server_name _;
+          root /var/www/html/public;
+          index index.php;
+          client_max_body_size 12m;
+
+          location / {
+              try_files $$uri $$uri/ /index.php?$$query_string;
+          }
+
+          location ~ \.php$$ {
+              fastcgi_pass api:9000;
+              fastcgi_param SCRIPT_FILENAME $$realpath_root$$fastcgi_script_name;
+              fastcgi_read_timeout 120;
+              include fastcgi_params;
+          }
+
+          location ~ /\.(?!well-known) {
+              deny all;
+          }
+      }
