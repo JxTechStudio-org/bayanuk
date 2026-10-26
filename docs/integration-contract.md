@@ -8,6 +8,8 @@ How the Bayanuk frontend (`frontend/`) and backend (`backend/`) talk to each oth
 
 All points are agreed by Danah and Jumana. The guest token, magic link, Google sign-in and question limit follow the decisions on the Integration Contract card.
 
+Sections 13 and 14 were added later, for the result page and the chat. They are agreed by Danah and Jumana too.
+
 ## Checklist
 
 Where each point of the Integration Contract card is covered.
@@ -335,3 +337,131 @@ On failure, the backend redirects to:
 ## 12. Frontend mock API
 
 In development, the frontend uses a mock API (MSW) until the backend is ready. It follows this document exactly: the same endpoints, values, `status_detail` codes, error shape and error codes. The mock is never part of the production build.
+
+## 13. Result
+
+Built in the Result Dashboard task. The endpoint and the shape are from the Technical Plan v1.3 (sections 7.2 and 7.7).
+
+```
+GET /api/v1/documents/{id}
+→ 200 {
+    "id": "0193...",
+    "status": "ready",
+    "document_type": "employment_contract",
+    "language": "ar",
+    "page_count": 12,
+    "expires_at": "2026-11-20T10:00:00Z",
+    "analysis": {
+      "id": "0193...",
+      "summary": "...",
+      "summary_language": "ar",
+      "terms": [
+        { "key": "compensation.basic_salary", "value": 8000, "unit": "SAR", "found": true, "page": 3, "quote": "..." },
+        { "key": "probation_days", "value": 90, "unit": "days", "found": true, "page": 2, "quote": "..." },
+        { "key": "probation_extension_allowed", "value": "yes", "found": true, "page": 2, "quote": "..." },
+        { "key": "notice.employer_days", "found": false }
+      ],
+      "findings": [
+        { "category": "non_compete", "severity": "attention", "title": "...", "explanation": "...", "page": 9, "quote": "..." }
+      ]
+    }
+  }
+```
+
+- A term that is not found has `"found": false` and no `value`, `unit`, `page` or `quote`. The frontend shows "not found".
+- `unit` is, for example, `SAR`, `days`, `months` or `hours_per_week` (Database Schema, `extracted_terms.unit`).
+- `findings` are sorted high severity first (Database Schema, `findings.sort_order`). `category` and `severity` are codes from section 3, and the frontend translates them. `title` is in the summary language (Database Schema, `findings.title`).
+
+### Term names
+
+The `key` of a term is its path in `analyses.result`, as in the example in the Database Schema (section 6). The fields are from the MVP Definition (section 6). The frontend shows its own translated label for each key.
+
+| Group | Key | Value |
+| --- | --- | --- |
+| Document | `employer_name` | text |
+| Document | `job_title` | text |
+| Contract | `contract.type` | text, for example `fixed_term` |
+| Contract | `contract.start_date` | text, `YYYY-MM-DD` |
+| Contract | `contract.duration_months` | number |
+| Contract | `contract.renewal` | text |
+| Probation | `probation_days` | number |
+| Probation | `probation_extension_allowed` | `yes` or `no` |
+| Notice | `notice.employee_days` | number |
+| Notice | `notice.employer_days` | number |
+| Compensation | `compensation.basic_salary` | number |
+| Compensation | `compensation.housing` | number |
+| Compensation | `compensation.transportation` | number |
+| Compensation | `compensation.other` | text |
+| Compensation | `compensation.total_monthly` | number |
+| Compensation | `compensation.pay_frequency` | text, for example `monthly` |
+| Working time | `working_time.hours_per_week` | number |
+| Working time | `working_time.working_days` | text |
+| Working time | `working_time.overtime` | text |
+| Leave | `annual_leave_days` | number |
+| Leave | `other_leave` | text |
+| Benefits | `benefits.medical_insurance` | `yes` or `no` |
+| Benefits | `benefits.tickets` | `yes` or `no` |
+| Benefits | `benefits.bonus` | `yes` or `no` |
+| Benefits | `benefits.training` | `yes` or `no` |
+| Benefits | `benefits.end_of_service` | `yes` or `no` |
+| Restrictions | `non_compete.exists` | `yes` or `no` |
+| Restrictions | `non_compete.duration_months` | number |
+| Restrictions | `non_compete.scope` | text |
+| Restrictions | `confidentiality` | `yes` or `no` |
+| Restrictions | `exclusivity` | `yes` or `no` |
+| Termination | `termination.conditions` | text |
+| Termination | `termination.penalties` | text |
+| Termination | `termination.training_repayment` | text |
+
+The currency of the amounts is in `unit` (for example `SAR`), not a term of its own.
+
+### Yes or no values
+
+A field whose answer is yes or no has the text value `yes` or `no`, because `extracted_terms` has `value_text` and `value_number` only. The details (for example, medical insurance that covers the family) come from the `quote`.
+
+### Feedback
+
+From the Database Schema (`analysis_feedback`). `rating` is `1` (thumbs up) or `-1` (thumbs down). `field_key` and `comment` are optional.
+
+```
+POST /api/v1/analyses/{id}/feedback
+{ "rating": 1 }
+{ "rating": -1, "field_key": "notice.employer_days", "comment": "..." }
+→ 201
+```
+
+It answers `201` because it creates a new rating, like `POST /guest-token`.
+
+## 14. Chat
+
+Built in the Attention Points, Ask Your Document & Viewer task. The question limit is in section 8.
+
+### History
+
+Each message has the columns of `chat_messages` (Database Schema). A citation is `{ page, quote }`, without `chunk_id`, which the frontend does not need. `answer_found` is `null` on the user's messages.
+
+```
+GET /api/v1/documents/{id}/chat
+→ 200 {
+    "messages": [
+      { "role": "user", "content": "What is my notice period?", "citations": [], "answer_found": null, "created_at": "2026-11-01T09:00:00Z" },
+      { "role": "assistant", "content": "...", "citations": [ { "page": 7, "quote": "..." } ], "answer_found": true, "created_at": "2026-11-01T09:00:04Z" }
+    ],
+    "remaining_questions": 2
+  }
+```
+
+### Ask
+
+```
+POST /api/v1/documents/{id}/chat
+{ "question": "Can I resign during probation?" }
+→ 200 {
+    "answer": "...",
+    "citations": [ { "page": 2, "quote": "..." } ],
+    "answer_found": true,
+    "remaining_questions": 1
+  }
+```
+
+When the answer is not in the document, `answer_found` is `false`, and the frontend shows a clear message (MVP Definition, section 8).
