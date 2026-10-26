@@ -54,7 +54,7 @@ Everything runs with Docker Compose from the repository root: API (PHP-FPM), que
 
 3. **Start all Docker services (PostgreSQL, Redis, RustFS, ClamAV, API, Horizon, Scheduler):**
 ```bash
-     docker compose --env-file backend/.env up -d --build
+     docker compose --env-file backend/.env --profile local up -d --build
 ```
  You can check container statuses with:
 ```bash
@@ -79,10 +79,7 @@ Everything runs with Docker Compose from the repository root: API (PHP-FPM), que
    ```bash
    docker compose --env-file backend/.env exec api php artisan migrate --seed
    ```
-Important: The current Docker Compose configuration runs Laravel
-using PHP-FPM but does not include an HTTP web server such as Nginx or
-Apache. An additional web-server configuration is required to access the
-API over HTTP.
+**Note:** The local environment includes an Nginx container via --profile local which automatically proxies HTTP requests to the PHP-FPM API container.
 
 ## Code Quality & Testing
 

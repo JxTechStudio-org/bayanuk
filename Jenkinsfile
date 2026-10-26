@@ -29,7 +29,7 @@ pipeline {
                 stage('Frontend: ESLint, tsc') {
                     when { expression { fileExists('frontend/package.json') } }
                     steps {
-                        sh 'docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD/frontend":/app -w /app node:22 sh -c "npm ci && npm run lint --if-present && npx tsc --noEmit"'
+                        sh 'docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD/frontend":/app -w /app node:22 sh -c "npm ci && npm run lint --if-present && npx tsc -b"'
                     }
                 }
             }
