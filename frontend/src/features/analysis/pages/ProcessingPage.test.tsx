@@ -6,9 +6,13 @@ import ar from '@/locales/ar.json'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { ProcessingPage } from './ProcessingPage'
 
-// The API answers once with this body and status.
+// The visitor is a guest (GET /me answers 401), and the status check answers with this body and status.
 function apiAnswers(body: unknown, status = 200) {
-  vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json(body, { status }))
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) =>
+    String(input) === '/api/v1/me'
+      ? Response.json({ error: { code: 'unauthorized', message: '' } }, { status: 401 })
+      : Response.json(body, { status }),
+  )
 }
 
 function renderPage() {
@@ -103,8 +107,10 @@ it('says the connection is lost after several failed checks, and keeps trying', 
   const fetch = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('Failed to fetch'))
   renderPage()
 
+  const statusChecks = () => fetch.mock.calls.filter(([input]) => String(input).endsWith('/status')).length
+
   // One failed check is not enough to say the connection is lost.
-  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1))
+  await waitFor(() => expect(statusChecks()).toBe(1))
   expect(screen.queryByText(ar.processing.notices.offline)).not.toBeInTheDocument()
 
   // The third failed check in a row shows the message.
@@ -112,7 +118,7 @@ it('says the connection is lost after several failed checks, and keeps trying', 
   expect(await screen.findByText(ar.processing.notices.offline)).toBeInTheDocument()
 
   // The connection comes back: the message goes away and the stages continue.
-  fetch.mockResolvedValue(Response.json({ id: '123', status: 'extracting', status_detail: null }))
+  fetch.mockImplementation(async () => Response.json({ id: '123', status: 'extracting', status_detail: null }))
   await vi.advanceTimersByTimeAsync(2000)
   await waitFor(() => expect(screen.queryByText(ar.processing.notices.offline)).not.toBeInTheDocument())
   vi.useRealTimers()

@@ -2,7 +2,7 @@
 
 Frontend of Bayanuk (بيانك): a React single-page app in Arabic (right to left) and English (left to right).
 
-This README covers Task 1 (project setup), Task 2 (the landing page), Task 3 (the upload and processing flow) and the frontend part of the root Dockerfile. It explains how to run the project, how it is organised, where every text on the page comes from, and the decisions made where the Technical Plan left a choice open.
+This README covers Task 1 (project setup), Task 2 (the landing page), Task 3 (the upload and processing flow), Task 4 (sign-in and guest mode) and the frontend part of the root Dockerfile. It explains how to run the project, how it is organised, where every text on the page comes from, and the decisions made where the Technical Plan left a choice open.
 
 ## Requirements
 
@@ -35,7 +35,7 @@ The backend is built in parallel, so in development a fake API answers instead (
 VITE_API_MOCK=true
 ```
 
-The browser console shows `[MSW] Mocking enabled.` when it runs. It follows the integration contract (`docs/integration-contract.md` at the root of the repository): it sets the CSRF cookie, issues guest tokens, refuses a request without them (`419`, `400`), and answers another guest's document with `404`. Document IDs are UUIDs, as in the real API. A document moves one status every 2 seconds, and the file name picks the outcome:
+The browser console shows `[MSW] Mocking enabled.` when it runs. It follows the integration contract (`docs/integration-contract.md` at the root of the repository): it sets the CSRF cookie, issues guest tokens, refuses a request without them (`419`, `400`), answers someone else's document with `404`, and signs in. Document IDs are UUIDs, as in the real API. A document moves one status every 2 seconds, and the file name picks the outcome:
 
 | File name | Outcome |
 | --- | --- |
@@ -48,9 +48,19 @@ The browser console shows `[MSW] Mocking enabled.` when it runs. It follows the 
 
 Every error has a code and a message in the interface language, like the real API (contract, section 4). The browser already stops a wrong type or a file over 10 MB, so those two errors show only if such a file is sent another way.
 
-Safari cannot pass a file chosen on the page to the fake API's service worker ("Unable to read form data file"). So, with the fake API on, `uploadDocument.ts` copies the file into memory before sending it. With the real API the file is sent as it is.
+Safari cannot pass a file chosen on the page to the fake API's service worker ("Unable to read form data file"). So, with the fake API on, `uploadDocument.ts` copies the file into memory before sending it. With the real API the file is sent as it is. Even so, Safari is slow to pass a large file to the service worker: a file of a few MB can stay on "Uploading" for about a minute, while a small file, or Chrome, takes under a second. This happens with the fake API only; to test large files with it, use Chrome.
 
-The fake documents and guest tokens live in memory, so refreshing the processing page gets a new guest token and shows "Document not found". The real API keeps them in the database.
+Sign-in in the fake API:
+
+| To try | Do this |
+| --- | --- |
+| The email link | Send a link from `/sign-in`. There is no email, so the link is printed in the browser console |
+| An expired or used link | Open `/auth/verify?token=expired` or `/auth/verify?token=used` |
+| Too many link requests | Use an email that contains `limit` |
+| Google | Press "Continue with Google": it signs in a test user at once |
+| A failed Google sign-in | Open `/auth/callback?error=google_cancelled` or `?error=google_sign_in_failed` |
+
+The fake data (documents, guest tokens, sign-in links, accounts, the signed-in user) is kept in `localStorage` (`bayanuk.fakeApi`), so it survives a page reload and works across tabs: the sign-in link from the console can be opened in a new tab, like a link from an email. Signing in again with the same email opens the same account and its documents. To start over, remove `bayanuk.fakeApi` from the browser storage. The real API keeps the session in a cookie and the rest in the database.
 
 To use the real API, set `VITE_API_MOCK=false` in a `.env.development.local` file (not committed). Vite then sends `/api` and `/sanctum` to the backend on `http://localhost:8000` (decision 73). The production build never includes the fake API (decision 76).
 
@@ -82,7 +92,7 @@ The built site is in `/app/frontend/dist` inside the `frontend-build` stage. The
 frontend/
   index.html               Page shell. Starts as Arabic, right to left. Links the icons.
   components.json          shadcn/ui settings (Radix, RTL, where components go)
-  vite.config.ts           Vite, Tailwind, the "@/" shortcut, the dev proxy, test settings
+  vite.config.ts           Vite, Tailwind, the "@/" shortcut, the dev proxy, the library files, test settings
   public/
     favicon.svg            Browser tab icon (modern browsers)
     favicon-32.png         Browser tab icon (older browsers)
@@ -94,7 +104,7 @@ frontend/
     index.css              Tailwind, the font, the brand colours, shadcn/ui colours
     app/
       App.tsx              Routes: which path shows which page
-      queryClient.ts       TanStack Query settings (retries)
+      queryClient.ts       TanStack Query settings: retries, and a 401 sends the user to sign in
       i18n.ts              Language setup, direction and tab title
     assets/
       brand/               Official logos, Arabic and English
@@ -111,12 +121,37 @@ frontend/
         utils/
           stages.ts        Maps the statuses to the 4 progress stages
         components/
-          AnalysisLayout.tsx     The frame of the pages after upload: header, card, privacy line
           ProcessingStages.tsx   The 4 stages: done, in progress, waiting
           ProcessingNotice.tsx   The line under the stages: in the queue, paused, or offline
         pages/
           ProcessingPage.tsx     /d/:id, shown right after upload
           ResultPage.tsx         /d/:id/result, placeholder until the result task
+      auth/
+        types.ts           The user from GET /me
+        api/               One file per call: /me, the email link, its check, Google, sign-out
+        hooks/
+          useCurrentUser.ts      The signed-in user, or null for a guest
+          useSignInLink.ts       Sends the email link
+          useGoogleSignIn.ts     Goes to Google
+          useFinishSignIn.ts     After any sign-in: forget the guest token, go back to the saved page
+          useSignOut.ts          Ends the session
+        utils/
+          returnTo.ts      The page to come back to after sign-in
+        components/
+          GoogleButton.tsx       "Continue with Google"
+          MagicLinkForm.tsx      The email field that sends the sign-in link
+          CheckEmail.tsx         "Check your email", send again
+          AuthMessage.tsx        Waiting or a problem, on the two return pages
+          AccountMenu.tsx        In the header: "Sign in", or the user menu
+          RequireSignIn.tsx      Wraps a page that needs an account
+          SaveInvite.tsx         Invites a guest to sign in, on the result page
+        pages/
+          SignInPage.tsx         /sign-in
+          VerifyPage.tsx         /auth/verify, opened by the email link
+          CallbackPage.tsx       /auth/callback, after Google
+      documents/
+        pages/
+          MyDocumentsPage.tsx    /documents, needs an account. Placeholder until the documents task
       landing/
         components/        One file per section of the landing page
           Header.tsx
@@ -134,6 +169,7 @@ frontend/
           LanguageSwitcher.tsx   Used by every page
           Logo.tsx               The logo, chosen by language
           AppHeader.tsx          Header for the pages after the landing page
+          CardLayout.tsx         The frame of those pages: header, one card, the privacy line
       upload/
         api/
           uploadDocument.ts      POST /documents
@@ -156,6 +192,7 @@ frontend/
     test/
       setup.ts             Shared test setup
       renderWithProviders.tsx   Renders a component with TanStack Query and the router
+      fakeUser.ts          A guest or a signed-in user, for tests
 ```
 
 Tests sit next to the file they test (for example `FAQ.test.tsx` beside `FAQ.tsx`).
@@ -273,9 +310,9 @@ Every call goes through `lib/api.ts` (contract, sections 2, 4 and 5). It:
 
 - adds the `/api/v1` base path, the interface language (`Accept-Language`) and the cookies;
 - gets the CSRF cookie before the first request that changes data, and sends it back in `X-XSRF-TOKEN`;
-- asks the backend for a guest token the first time (`POST /guest-token`), keeps it, and sends it in `X-Guest-Token`;
-- repeats a request once after `419` (new CSRF cookie) or `invalid_guest_token` (new guest token);
-- turns the error format `{ "error": { "code", "message" } }` into an `ApiError` with the HTTP status and the message, and reads the code where it decides the next step (`invalid_guest_token`).
+- for a guest's document request, asks the backend for a guest token the first time (`POST /guest-token`), keeps it, and sends it in `X-Guest-Token`. A signed-in user's requests, and requests that are not about documents, send no guest token. Sign-in requests send the stored token, if any, to claim the guest's documents;
+- repeats a request once after `419` (new CSRF cookie) or `invalid_guest_token` (a new guest token, or none for a sign-in request);
+- turns the error format `{ "error": { "code", "message" } }` into an `ApiError` with the HTTP status, the code, the message and, for `validation_error`, the messages of each field (`details`).
 
 ### Text sources
 
@@ -291,6 +328,31 @@ Every call goes through `lib/api.ts` (contract, sections 2, 4 and 5). It:
 | File type and size errors | MVP 4.2 |
 | The privacy line under the processing card | The landing page line, MVP 9 |
 | The other end-state titles, the other reasons (`unsafe_file`, `analysis_failed`), the buttons, "Uploading", "Drop the file here" | Interface labels, our choice |
+
+## Sign-in and guest mode
+
+MVP 4.2: "Guest mode: upload and see results without an account; sign in to save, chat longer, or compare", and "Sign-in with email magic link or Google". The API follows the integration contract, sections 5, 10 and 11.
+
+- **Guests use everything without an account.** Nothing asks them to sign in first.
+- **The header** shows "Sign in" to a guest, and a menu to a signed-in user: the email, My documents, Sign out. It is loaded once from `GET /me` (`401` means a guest).
+- **The result page invites a guest to sign in** to keep the analysis, without blocking anything (MVP 5, step 6).
+- **`/sign-in`** offers Google and the email link, and shows the terms consent. After the link is sent, it shows "Check your email" with "Send the link again".
+- **`/auth/verify?token=...`**, opened by the email link, sends the token with `POST` once, with the guest token to claim the guest's documents, then loads the user from `/me`. An expired, used or unknown link shows a clear message and "Get a new link".
+- **`/auth/callback`**, after Google, loads `/me` and finishes the sign-in, or explains why it did not work.
+- **After any sign-in**, the guest token is deleted and the user goes back to the page they were on.
+- **A page that needs an account** (`/documents`) sends a guest to sign in, and back to the page afterwards. Any `401` does the same, for example when the session ends.
+- **The email form** checks the address before sending. A `validation_error` shows the field's own message, and `magic_link_limit_reached` the API's message.
+- **The guest token** goes only with a guest's document requests, and once with a sign-in request. A signed-in user sends none, also when the file is chosen before `/me` has answered.
+
+### Text sources
+
+| Text | From |
+| --- | --- |
+| "Sign in to save your analysis, ask more questions, and compare" | MVP 4.2 |
+| The invitation on the result page, and "deleted automatically after 24 hours" | MVP 5, step 6 and MVP 9 |
+| "The link works for 15 minutes, and only once" | Database Schema, `login_tokens` |
+| The terms consent line | The Task 4 card: "Consent to terms and privacy is shown at sign-in". The wording is our choice |
+| The other titles, messages and buttons | Interface labels, our choice |
 
 ## Decisions
 
@@ -380,7 +442,7 @@ Choices made where the plan did not specify, with the reason for each.
 | 63 | `ResultPage` is a placeholder that says the analysis is ready | Processing has to end somewhere. The result dashboard is a separate task. |
 | 64 | `renderWithProviders` for tests, with an optional starting address | Components now need TanStack Query and the router. One helper avoids repeating that in every test. Pages that read the address (`/d/123`) start there. |
 | 65 | Only a `404` shows "Document not found" (and a `410` "This document was deleted", decision 75), and the checks stop there. Any other error keeps the stages on screen, and the next check tries again | A dropped connection for a few seconds should not tell the visitor their document is gone. Without the stop, a missing document would be asked about every 2 seconds for as long as the page is open. |
-| 66 | `AnalysisLayout` in `features/analysis/components` | The processing and result pages share the same frame. One place to change it, and the pages only hold their own content. |
+| 66 | ~~`AnalysisLayout` in `features/analysis/components`~~ Moved by decision 90 | The processing and result pages share the same frame. One place to change it, and the pages only hold their own content. |
 | 67 | Tests for the processing page cover every state on the card: stages, ready, rejected, failed, not found, and a dropped connection. They replace `fetch` inside the test | These are the states the task asks for. Replacing `fetch` tests the real path through `lib/api.ts`, without the fake API. |
 | 68 | One upload at a time: while a file is uploading, the button is disabled and a dropped file is ignored | Otherwise a second drop during an upload sends a second document. A test covers it. |
 | 69 | ~~`ApiError` keeps the status and the message only~~ Replaced by decision 72 | `lib/api.ts` now reads the code (`invalid_guest_token`). |
@@ -392,7 +454,7 @@ The manager's Task 3 review, and the integration contract (`docs/integration-con
 
 | # | Decision | Reason |
 | --- | --- | --- |
-| 71 | The backend issues the guest token (`POST /guest-token`). The frontend asks for it before the first request, keeps it in the browser, and sends it only in `X-Guest-Token`. Requests that start together share one call | The Integration Contract card (contract, section 5). Sharing the call means two requests at the same moment never get two tokens. If storage is blocked, the token is kept for the visit, as in decision 8. |
+| 71 | The backend issues the guest token (`POST /guest-token`). The frontend asks for it before a guest's first document request, keeps it in the browser, and sends it only in `X-Guest-Token`, only with a guest's document and question requests (`request(..., { guest: true })`). Requests that start together share one call | The Integration Contract card and contract, section 5. Other requests never send a token or ask for one. Sharing the call means two requests at the same moment never get two tokens. If storage is blocked, the token is kept for the visit, as in decision 8. A signed-in user sends no guest token, and sends it once at sign-in to claim the guest's documents: this comes with the sign-in task, which adds who is signed in. |
 | 72 | `ApiError` keeps the HTTP status and the message. The error code is read from the answer only where it decides the next step | The code `invalid_guest_token` gets a new token. The status decides the end states, and the message is shown to the visitor. Nothing else in Task 3 needs the code, so `ApiError` does not keep it. |
 | 73 | The CSRF flow: `GET /sanctum/csrf-cookie` before the first request that changes data, the token in `X-XSRF-TOKEN`, and one repeat after `419`. A Vite proxy sends `/api` and `/sanctum` to `localhost:8000` | Contract, section 2. The proxy puts the frontend and the backend on one address in development, so the Sanctum cookies work, as nginx does in production. |
 | 74 | `status_detail` is a code, and each code has its own text in `processing.reasons`. A code this version does not know shows the title only | Contract, section 6. The backend sends the same code in both languages, and the visitor never sees a raw code. The failed title became "We could not analyze this file", because a failure is not always about reading. |
@@ -405,6 +467,31 @@ The manager's Task 3 review, and the integration contract (`docs/integration-con
 | 81 | Each test starts with a stored guest token. `lib/api.test.ts` tests the token and CSRF flow on its own | The page tests stay about their own screens. The flow is tested once, in one place, with every case: new guest, shared call, CSRF header, `419`, rejected token, error format. |
 | 82 | The fake API answers every error with its code and a message in the interface language, and the upload errors can be tried by file name (`limit`, `nobudget`). Tests cover each upload error on the upload button | The manager's Fix list: "Mocks use the contract's error codes and responses" and "Upload errors: file type, file size, daily limit, AI budget reached". The messages stand in for the backend's own. A real daily count would block the fake API after 2 uploads, so the file name picks the error, like the other outcomes. |
 
+### Task 4
+
+| # | Decision | Reason |
+| --- | --- | --- |
+| 83 | The branch started from the Task 3 review branch, then took `development` once the review (#13) and the guest token fix (#15) were merged | Task 4 needs the guest token and CSRF code from the review. Taking `development` keeps this branch's changes to Task 4 only. |
+| 84 | Each request says how it uses the guest token: `'guest'` (a guest's document request), `'claim'` (a sign-in request) or none. This replaces `{ guest: true }` from decision 71, and a signed-in user's document requests send none | Contract, section 5: the token goes only with document and question requests, while not signed in, and once at sign-in to claim. A sign-in request never asks for a new token: there is nothing to claim. |
+| 85 | Who is signed in comes from `GET /me`, loaded once and kept (`useCurrentUser`). Document requests (the upload and the status check) wait for it | Contract, section 11 and Technical Plan, section 7. Waiting means a signed-in user never gets a guest token by mistake. |
+| 86 | The consent line has no checkbox: signing in, by email or Google, means accepting the terms. The frontend sends no terms version | The Task 4 card: "Consent to terms and privacy is shown at sign-in". The contract's sign-in requests have no terms field (sections 10 and 11). Which terms are current is known by the backend, so it stores `users.terms_version` and `terms_accepted_at` (Database Schema, section 3.1) when it creates the account. A version sent by the browser could also be changed by anyone. |
+| 87 | The page to come back to is saved in the browser (`bayanuk.returnTo`), and only an address inside the site is accepted | Contract, section 11. The email link and Google both come back in a new page load. Accepting only "/..." stops a link from sending the user to another site after sign-in. |
+| 88 | The email link token is sent once, even when React runs the effect twice in development | The link works only once (Database Schema, `login_tokens`). A second request would answer "already used". A test renders the page in `StrictMode` to check it. |
+| 89 | Cancelling Google has its own text; every other Google failure shares one | Cancelling is the user's choice, not an error. The other two codes mean the same to the user: try again. |
+| 90 | `AnalysisLayout` moved to `features/shared/components/CardLayout`, with a `privacyLine` option | The sign-in pages use the same frame. The privacy line talks about "your document", so pages without a document leave it out. |
+| 91 | `errorMessage()` in `lib/api.ts` | The upload, the sign-in form and the email link page all show the API's message with our fallback. One function instead of three copies. |
+| 92 | Google's logo is not shown on its button | Google's logo is a trademark with its own rules. The button text names Google. |
+| 93 | The account menu uses Radix `DropdownMenu` directly, with the page direction | `radix-ui` is already installed with shadcn/ui (see "Libraries"), and it gives keyboard use and screen reader support. On a phone the button shows the icon only, and the email moves inside the menu, so the header stays on one line. |
+| 94 | Sign-out leaves the page first, at once (`flushSync`), then forgets the user | On a page that needs an account, forgetting the user first would open sign-in instead of the home page. |
+| 95 | `/documents` is a placeholder page, protected by `RequireSignIn` | The card asks to protect pages that need an account. The documents list is a separate task, like the result page placeholder (decision 63). |
+| 96 | The fake API keeps its data in `localStorage` | Google sign-in reloads the page, which used to clear the fake session, and a sign-in link is opened in a new tab, as from an email. `sessionStorage` is kept per tab, so a link opened in a new tab was "not valid". When one tab changes the data (for example, signs in), the other tabs read it again, so they all see the same session. It also means a reload no longer shows "Document not found". |
+| 97 | The sign-in files use the names in the Technical Plan v1.3, section 4: `MagicLinkForm`, `GoogleButton`, `VerifyPage`, `CallbackPage` | The plan names them, so the code matches the document. |
+| 98 | `ApiError` keeps the error code again, and the `details` of a `validation_error` | Task 4 needs both (decision 72 left the code out while only Task 3 used it). The email link page picks its message from the code (`link_expired`, `link_used`, `link_invalid`), and the email form shows the field message from `details`. |
+| 99 | A `validation_error` on the email request shows the email's own message under the field, and marks the field as not valid | Contract, sections 4 and 10, and the Task 4 card: "show `magic_link_limit_reached` and `validation_error`". The browser checks the email first, so this shows only when the backend refuses an email the browser accepted. |
+| 100 | Any `401` forgets the signed-in user, so a page that needs an account sends the user to sign in, and back to the same page afterwards | Contract, section 4: "The frontend sends the user to sign in", and the Task 4 card: "401 sends the user to sign in". It is done once, in the query client (`app/queryClient.ts`), so every request is covered, also the ones added by later tasks. |
+| 101 | After the email link is verified, the user is loaded from `GET /me`, as after Google | The Technical Plan (section 7.4) and the contract (section 10) do not set the verify answer's body, only that the backend sets the session cookie. Loading `/me` works with any success answer, and both ways of signing in end the same way. |
+| 102 | The build puts the libraries in their own files: `react` (React and the router) and `vendor` (the others), apart from our code (`index`) | With the account menu, one file passed 500 kB and the build warned. The libraries change rarely, so after an update of the site the browser keeps them from its cache and downloads only our code (about 60 kB). Set in `vite.config.ts`. |
+
 ## Differences from the Technical Plan
 
 | The plan says | This repository has | Note |
@@ -414,7 +501,7 @@ The manager's Task 3 review, and the integration contract (`docs/integration-con
 
 ## Open questions
 
-Points that need an answer before or after launch. Nothing here blocks Task 2.
+Points that need an answer before or after launch.
 
 | # | Question | Where it shows | Now |
 | --- | --- | --- | --- |
@@ -428,7 +515,12 @@ Points that need an answer before or after launch. Nothing here blocks Task 2.
 
 The assumptions listed here in Task 3 are now agreed with the backend in the integration contract (`docs/integration-contract.md`).
 
+Task 4 uses only what the contract (sections 5, 10 and 11) and the Technical Plan v1.3 (sections 7.2 to 7.4) set. From the answers, the frontend reads only `email` from `GET /me` and `url` from `POST /auth/google/redirect` (contract, section 11). The email link, verify and sign-out answers are read only for success or error. After the email link, as after Google, the user is loaded from `GET /me`.
+
+For the manager: the links to the Terms and Privacy pages in the consent line, once the pages exist (open question 4).
+
 ## Next
 
 - Connect to the real API once the backend endpoints are ready: set `VITE_API_MOCK=false` (see "The fake API").
 - Result task: the result dashboard at `/d/{id}/result`.
+- Documents task: the list at `/documents` (contract, section 7).
