@@ -2,7 +2,7 @@
 
 Frontend of Bayanuk (بيانك): a React single-page app in Arabic (right to left) and English (left to right).
 
-This README covers Task 1 (project setup), Task 2 (the landing page), Task 3 (the upload and processing flow), Task 4 (sign-in and guest mode) and the frontend part of the root Dockerfile. It explains how to run the project, how it is organised, where every text on the page comes from, and the decisions made where the Technical Plan left a choice open.
+This README covers Task 1 (project setup), Task 2 (the landing page), Task 3 (the upload and processing flow), Task 4 (sign-in and guest mode) and the frontend Docker image. It explains how to run the project, how it is organised, where every text on the page comes from, and the decisions made where the Technical Plan left a choice open.
 
 ## Requirements
 
@@ -77,14 +77,16 @@ To use the real API, set `VITE_API_MOCK=false` in a `.env.development.local` fil
 
 ## Docker
 
-The frontend build stage is in the root `Dockerfile`, as the `frontend-build` stage. To build and check it from the repository root:
+The frontend has its own image, built from `frontend/Dockerfile` (decision 104). Node builds the site, then nginx serves the built files on port `8080`. From the repository root:
 
 ```bash
-docker build --target frontend-build -t bayanuk-frontend .
-docker run --rm bayanuk-frontend ls dist
+docker build -t bayanuk-web frontend
+docker run --rm -p 8080:8080 bayanuk-web
 ```
 
-The built site is in `/app/frontend/dist` inside the `frontend-build` stage. The final runtime stage copies it from there.
+Then open `http://localhost:8080`. The image has the built site only: no source code, no Node, and no fake API. `nginx.conf` sends every page address to `index.html`, so a link such as `/d/123/result` opens the right page, and `/api` is not part of this image.
+
+For daily work, `npm run dev` is still the way to run the frontend (Technical Plan, section 10).
 
 ## Folder structure
 
@@ -92,6 +94,9 @@ The built site is in `/app/frontend/dist` inside the `frontend-build` stage. The
 frontend/
   index.html               Page shell. Starts as Arabic, right to left. Links the icons.
   components.json          shadcn/ui settings (Radix, RTL, where components go)
+  Dockerfile               The frontend image: build with Node, serve with nginx
+  nginx.conf               nginx settings in the image: page addresses, caching
+  .dockerignore            What the image build never copies (node_modules, dist, local settings)
   vite.config.ts           Vite, Tailwind, the "@/" shortcut, the dev proxy, the library files, test settings
   public/
     favicon.svg            Browser tab icon (modern browsers)
@@ -379,7 +384,7 @@ Choices made where the plan did not specify, with the reason for each.
 | 15 | First tests cover the language files and the direction switch | These are the two things that existed in Task 1, and the plan asks for checks in both RTL and LTR. |
 | 16 | `npm ci` in the Docker build, not `npm install` | `npm ci` installs exactly the versions in `package-lock.json` and stops if the two disagree, so the server builds what was tested locally. The backend stage of the studio's existing Dockerfile uses it too. |
 | 17 | ~~No `VITE_API_BASE_URL` in the Docker build yet~~ | Not needed. Decided in Task 3 by decision 52. |
-| 18 | A root `.dockerignore` that skips `node_modules`, `dist` and `.git` | Without it, the build would copy the macOS `node_modules` into the Linux image and break the build. It also keeps the files sent to Docker small. It sits at the root so it covers the backend too. |
+| 18 | ~~A root `.dockerignore` that skips `node_modules`, `dist` and `.git`~~ Replaced by decision 104 | The frontend image now has its own `frontend/.dockerignore`. |
 
 ### Task 2
 
@@ -491,6 +496,7 @@ The manager's Task 3 review, and the integration contract (`docs/integration-con
 | 100 | Any `401` forgets the signed-in user, so a page that needs an account sends the user to sign in, and back to the same page afterwards | Contract, section 4: "The frontend sends the user to sign in", and the Task 4 card: "401 sends the user to sign in". It is done once, in the query client (`app/queryClient.ts`), so every request is covered, also the ones added by later tasks. |
 | 101 | After the email link is verified, the user is loaded from `GET /me`, as after Google | The Technical Plan (section 7.4) and the contract (section 10) do not set the verify answer's body, only that the backend sets the session cookie. Loading `/me` works with any success answer, and both ways of signing in end the same way. |
 | 102 | The build puts the libraries in their own files: `react` (React and the router) and `vendor` (the others), apart from our code (`index`) | With the account menu, one file passed 500 kB and the build warned. The libraries change rarely, so after an update of the site the browser keeps them from its cache and downloads only our code (about 60 kB). Set in `vite.config.ts`. |
+| 104 | The frontend has its own `Dockerfile` in `frontend/`: Node builds the site, then nginx (`nginx-unprivileged`, port 8080) serves it. The `frontend-build` stage left the root `Dockerfile` | Front end Docker setup card. The backend runs PHP-FPM, which cannot serve files, so the built site in the root image had no use, and the root `.dockerignore` leaves `frontend/` out for the backend image. The Technical Plan (section 2) has the frontend as a static build served by nginx, apart from the API. This is the layout of Docker's own guide for React apps. The nginx image runs as a normal user, not root. |
 
 ## Differences from the Technical Plan
 
