@@ -1,6 +1,6 @@
 import { delay, http, HttpResponse } from 'msw'
 import type { DocumentStatus } from '@/features/analysis/types'
-import { FAKE_SUMMARIES, FAKE_TERMS } from './fakeResult'
+import { FAKE_FINDINGS, FAKE_SUMMARIES, FAKE_TERMS } from './fakeResult'
 
 // A fake API that follows docs/integration-contract.md. Only used in development, when VITE_API_MOCK=true.
 //
@@ -281,6 +281,7 @@ export const handlers = [
               summary: FAKE_SUMMARIES[language],
               summary_language: language,
               terms: FAKE_TERMS,
+              findings: FAKE_FINDINGS[language],
             }
           : null,
     })

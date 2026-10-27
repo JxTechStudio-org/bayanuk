@@ -1,4 +1,4 @@
-import type { Term } from '@/features/analysis/types'
+import type { Finding, Term } from '@/features/analysis/types'
 
 // The result the fake API returns for every ready document: an Arabic employment contract with the
 // example values of the MVP Definition (section 6). Some terms are not found, so the "not found" state shows too.
@@ -54,4 +54,63 @@ export const FAKE_TERMS: Term[] = [
 export const FAKE_SUMMARIES = {
   ar: 'هذا عقد عمل محدد المدة لوظيفة محاسب لمدة سنة، يبدأ في 1 نوفمبر 2026 ويتجدد تلقائيًا. الراتب الشهري الإجمالي 10,000 ريال، وفترة التجربة 90 يومًا قابلة للتمديد. فيه شرط عدم منافسة لمدة 12 شهرًا بعد انتهاء العقد، وشرط رد تكلفة التدريب إذا تركت العمل خلال سنة.',
   en: 'This is a one-year fixed-term employment contract for an accountant, starting on 1 November 2026 and renewing on its own. The total monthly pay is SAR 10,000, and the 90-day probation can be extended. It has a 12-month non-compete after the contract ends, and you repay the training cost if you leave within a year.',
+}
+
+// The attention points of the same contract, by the MVP 7 starting rules: extendable probation, a non-compete,
+// and repaying the training cost. Their title and explanation are in the summary language (Database Schema, findings),
+// and they follow the MVP 7 wording rule: what the clause means and why it may matter, never a verdict.
+export const FAKE_FINDINGS: Record<'ar' | 'en', Finding[]> = {
+  ar: [
+    {
+      category: 'non_compete',
+      severity: 'attention',
+      title: 'شرط عدم منافسة',
+      explanation: 'يمنعك من العمل لدى منافس في نفس القطاع لمدة 12 شهرًا بعد انتهاء العقد. اقرأ نطاقه بعناية قبل التوقيع.',
+      page: 9,
+      quote: 'لا يجوز للطرف الثاني العمل لدى منافس',
+    },
+    {
+      category: 'long_probation',
+      severity: 'attention',
+      title: 'فترة تجربة قابلة للتمديد',
+      explanation: 'فترة التجربة 90 يومًا، ويمكن تمديدها باتفاق الطرفين. اعرف كم قد تصل مدتها.',
+      page: 2,
+      quote: 'يجوز تمديد فترة التجربة باتفاق الطرفين',
+    },
+    {
+      category: 'penalties',
+      severity: 'attention',
+      title: 'رد تكلفة التدريب',
+      explanation: 'إذا تركت العمل خلال سنة من انتهاء التدريب، تلتزم برد تكلفته. اسأل عن مبلغها.',
+      page: 8,
+      quote: 'يلتزم الطرف الثاني برد تكلفة التدريب إذا ترك العمل خلال سنة من انتهائه',
+    },
+  ],
+  en: [
+    {
+      category: 'non_compete',
+      severity: 'attention',
+      title: 'Non-compete clause',
+      explanation:
+        'It stops you from working for a competitor in the same sector for 12 months after the contract ends. Read its scope carefully before you sign.',
+      page: 9,
+      quote: 'لا يجوز للطرف الثاني العمل لدى منافس',
+    },
+    {
+      category: 'long_probation',
+      severity: 'attention',
+      title: 'Probation can be extended',
+      explanation: 'The probation is 90 days, and both sides can agree to extend it. Ask how long it could become.',
+      page: 2,
+      quote: 'يجوز تمديد فترة التجربة باتفاق الطرفين',
+    },
+    {
+      category: 'penalties',
+      severity: 'attention',
+      title: 'Repaying the training cost',
+      explanation: 'If you leave within a year of the training, you repay its cost. Ask how much it is.',
+      page: 8,
+      quote: 'يلتزم الطرف الثاني برد تكلفة التدريب إذا ترك العمل خلال سنة من انتهائه',
+    },
+  ],
 }

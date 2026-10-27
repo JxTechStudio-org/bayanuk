@@ -9,6 +9,7 @@ import { PageMessage } from '@/features/shared/components/PageMessage'
 import { PrivacyLine } from '@/features/shared/components/PrivacyLine'
 import { ApiError } from '@/lib/api'
 import { DeleteDocument } from '../components/DeleteDocument'
+import { FindingsList } from '../components/FindingsList'
 import { ResultFeedback } from '../components/ResultFeedback'
 import { ResultOverview } from '../components/ResultOverview'
 import { Summary } from '../components/Summary'
@@ -71,7 +72,7 @@ export function ResultPage() {
 
   if (!data.analysis) return <Navigate to={`/d/${id}`} replace />
 
-  // MVP 5, step 4: the overview first, then the term cards, then the summary.
+  // MVP 5, step 4: the overview first, then the term cards, the attention points, and the summary.
   return (
     <div className="flex min-h-svh flex-col">
       <AppHeader />
@@ -92,6 +93,9 @@ export function ResultPage() {
           </div>
           <div className="mt-10">
             <TermCards terms={data.analysis.terms} />
+          </div>
+          <div className="mt-10">
+            <FindingsList findings={data.analysis.findings} language={data.analysis.summary_language} />
           </div>
           <div className="mt-10">
             <Summary summary={data.analysis.summary} language={data.analysis.summary_language} />

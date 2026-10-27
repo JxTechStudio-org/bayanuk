@@ -284,6 +284,26 @@
       "notHelpful": "Not helpful",
       "thanks": "Thank you for your feedback.",
       "error": "We could not send your feedback. Try again."
+    },
+    "findings": {
+      "title": "Points that need attention",
+      "none": "We found no points that need attention. Still, read the document carefully before you sign.",
+      "severity": {
+        "high": "High",
+        "attention": "Attention",
+        "info": "Info"
+      },
+      "category": {
+        "non_compete": "Non-compete",
+        "long_notice": "Long notice period",
+        "long_probation": "Long probation",
+        "penalties": "Penalties and deductions",
+        "salary_mismatch": "Salary does not add up",
+        "missing_info": "Missing key information",
+        "one_sided_change": "One-sided change",
+        "working_time": "Unusual working time",
+        "other": "Other"
+      }
     }
   },
   "signIn": {

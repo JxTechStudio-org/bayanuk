@@ -41,8 +41,31 @@ export interface Term {
   quote?: string
 }
 
+// Integration contract, section 3: the severity and category of an attention point.
+export type FindingSeverity = 'info' | 'attention' | 'high'
+export type FindingCategory =
+  | 'non_compete'
+  | 'long_notice'
+  | 'long_probation'
+  | 'penalties'
+  | 'salary_mismatch'
+  | 'missing_info'
+  | 'one_sided_change'
+  | 'working_time'
+  | 'other'
+
+// Integration contract, section 13: one attention point. The title and explanation are written by the backend,
+// in the summary language. Page and quote can be missing (Database Schema, findings).
+export interface Finding {
+  category: FindingCategory
+  severity: FindingSeverity
+  title: string
+  explanation: string
+  page?: number | null
+  quote?: string | null
+}
+
 // Integration contract, section 13: GET /documents/{id}.
-// The attention points (findings) are read by the Attention Points task, so they are not listed here yet.
 export interface DocumentResult {
   id: string
   status: DocumentStatus
@@ -56,5 +79,7 @@ export interface DocumentResult {
     summary: string
     summary_language: 'ar' | 'en'
     terms: Term[]
+    // Sorted high severity first by the backend (Database Schema, findings.sort_order).
+    findings: Finding[]
   } | null
 }
