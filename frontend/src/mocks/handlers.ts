@@ -1,10 +1,12 @@
 import { delay, http, HttpResponse } from 'msw'
 import type { DocumentStatus } from '@/features/analysis/types'
+import { FAKE_SUMMARY, FAKE_TERMS } from './fakeResult'
 
 // A fake API that follows docs/integration-contract.md. Only used in development, when VITE_API_MOCK=true.
 //
 // Pick the outcome by file name: a name with "reject" ends as rejected, "fail" ends as failed,
 // and "budget" pauses while analyzing, as when the daily AI budget is reached.
+// A name with "expired" gets ready, then its result answers 410, as a document deleted after the retention period.
 // Upload errors (section 4): a name with "limit" gets the daily upload limit, and "nobudget"
 // the daily AI budget. A wrong type or a file over 10 MB gets its error too, if sent.
 //
@@ -28,7 +30,7 @@ interface FakeDocument {
   // The owner: a guest token, or a user once signed in.
   owner: string
   startedAt: number
-  outcome: 'ready' | 'rejected' | 'failed' | 'paused'
+  outcome: 'ready' | 'rejected' | 'failed' | 'paused' | 'expired'
 }
 
 // The fake data is kept in localStorage, so it survives a page reload (Google sign-in reloads the page)
@@ -95,6 +97,7 @@ const MESSAGES: Record<string, { ar: string; en: string }> = {
     en: 'New analyses are paused for today. Try again tomorrow.',
   },
   document_not_found: { ar: 'لم نجد هذا المستند.', en: 'Document not found.' },
+  document_expired: { ar: 'حُذف هذا المستند بعد انتهاء مدة حفظه.', en: 'This document was deleted after its retention period.' },
   invalid_guest_token: { ar: 'رقم الزائر غير صحيح.', en: 'The guest token is not valid.' },
   csrf_token_mismatch: { ar: 'انتهت الجلسة. حاول مرة أخرى.', en: 'The session expired. Try again.' },
   unauthorized: { ar: 'سجّل دخولك للمتابعة.', en: 'Sign in to continue.' },
@@ -228,7 +231,9 @@ export const handlers = [
           ? 'failed'
           : name.includes('budget')
             ? 'paused'
-            : 'ready',
+            : name.includes('expired')
+              ? 'expired'
+              : 'ready',
     })
     save()
     await delay(600)
@@ -243,20 +248,48 @@ export const handlers = [
     const document = documents.get(String(params.id))
     if (!document || document.owner !== owner) return error(request, 404, 'document_not_found')
 
-    const step = Math.floor((Date.now() - document.startedAt) / 1000 / SECONDS_PER_STEP)
+    return HttpResponse.json({ id: params.id, ...statusOf(document) })
+  }),
 
-    // Rejected after classifying, failed while extracting (Technical Plan, section 5).
-    // Section 6: status_detail is a code.
-    if (document.outcome === 'rejected' && step >= FLOW.indexOf('classifying')) {
-      return HttpResponse.json({ id: params.id, status: 'rejected', status_detail: 'not_employment_document' })
-    }
-    if (document.outcome === 'failed' && step >= FLOW.indexOf('extracting')) {
-      return HttpResponse.json({ id: params.id, status: 'failed', status_detail: 'file_unreadable' })
-    }
-    if (document.outcome === 'paused' && step >= FLOW.indexOf('analyzing')) {
-      return HttpResponse.json({ id: params.id, status: 'analyzing', status_detail: 'ai_budget_reached' })
-    }
-    const status = FLOW[Math.min(step, FLOW.length - 1)]
-    return HttpResponse.json({ id: params.id, status, status_detail: null })
+  http.get('/api/v1/documents/:id', ({ params, request }) => {
+    const owner = ownerOf(request)
+    if (!owner) return error(request, 400, 'invalid_guest_token')
+
+    const document = documents.get(String(params.id))
+    if (!document || document.owner !== owner) return error(request, 404, 'document_not_found')
+
+    const { status } = statusOf(document)
+    if (document.outcome === 'expired' && status === 'ready') return error(request, 410, 'document_expired')
+
+    // Section 13. Before the document is ready there is no analysis yet.
+    return HttpResponse.json({
+      id: params.id,
+      status,
+      document_type: 'employment_contract',
+      language: 'ar',
+      page_count: 9,
+      expires_at: new Date(document.startedAt + 24 * 60 * 60 * 1000).toISOString(),
+      analysis:
+        status === 'ready'
+          ? { id: `${params.id}-analysis`, summary: FAKE_SUMMARY, summary_language: 'ar', terms: FAKE_TERMS }
+          : null,
+    })
   }),
 ]
+
+// Where a document is in its processing, from the time since upload: one stage every SECONDS_PER_STEP.
+// Rejected after classifying, failed while extracting (Technical Plan, section 5).
+// Section 6: status_detail is a code.
+function statusOf(document: FakeDocument): { status: DocumentStatus; status_detail: string | null } {
+  const step = Math.floor((Date.now() - document.startedAt) / 1000 / SECONDS_PER_STEP)
+  if (document.outcome === 'rejected' && step >= FLOW.indexOf('classifying')) {
+    return { status: 'rejected', status_detail: 'not_employment_document' }
+  }
+  if (document.outcome === 'failed' && step >= FLOW.indexOf('extracting')) {
+    return { status: 'failed', status_detail: 'file_unreadable' }
+  }
+  if (document.outcome === 'paused' && step >= FLOW.indexOf('analyzing')) {
+    return { status: 'analyzing', status_detail: 'ai_budget_reached' }
+  }
+  return { status: FLOW[Math.min(step, FLOW.length - 1)], status_detail: null }
+}
