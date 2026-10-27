@@ -133,8 +133,8 @@
       }
     }
   },
+  "disclaimer": "Bayanuk provides AI-generated information to help you understand your document. It is not legal advice.",
   "footer": {
-    "disclaimer": "Bayanuk provides AI-generated information to help you understand your document. It is not legal advice.",
     "studio": "Bayanuk, by JX Tech Studio"
   },
   "nav": {
@@ -267,7 +267,8 @@
         "penalties": "Penalties and deductions",
         "training_repayment": "Training cost repayment"
       }
-    }
+    },
+    "summaryTitle": "Summary"
   },
   "signIn": {
     "title": "Sign in",

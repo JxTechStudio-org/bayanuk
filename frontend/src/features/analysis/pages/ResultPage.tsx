@@ -1,3 +1,4 @@
+import { Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
@@ -7,6 +8,7 @@ import { CardLayout } from '@/features/shared/components/CardLayout'
 import { PageMessage } from '@/features/shared/components/PageMessage'
 import { ApiError } from '@/lib/api'
 import { ResultOverview } from '../components/ResultOverview'
+import { ResultSummary } from '../components/ResultSummary'
 import { TermCards } from '../components/TermCards'
 import { useDocument } from '../hooks/useDocument'
 
@@ -63,19 +65,27 @@ export function ResultPage() {
 
   if (!data.analysis) return <Navigate to={`/d/${id}`} replace />
 
-  // MVP 5, step 4: the overview first, then the term cards and the summary.
+  // MVP 5, step 4: the overview first, then the term cards, then the summary.
   return (
     <div className="flex min-h-svh flex-col">
       <AppHeader />
       <main className="flex-1 bg-linear-to-b from-muted to-background px-5 py-10 md:py-14">
         <div className="mx-auto w-full max-w-5xl">
           <h1 className="text-2xl font-semibold md:text-3xl">{t('result.title')}</h1>
+          {/* MVP 9: "A visible disclaimer on every result page", in the MVP's words (also in the footer). */}
+          <p role="note" className="mt-3 flex items-start gap-2 text-sm text-muted-foreground">
+            <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-teal-deep" />
+            {t('disclaimer')}
+          </p>
           <SaveInvite />
           <div className="mt-8">
             <ResultOverview documentType={data.document_type} terms={data.analysis.terms} />
           </div>
           <div className="mt-10">
             <TermCards terms={data.analysis.terms} />
+          </div>
+          <div className="mt-10">
+            <ResultSummary summary={data.analysis.summary} language={data.analysis.summary_language} />
           </div>
         </div>
       </main>

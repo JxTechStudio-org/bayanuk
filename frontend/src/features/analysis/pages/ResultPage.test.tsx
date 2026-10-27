@@ -15,7 +15,7 @@ const READY: DocumentResult = {
   language: 'ar',
   page_count: 9,
   expires_at: '2026-11-20T10:00:00Z',
-  analysis: { id: 'a1', summary: '...', summary_language: 'ar', terms: [] },
+  analysis: { id: 'a1', summary: 'عقد عمل لمدة سنة.', summary_language: 'ar', terms: [] },
 }
 
 // The visitor is a guest (GET /me answers 401), and GET /documents/123 answers with these bodies and statuses,
@@ -50,6 +50,14 @@ it('says the analysis is loading, then shows it', async () => {
   renderPage()
   expect(screen.getByRole('status')).toHaveTextContent(ar.result.loading)
   expect(await screen.findByRole('heading', { name: ar.result.title })).toBeInTheDocument()
+})
+
+it('shows the disclaimer and the summary (MVP 9 and MVP 5)', async () => {
+  apiAnswers({ body: READY })
+  renderPage()
+  expect(await screen.findByRole('note')).toHaveTextContent(ar.disclaimer)
+  expect(screen.getByRole('heading', { name: ar.result.summaryTitle })).toBeInTheDocument()
+  expect(screen.getByText('عقد عمل لمدة سنة.')).toHaveAttribute('lang', 'ar')
 })
 
 it('says the document was not found (404)', async () => {
