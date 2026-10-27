@@ -2,7 +2,7 @@
 // the Result Dashboard card adds benefits and restrictions). The keys are from the integration contract, section 13.
 // The contract card also holds the MVP 6 groups that have no card of their own: the document (employer, job title),
 // probation, notice and termination, because they are all terms of the contract.
-export const TERM_GROUPS = [
+const TERM_GROUPS = [
   {
     id: 'compensation',
     keys: [
@@ -49,3 +49,17 @@ export const TERM_GROUPS = [
     keys: ['non_compete.exists', 'non_compete.duration_months', 'non_compete.scope', 'confidentiality', 'exclusivity'],
   },
 ] as const
+
+type TermGroup = (typeof TERM_GROUPS)[number]
+const group = (id: TermGroup['id']) => TERM_GROUPS.find((item) => item.id === id) as TermGroup
+
+// Where the cards sit on a wide screen: two columns, one cell after the other, each cell a stack of cards.
+// The three short cards share the first cell, beside the long contract card, so the two columns end at about
+// the same height. Benefits and restrictions are about the same length and make the next row.
+// On a phone the cells are one column. In both, the order stays the order above.
+export const TERM_LAYOUT: TermGroup[][] = [
+  [group('compensation'), group('workingTime'), group('leave')],
+  [group('contract')],
+  [group('benefits')],
+  [group('restrictions')],
+]
