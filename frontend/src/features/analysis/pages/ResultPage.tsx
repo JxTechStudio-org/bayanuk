@@ -104,12 +104,13 @@ export function ResultPage() {
             <div className="mt-10">
               <Summary summary={data.analysis.summary} language={data.analysis.summary_language} />
             </div>
-            <div className="mt-6">
-              <ResultFeedback analysisId={data.analysis.id} />
-            </div>
             {/* MVP 5, step 5: after the result, the user asks the document. */}
             <div className="mt-10">
               <ChatPanel documentId={id} />
+            </div>
+            {/* The last thing on the page, after the user has read the result and asked (decision 143). */}
+            <div className="mt-6">
+              <ResultFeedback analysisId={data.analysis.id} />
             </div>
             <PrivacyLine className="mt-6" />
           </ViewerLayout>

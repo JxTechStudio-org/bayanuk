@@ -420,10 +420,10 @@ MVP 5, step 4, and the Result Dashboard card. The page `/d/{id}/result` reads `G
 2. **Overview:** document type, contract type, duration, probation, notice period, total monthly pay. Each value shows its page.
 3. **Key-term cards:** compensation, working time, leave, contract, benefits, restrictions. Every value shows its page and the quote from the document. A value that is not found says "Not found in the document" (MVP 6).
 4. **The summary**, written by the backend in the interface language of the upload, whatever the document language (MVP 4.1). Its language is in `summary_language`.
-5. **Was this analysis helpful?** Thumbs up or down (`POST /analyses/{id}/feedback`).
+5. **Was this analysis helpful?** Thumbs up or down (`POST /analyses/{id}/feedback`), at the end of the page, after the chat (decision 143).
 6. **The privacy line** from the landing page, as under the processing card (MVP 9).
 
-The attention points sit between the cards and the summary (MVP 5, step 4), and the chat after the feedback (MVP 5, step 5). See "Attention points, chat and document viewer".
+The attention points sit between the cards and the summary (MVP 5, step 4), and the chat after the summary (MVP 5, step 5). See "Attention points, chat and document viewer".
 
 While loading, the page says so. `404` and `410` show the same messages as the processing page. A lost connection or a server error offers "Try again". A document that is not ready yet goes back to the processing page.
 
@@ -657,7 +657,7 @@ The manager's Task 3 review, and the integration contract (`docs/integration-con
 | 139 | `DocumentViewer` is loaded only when shown (`React.lazy`), and react-pdf is left out of the `vendor` file | PDF.js is about 420 kB. The other pages never download it. |
 | 140 | The tests replace react-pdf and `DocumentViewer` with stand-ins, and `test/setup.ts` gives jsdom a phone-sized `matchMedia` and a `ResizeObserver` | jsdom cannot run PDF.js or measure the screen. |
 | 141 | The fake API serves a fake 9-page PDF (`mocks/fake-contract.pdf`) from a fake storage URL that expires after 5 minutes | The viewer can be tried, also with an expired URL, before the backend is ready. It is never part of the build. |
-| 142 | Arabic texts across the site made consistent: formal Arabic ("يمكنك", not "تقدر"), "جارٍ", and the same words for the same things ("إجابة", "اقتباس") | A review of every text. The English "Paid" became "Pay frequency", and "risk points" became "points that need attention" (MVP 7 wording). |
+| 142 | Arabic texts across the site made consistent: formal Arabic ("يمكنك", not "تقدر"), "جارٍ", and the same words for the same things ("إجابة", "اقتباس") | A review of every text. The English "Paid" became "Pay frequency", and "risk points" became "points that need attention" (MVP 7 wording). || 143 | "Was this analysis helpful?" is the last thing on the page, after the chat | The card asks for the feedback but not its place, and MVP 5 does not list it. At the end, the user has read the result and asked their questions, so the rating covers all of it. |
 
 ## Differences from the Technical Plan
 
