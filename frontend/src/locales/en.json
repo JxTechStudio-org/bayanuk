@@ -208,6 +208,65 @@
       "fixed_term": "Fixed term",
       "indefinite": "Indefinite",
       "monthly": "Monthly"
+    },
+    "termsTitle": "Key terms",
+    "groups": {
+      "compensation": "Compensation",
+      "workingTime": "Working time",
+      "leave": "Leave",
+      "contract": "Contract",
+      "benefits": "Benefits",
+      "restrictions": "Restrictions"
+    },
+    "terms": {
+      "employer_name": "Employer",
+      "job_title": "Job title",
+      "contract": {
+        "type": "Contract type",
+        "start_date": "Start date",
+        "duration_months": "Duration",
+        "renewal": "Renewal"
+      },
+      "probation_days": "Probation",
+      "probation_extension_allowed": "Probation can be extended",
+      "notice": {
+        "employee_days": "Your notice period",
+        "employer_days": "Employer's notice period"
+      },
+      "compensation": {
+        "basic_salary": "Basic salary",
+        "housing": "Housing allowance",
+        "transportation": "Transportation allowance",
+        "other": "Other allowances",
+        "total_monthly": "Total monthly pay",
+        "pay_frequency": "Paid"
+      },
+      "working_time": {
+        "hours_per_week": "Hours per week",
+        "working_days": "Working days",
+        "overtime": "Overtime"
+      },
+      "annual_leave_days": "Annual leave",
+      "other_leave": "Other leave",
+      "benefits": {
+        "medical_insurance": "Medical insurance",
+        "tickets": "Travel tickets",
+        "bonus": "Bonus",
+        "training": "Training",
+        "end_of_service": "End-of-service award"
+      },
+      "non_compete": {
+        "exists": "Non-compete",
+        "duration_months": "Non-compete duration",
+        "scope": "Non-compete scope"
+      },
+      "confidentiality": "Confidentiality",
+      "exclusivity": "Exclusivity",
+      "termination": {
+        "conditions": "Termination conditions",
+        "penalties": "Penalties and deductions",
+        "training_repayment": "Training cost repayment"
+      }
     }
   },
   "signIn": {

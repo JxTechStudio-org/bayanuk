@@ -7,6 +7,7 @@ import { CardLayout } from '@/features/shared/components/CardLayout'
 import { PageMessage } from '@/features/shared/components/PageMessage'
 import { ApiError } from '@/lib/api'
 import { ResultOverview } from '../components/ResultOverview'
+import { TermCards } from '../components/TermCards'
 import { useDocument } from '../hooks/useDocument'
 
 // The result of a document (integration contract, section 13).
@@ -72,6 +73,9 @@ export function ResultPage() {
           <SaveInvite />
           <div className="mt-8">
             <ResultOverview documentType={data.document_type} terms={data.analysis.terms} />
+          </div>
+          <div className="mt-10">
+            <TermCards terms={data.analysis.terms} />
           </div>
         </div>
       </main>

@@ -208,6 +208,65 @@
       "fixed_term": "محدد المدة",
       "indefinite": "غير محدد المدة",
       "monthly": "شهري"
+    },
+    "termsTitle": "البنود الأساسية",
+    "groups": {
+      "compensation": "الراتب والبدلات",
+      "workingTime": "ساعات العمل",
+      "leave": "الإجازات",
+      "contract": "العقد",
+      "benefits": "المزايا",
+      "restrictions": "القيود"
+    },
+    "terms": {
+      "employer_name": "صاحب العمل",
+      "job_title": "المسمى الوظيفي",
+      "contract": {
+        "type": "نوع العقد",
+        "start_date": "تاريخ البداية",
+        "duration_months": "المدة",
+        "renewal": "التجديد"
+      },
+      "probation_days": "فترة التجربة",
+      "probation_extension_allowed": "تمديد فترة التجربة",
+      "notice": {
+        "employee_days": "فترة إشعارك",
+        "employer_days": "فترة إشعار صاحب العمل"
+      },
+      "compensation": {
+        "basic_salary": "الراتب الأساسي",
+        "housing": "بدل السكن",
+        "transportation": "بدل النقل",
+        "other": "بدلات أخرى",
+        "total_monthly": "إجمالي الراتب الشهري",
+        "pay_frequency": "صرف الراتب"
+      },
+      "working_time": {
+        "hours_per_week": "الساعات في الأسبوع",
+        "working_days": "أيام العمل",
+        "overtime": "العمل الإضافي"
+      },
+      "annual_leave_days": "الإجازة السنوية",
+      "other_leave": "إجازات أخرى",
+      "benefits": {
+        "medical_insurance": "التأمين الطبي",
+        "tickets": "تذاكر السفر",
+        "bonus": "المكافآت",
+        "training": "التدريب",
+        "end_of_service": "مكافأة نهاية الخدمة"
+      },
+      "non_compete": {
+        "exists": "عدم المنافسة",
+        "duration_months": "مدة عدم المنافسة",
+        "scope": "نطاق عدم المنافسة"
+      },
+      "confidentiality": "السرية",
+      "exclusivity": "العمل الحصري",
+      "termination": {
+        "conditions": "شروط إنهاء العقد",
+        "penalties": "الجزاءات والخصومات",
+        "training_repayment": "رد تكلفة التدريب"
+      }
     }
   },
   "signIn": {

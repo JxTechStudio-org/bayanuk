@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useFormatTerm } from '../hooks/useFormatTerm'
 import type { DocumentType, Term } from '../types'
+import { TermValue } from './TermValue'
 
 interface Props {
   documentType: DocumentType
@@ -27,9 +28,9 @@ export function ResultOverview({ documentType, terms }: Props) {
         <Item label={t('result.overview.documentType')}>
           <Value>{t(`result.documentTypes.${documentType}`)}</Value>
         </Item>
-        <TermItem label={t('result.overview.contractType')} term={term('contract.type')} format={format} />
-        <TermItem label={t('result.overview.duration')} term={term('contract.duration_months')} format={format} />
-        <TermItem label={t('result.overview.probation')} term={term('probation_days')} format={format} />
+        <TermItem label={t('result.overview.contractType')} term={term('contract.type')} />
+        <TermItem label={t('result.overview.duration')} term={term('contract.duration_months')} />
+        <TermItem label={t('result.overview.probation')} term={term('probation_days')} />
         {/* MVP 6: the notice period of the employee and of the employer, if different. */}
         {employerNotice?.found && employerNotice.value !== employeeNotice?.value ? (
           <Item label={t('result.overview.notice')}>
@@ -41,9 +42,9 @@ export function ResultOverview({ documentType, terms }: Props) {
             <Value>{t('result.overview.noticeEmployer', { value: format(employerNotice) })}</Value>
           </Item>
         ) : (
-          <TermItem label={t('result.overview.notice')} term={employeeNotice} format={format} />
+          <TermItem label={t('result.overview.notice')} term={employeeNotice} />
         )}
-        <TermItem label={t('result.overview.totalMonthly')} term={term('compensation.total_monthly')} format={format} />
+        <TermItem label={t('result.overview.totalMonthly')} term={term('compensation.total_monthly')} />
       </dl>
     </section>
   )
@@ -62,22 +63,14 @@ function Value({ children }: { children: ReactNode }) {
   return <p className="font-semibold">{children}</p>
 }
 
-// MVP 6: a value that is not found says so, never guessed or left empty.
-function TermItem({ label, term, format }: { label: string; term?: Term; format: (term: Term) => string }) {
+function TermItem({ label, term }: { label: string; term?: Term }) {
   const { t } = useTranslation()
   return (
     <Item label={label}>
-      {term?.found ? (
-        <>
-          {/* dir="auto": a value in the other language (an English name on the Arabic page) keeps its direction. */}
-          <p dir="auto" className="font-semibold">
-            {format(term)}
-          </p>
-          {term.page ? <p className="mt-1 text-xs text-muted-foreground">{t('result.page', { page: term.page })}</p> : null}
-        </>
-      ) : (
-        <p className="text-muted-foreground">{t('result.notFound')}</p>
-      )}
+      <TermValue term={term} />
+      {term?.found && term.page ? (
+        <p className="mt-1 text-xs text-muted-foreground">{t('result.page', { page: term.page })}</p>
+      ) : null}
     </Item>
   )
 }
