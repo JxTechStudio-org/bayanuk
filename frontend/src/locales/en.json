@@ -9,7 +9,7 @@
     "errors": {
       "type": "The file must be a PDF or Word (DOCX) file.",
       "size": "The file is larger than 10 MB.",
-      "generic": "The file could not be uploaded. Please try again."
+      "generic": "The file could not be uploaded. Try again."
     }
   },
   "hero": {
@@ -54,7 +54,7 @@
     },
     "contract": {
       "title": "Employment contract",
-      "body": "Usually 5 to 30 pages, with richer clauses and risk points."
+      "body": "Usually 5 to 30 pages, with more clauses and points that need attention."
     },
     "other": {
       "title": "Not supported",
@@ -231,7 +231,7 @@
       "probation_extension_allowed": "Probation can be extended",
       "notice": {
         "employee_days": "Your notice period",
-        "employer_days": "Employer's notice period"
+        "employer_days": "Employer’s notice period"
       },
       "compensation": {
         "basic_salary": "Basic salary",
@@ -239,7 +239,7 @@
         "transportation": "Transportation allowance",
         "other": "Other allowances",
         "total_monthly": "Total monthly pay",
-        "pay_frequency": "Paid"
+        "pay_frequency": "Pay frequency"
       },
       "working_time": {
         "hours_per_week": "Hours per week",
