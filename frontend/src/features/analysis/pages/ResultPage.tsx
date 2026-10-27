@@ -1,4 +1,4 @@
-import { Info } from 'lucide-react'
+import { FileX, Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
@@ -38,8 +38,11 @@ export function ResultPage() {
     return (
       <CardLayout>
         {gone ? (
+          // The same look as on the processing page: a missing document in red, a deleted one calm.
           <PageMessage
             title={t(`processing.${gone}.title`)}
+            tone={gone === 'notFound' ? 'error' : 'calm'}
+            icon={gone === 'expired' ? FileX : undefined}
             action={
               <Button asChild size="lg" className="h-12 px-6 text-base font-semibold">
                 <Link to="/">{t(`processing.${gone}.action`)}</Link>
