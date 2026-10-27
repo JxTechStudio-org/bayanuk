@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { SaveInvite } from '@/features/auth/components/SaveInvite'
+import { ChatPanel } from '@/features/chat/components/ChatPanel'
 import { AppHeader } from '@/features/shared/components/AppHeader'
 import { CardLayout } from '@/features/shared/components/CardLayout'
 import { PageMessage } from '@/features/shared/components/PageMessage'
@@ -102,6 +103,10 @@ export function ResultPage() {
           </div>
           <div className="mt-6">
             <ResultFeedback analysisId={data.analysis.id} />
+          </div>
+          {/* MVP 5, step 5: after the result, the user asks the document. */}
+          <div className="mt-10">
+            <ChatPanel documentId={id} />
           </div>
           <PrivacyLine className="mt-6" />
         </div>

@@ -306,6 +306,33 @@
       }
     }
   },
+  "chat": {
+    "title": "Ask your document",
+    "intro": "Answers come only from your document, with the page and a short quote.",
+    "loading": "Loading the chat...",
+    "thinking": "Looking in your document...",
+    "suggestedLabel": "Suggested questions",
+    "suggested": {
+      "noticePeriod": "What is my notice period?",
+      "resignProbation": "Can I resign during probation?"
+    },
+    "remaining_zero": "No questions left",
+    "remaining_one": "1 question left",
+    "remaining_other": "{{count}} questions left",
+    "noneLeft": "You used all the questions for this document.",
+    "signInForMore": "Sign in to ask more questions",
+    "inputLabel": "Your question",
+    "placeholder": "Ask about your document...",
+    "send": "Send",
+    "you": "You",
+    "bayanuk": "Bayanuk",
+    "notFound": "Not found in your document",
+    "sources": "Sources",
+    "errors": {
+      "generic": "We could not send your question. Try again.",
+      "history": "We could not load the chat."
+    }
+  },
   "signIn": {
     "title": "Sign in",
     "body": "Sign in to save your analysis, ask more questions, and compare.",

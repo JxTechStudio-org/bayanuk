@@ -1,5 +1,7 @@
 import { delay, http, HttpResponse } from 'msw'
 import type { DocumentStatus } from '@/features/analysis/types'
+import type { ChatMessage } from '@/features/chat/types'
+import { fakeAnswer } from './fakeChat'
 import { FAKE_FINDINGS, FAKE_SUMMARIES, FAKE_TERMS } from './fakeResult'
 
 // A fake API that follows docs/integration-contract.md. Only used in development, when VITE_API_MOCK=true.
@@ -9,6 +11,10 @@ import { FAKE_FINDINGS, FAKE_SUMMARIES, FAKE_TERMS } from './fakeResult'
 // A name with "expired" gets ready, then its result answers 410, as a document deleted after the retention period.
 // Upload errors (section 4): a name with "limit" gets the daily upload limit, and "nobudget"
 // the daily AI budget. A wrong type or a file over 10 MB gets its error too, if sent.
+//
+// Chat: a question about the notice period, the probation or the salary gets an answer with its page and quote;
+// any other question gets "not found". A question with "nobudget" gets the daily AI budget error.
+// Guests have 3 questions per document and signed-in users 20 (MVP 8).
 //
 // Sign-in: there is no email, so the sign-in link is printed in the browser console.
 // An email with "limit" gets the "too many requests" answer. The links /auth/verify?token=expired
@@ -42,6 +48,8 @@ const STORAGE_KEY = 'bayanuk.fakeApi'
 const guestTokens = new Set<string>()
 const documents = new Map<string, FakeDocument>()
 const signInLinks = new Map<string, { email: string; used: boolean }>()
+// The chat of each document, by document id (Database Schema: chat_sessions and chat_messages).
+const chats = new Map<string, { messages: ChatMessage[]; questionCount: number }>()
 // The accounts, by email: signing in again with the same email opens the same account and its documents.
 const users = new Map<string, FakeUser>()
 let currentUser: FakeUser | null = null
@@ -51,10 +59,12 @@ function load() {
   guestTokens.clear()
   documents.clear()
   signInLinks.clear()
+  chats.clear()
   users.clear()
   for (const token of saved.guestTokens ?? []) guestTokens.add(token)
   for (const [id, document] of saved.documents ?? []) documents.set(id, document)
   for (const [token, link] of saved.signInLinks ?? []) signInLinks.set(token, link)
+  for (const [id, chat] of saved.chats ?? []) chats.set(id, chat)
   for (const [email, user] of saved.users ?? []) users.set(email, user)
   currentUser = saved.currentUser ?? null
 }
@@ -73,6 +83,7 @@ function save() {
       guestTokens: [...guestTokens],
       documents: [...documents],
       signInLinks: [...signInLinks],
+      chats: [...chats],
       users: [...users],
       currentUser,
     }),
@@ -111,6 +122,10 @@ const MESSAGES: Record<string, { ar: string; en: string }> = {
   link_expired: { ar: 'انتهت صلاحية الرابط.', en: 'This link has expired.' },
   link_used: { ar: 'استُخدم هذا الرابط من قبل.', en: 'This link was already used.' },
   link_invalid: { ar: 'الرابط غير صحيح.', en: 'This link is not valid.' },
+  question_limit_reached: {
+    ar: 'وصلت إلى حد الأسئلة لهذا المستند.',
+    en: 'You reached the question limit for this document.',
+  },
 }
 
 function error(request: Request, status: number, code: string, details?: Record<string, string[]>) {
@@ -303,6 +318,45 @@ export const handlers = [
     return new HttpResponse(null, { status: 201 })
   }),
 
+  // Section 14: the history, and the questions left (section 8).
+  http.get('/api/v1/documents/:id/chat', ({ params, request }) => {
+    const owner = ownerOf(request)
+    if (!owner) return error(request, 400, 'invalid_guest_token')
+    const document = documents.get(String(params.id))
+    if (!document || document.owner !== owner) return error(request, 404, 'document_not_found')
+
+    const chat = chats.get(String(params.id)) ?? { messages: [], questionCount: 0 }
+    return HttpResponse.json({ messages: chat.messages, remaining_questions: questionLimit() - chat.questionCount })
+  }),
+
+  http.post('/api/v1/documents/:id/chat', async ({ params, request }) => {
+    if (!hasCsrfToken(request)) return error(request, 419, 'csrf_token_mismatch')
+    const owner = ownerOf(request)
+    if (!owner) return error(request, 400, 'invalid_guest_token')
+    const id = String(params.id)
+    const document = documents.get(id)
+    if (!document || document.owner !== owner) return error(request, 404, 'document_not_found')
+
+    const { question = '' } = (await request.json()) as { question?: string }
+    if (!question.trim()) return error(request, 422, 'validation_error', { question: ['Write a question.'] })
+    const chat = chats.get(id) ?? { messages: [], questionCount: 0 }
+    if (chat.questionCount >= questionLimit()) return error(request, 429, 'question_limit_reached')
+    // Section 8: refused before any AI call, and the question is not counted.
+    if (question.includes('nobudget')) return error(request, 429, 'ai_budget_reached')
+
+    await delay(800)
+    chat.questionCount += 1
+    const answer = fakeAnswer(question, questionLimit() - chat.questionCount)
+    const now = new Date().toISOString()
+    chat.messages.push(
+      { role: 'user', content: question, citations: [], answer_found: null, created_at: now },
+      { role: 'assistant', content: answer.answer, citations: answer.citations, answer_found: answer.answer_found, created_at: now },
+    )
+    chats.set(id, chat)
+    save()
+    return HttpResponse.json(answer)
+  }),
+
   // Technical Plan, section 7.2: everything is deleted at once.
   http.delete('/api/v1/documents/:id', ({ params, request }) => {
     if (!hasCsrfToken(request)) return error(request, 419, 'csrf_token_mismatch')
@@ -313,10 +367,16 @@ export const handlers = [
     if (!document || document.owner !== owner) return error(request, 404, 'document_not_found')
 
     documents.delete(String(params.id))
+    chats.delete(String(params.id))
     save()
     return new HttpResponse(null, { status: 204 })
   }),
 ]
+
+// MVP 8: 3 questions per document for guests, 20 for signed-in users.
+function questionLimit() {
+  return currentUser ? 20 : 3
+}
 
 // Where a document is in its processing, from the time since upload: one stage every SECONDS_PER_STEP.
 // Rejected after classifying, failed while extracting (Technical Plan, section 5).
