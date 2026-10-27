@@ -52,12 +52,13 @@ it('says the analysis is loading, then shows it', async () => {
   expect(await screen.findByRole('heading', { name: ar.result.title })).toBeInTheDocument()
 })
 
-it('shows the disclaimer and the summary (MVP 9 and MVP 5)', async () => {
+it('shows the disclaimer, the summary and the privacy line (MVP 9 and MVP 5)', async () => {
   apiAnswers({ body: READY })
   renderPage()
   expect(await screen.findByRole('note')).toHaveTextContent(ar.disclaimer)
   expect(screen.getByRole('heading', { name: ar.result.summaryTitle })).toBeInTheDocument()
   expect(screen.getByText('عقد عمل لمدة سنة.')).toHaveAttribute('lang', 'ar')
+  expect(screen.getByText(ar.hero.privacy)).toBeInTheDocument()
 })
 
 it('says the document was not found (404)', async () => {

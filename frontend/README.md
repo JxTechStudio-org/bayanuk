@@ -188,6 +188,7 @@ frontend/
           AppHeader.tsx          Header for the pages after the landing page
           CardLayout.tsx         The frame of those pages: header, one card, the privacy line
           PageMessage.tsx        A page with one message: waiting, or a problem
+          PrivacyLine.tsx        The privacy line from the landing page, on the document pages
       upload/
         api/
           uploadDocument.ts      POST /documents
@@ -382,6 +383,7 @@ MVP 5, step 4, and the Result Dashboard card. The page `/d/{id}/result` reads `G
 3. **Key-term cards:** compensation, working time, leave, contract, benefits, restrictions. Every value shows its page and the quote from the document. A value that is not found says "Not found in the document" (MVP 6).
 4. **The summary**, written by the backend in the interface language of the upload, whatever the document language (MVP 4.1). Its language is in `summary_language`.
 5. **Was this analysis helpful?** Thumbs up or down (`POST /analyses/{id}/feedback`).
+6. **The privacy line** from the landing page, as under the processing card (MVP 9).
 
 The attention points come with the Attention Points, Ask Your Document & Viewer task, between the cards and the summary (MVP 5, step 4).
 
@@ -399,6 +401,7 @@ Values are written by the browser's `Intl`, in the interface language, with Lati
 | "Not found in the document" | MVP 6: a value that is not found is returned as "not found" |
 | What Delete removes: the file, its text, the analysis and the chat | MVP 9 |
 | "Was this analysis helpful?", "Helpful", "Not helpful" | The Result Dashboard card: "helpful / not helpful" |
+| The privacy line at the bottom | The landing page line, MVP 9 |
 | The other titles, messages and buttons | Interface labels, our choice |
 
 ## Decisions
@@ -486,7 +489,7 @@ Choices made where the plan did not specify, with the reason for each.
 | 60 | The processing page shows the file name | The Database Schema says `original_filename` is "shown to the owner only". It helps a visitor who uploads two offers to compare. The name is passed with the page change, so it is not sent anywhere. |
 | 61 | No progress bar and no time estimate on the processing page | The four stages already show the progress. The MVP's "under 60 seconds" is a target for the team, not a promise to visitors (same reason as decision 28). |
 | 62 | `Logo` and `AppHeader` in `features/shared/components` | The processing page needs the logo and the language switch (decision 21) without the landing page links. The landing `Header` now uses the same `Logo`. |
-| 63 | ~~`ResultPage` is a placeholder that says the analysis is ready~~ Replaced by the Result Dashboard (decisions 105 to 123) | Processing has to end somewhere. The result dashboard is a separate task. |
+| 63 | ~~`ResultPage` is a placeholder that says the analysis is ready~~ Replaced by the Result Dashboard (decisions 105 to 124) | Processing has to end somewhere. The result dashboard is a separate task. |
 | 64 | `renderWithProviders` for tests, with an optional starting address | Components now need TanStack Query and the router. One helper avoids repeating that in every test. Pages that read the address (`/d/123`) start there. |
 | 65 | Only a `404` shows "Document not found" (and a `410` "This document was deleted", decision 75), and the checks stop there. Any other error keeps the stages on screen, and the next check tries again | A dropped connection for a few seconds should not tell the visitor their document is gone. Without the stop, a missing document would be asked about every 2 seconds for as long as the page is open. |
 | 66 | ~~`AnalysisLayout` in `features/analysis/components`~~ Moved by decision 90 | The processing and result pages share the same frame. One place to change it, and the pages only hold their own content. |
@@ -561,7 +564,8 @@ The manager's Task 3 review, and the integration contract (`docs/integration-con
 | 120 | A document that is already gone (`404` or `410`) counts as deleted. After deleting, the page goes home and forgets the document's data | What the user asked for is done. The page leaves first, as sign-out (decision 94), so the result is not loaded again. |
 | 121 | The feedback sends the rating only. A guest sends the guest token with it | The card asks for "helpful / not helpful". The rating is on the guest's own analysis, so the backend can check it, as with document requests (contract, section 5). |
 | 122 | On a wide screen the cards sit in two columns: compensation, working time and leave stacked beside the contract card, then benefits beside restrictions. The cards of a row end on one line | In a plain grid, each row took the height of its longest card: the contract card (13 terms) left a large gap beside the leave card (2 terms). The three short cards together are about as long as the contract card. The order stays the order of MVP 5, also for screen readers and on a phone. |
-| 123 | The summary component is `Summary`, as the Technical Plan names it (section 4) | As decision 97: the code matches the plan's names. `TermCards` is named in the plan too. |
+| 123 | The summary component is `Summary`, as the Technical Plan names it (section 4). The page stays `ResultPage` | As decision 97: the code matches the plan's names. `TermCards` is named in the plan too. The plan's `ResultDashboard` is the page: it keeps the name from Task 3, as `ProcessingPage` (the plan's `ProcessingScreen`), because every file in `pages/` ends in `Page`. |
+| 124 | The privacy line is its own component (`PrivacyLine`), used by `CardLayout` and the result page | The result page has its own wide frame, not `CardLayout`, and it is a page about the uploaded document, so it keeps the line the processing page shows (decision 90). One component instead of two copies. |
 
 ## Differences from the Technical Plan
 

@@ -6,6 +6,7 @@ import { SaveInvite } from '@/features/auth/components/SaveInvite'
 import { AppHeader } from '@/features/shared/components/AppHeader'
 import { CardLayout } from '@/features/shared/components/CardLayout'
 import { PageMessage } from '@/features/shared/components/PageMessage'
+import { PrivacyLine } from '@/features/shared/components/PrivacyLine'
 import { ApiError } from '@/lib/api'
 import { DeleteDocument } from '../components/DeleteDocument'
 import { ResultFeedback } from '../components/ResultFeedback'
@@ -95,6 +96,7 @@ export function ResultPage() {
           <div className="mt-6">
             <ResultFeedback analysisId={data.analysis.id} />
           </div>
+          <PrivacyLine className="mt-6" />
         </div>
       </main>
     </div>
