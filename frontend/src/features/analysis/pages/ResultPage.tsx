@@ -7,6 +7,7 @@ import { AppHeader } from '@/features/shared/components/AppHeader'
 import { CardLayout } from '@/features/shared/components/CardLayout'
 import { PageMessage } from '@/features/shared/components/PageMessage'
 import { ApiError } from '@/lib/api'
+import { DeleteDocument } from '../components/DeleteDocument'
 import { ResultOverview } from '../components/ResultOverview'
 import { ResultSummary } from '../components/ResultSummary'
 import { TermCards } from '../components/TermCards'
@@ -71,7 +72,10 @@ export function ResultPage() {
       <AppHeader />
       <main className="flex-1 bg-linear-to-b from-muted to-background px-5 py-10 md:py-14">
         <div className="mx-auto w-full max-w-5xl">
-          <h1 className="text-2xl font-semibold md:text-3xl">{t('result.title')}</h1>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h1 className="text-2xl font-semibold md:text-3xl">{t('result.title')}</h1>
+            <DeleteDocument id={id} />
+          </div>
           {/* MVP 9: "A visible disclaimer on every result page", in the MVP's words (also in the footer). */}
           <p role="note" className="mt-3 flex items-start gap-2 text-sm text-muted-foreground">
             <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-teal-deep" />

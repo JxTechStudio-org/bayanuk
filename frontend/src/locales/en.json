@@ -268,7 +268,16 @@
         "training_repayment": "Training cost repayment"
       }
     },
-    "summaryTitle": "Summary"
+    "summaryTitle": "Summary",
+    "delete": {
+      "button": "Delete document",
+      "title": "Delete this document?",
+      "body": "The file, its text, the analysis and the chat are deleted now. This cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "deleting": "Deleting...",
+      "error": "We could not delete the document. Try again."
+    }
   },
   "signIn": {
     "title": "Sign in",

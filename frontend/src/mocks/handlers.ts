@@ -275,6 +275,20 @@ export const handlers = [
           : null,
     })
   }),
+
+  // Technical Plan, section 7.2: everything is deleted at once.
+  http.delete('/api/v1/documents/:id', ({ params, request }) => {
+    if (!hasCsrfToken(request)) return error(request, 419, 'csrf_token_mismatch')
+    const owner = ownerOf(request)
+    if (!owner) return error(request, 400, 'invalid_guest_token')
+
+    const document = documents.get(String(params.id))
+    if (!document || document.owner !== owner) return error(request, 404, 'document_not_found')
+
+    documents.delete(String(params.id))
+    save()
+    return new HttpResponse(null, { status: 204 })
+  }),
 ]
 
 // Where a document is in its processing, from the time since upload: one stage every SECONDS_PER_STEP.
