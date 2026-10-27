@@ -4,7 +4,7 @@ Frontend of Bayanuk (بيانك): a React single-page app in Arabic (right to le
 
 This README covers Task 1 (project setup), Task 2 (the landing page), Task 3 (the upload and processing flow), Task 4 (sign-in and guest mode) and the frontend Docker image. It explains how to run the project, how it is organised, where every text on the page comes from, and the decisions made where the Technical Plan left a choice open.
 
-The result page, from the Result Dashboard task, is described in "Result".
+The result page, from the Result Dashboard task, is described in "Result". The attention points, the chat and the document viewer, from the Attention Points, Ask Your Document & Viewer task, are in "Attention points, chat and document viewer".
 
 ## Requirements
 
@@ -49,7 +49,11 @@ The browser console shows `[MSW] Mocking enabled.` when it runs. It follows the 
 | Contains `nobudget` (for example `nobudget-offer.pdf`) | Upload refused: `429 ai_budget_reached` |
 | Contains `expired` (for example `expired-offer.pdf`) | Ready, then the result answers `410 document_expired`, as a document deleted after the retention period |
 
-A ready document's result (`GET /documents/{id}`) is always the same Arabic employment contract, with the example values of MVP 6 (`mocks/fakeResult.ts`), whatever file was uploaded. Its summary is in the interface language at the time of the upload, as MVP 4.1 asks of the real API. Some terms are not found, so the "not found" state shows too. Delete and the feedback buttons work too.
+A ready document's result (`GET /documents/{id}`) is always the same Arabic employment contract, with the example values of MVP 6 (`mocks/fakeResult.ts`), whatever file was uploaded. Its summary is in the interface language at the time of the upload, as MVP 4.1 asks of the real API. Some terms are not found, so the "not found" state shows too. Delete and the feedback buttons work too. It has three attention points (`mocks/fakeResult.ts`).
+
+The document viewer shows a fake 9-page contract (`mocks/fake-contract.pdf`, made for development), with each quote on its page. The signed URL expires after 5 minutes, as the real one. A `.docx` file gets a file that is not a PDF, so the viewer says it cannot show it.
+
+The chat (`mocks/fakeChat.ts`) answers a question about the notice period, the probation or the salary with its page and quote, and any other question with "not found". The answer is in the question's language. Guests have 3 questions per document and signed-in users 20. A question with `nobudget` gets the daily AI budget error.
 
 Every error has a code and a message in the interface language, like the real API (contract, section 4). The browser already stops a wrong type or a file over 10 MB, so those two errors show only if such a file is sent another way.
 
@@ -143,6 +147,7 @@ frontend/
           ResultOverview.tsx     The overview at the top of the result
           TermCards.tsx          The key-term cards, with page and quote
           TermValue.tsx          A value, or "not found"
+          FindingsList.tsx       The attention points
           Summary.tsx            The plain-language summary
           ResultFeedback.tsx     "Was this analysis helpful?"
           DeleteDocument.tsx     The Delete document button and its confirmation
@@ -171,6 +176,18 @@ frontend/
           SignInPage.tsx         /sign-in
           VerifyPage.tsx         /auth/verify, opened by the email link
           CallbackPage.tsx       /auth/callback, after Google
+      chat/
+        types.ts           The messages, citations and answers of the chat
+        api/
+          getChat.ts             GET /documents/{id}/chat: the history and the questions left
+          askQuestion.ts         POST /documents/{id}/chat
+        hooks/
+          useChat.ts             Reads the history
+          useAskQuestion.ts      Sends a question, and adds the answer to the history
+        components/
+          ChatPanel.tsx          "Ask your document"
+          SuggestedQuestions.tsx The MVP's two example questions
+          CitationChip.tsx       The page and quote of an answer
       documents/
         pages/
           MyDocumentsPage.tsx    /documents, needs an account. Placeholder until the documents task
@@ -194,6 +211,20 @@ frontend/
           CardLayout.tsx         The frame of those pages: header, one card, the privacy line
           PageMessage.tsx        A page with one message: waiting, or a problem
           PrivacyLine.tsx        The privacy line from the landing page, on the document pages
+        hooks/
+          useMediaQuery.ts       Whether the screen is wide (the viewer beside the result) or not
+      viewer/
+        types.ts           The signed URL of the file
+        viewerContext.ts   The page the viewer shows, for every page reference
+        api/
+          getDocumentFile.ts     GET /documents/{id}/file
+        hooks/
+          useDocumentFile.ts     The signed URL, asked again before it expires
+          useViewer.ts           Opens the viewer on a page
+        components/
+          ViewerLayout.tsx       The document beside the result, or over it on a phone
+          DocumentViewer.tsx     The original PDF, one page at a time (react-pdf). Loaded only when shown
+          PageRef.tsx            "Page 3": opens the viewer on that page
       upload/
         api/
           uploadDocument.ts      POST /documents
@@ -209,7 +240,9 @@ frontend/
       utils.ts             The `cn` helper, created by the shadcn CLI (see decision 48)
     mocks/
       handlers.ts          The fake API (development only)
-      fakeResult.ts        The result the fake API returns
+      fakeResult.ts        The result the fake API returns, with its attention points
+      fakeChat.ts          The answers of the fake chat
+      fake-contract.pdf    The fake contract the viewer shows (development only)
       browser.ts           Starts it in the browser
     locales/
       ar.json              Arabic text
@@ -246,7 +279,7 @@ Every frontend library named in the Technical Plan (section 3), and its status.
 | Vitest + Testing Library | Tests | Installed |
 | shadcn/ui (Radix) | Shared components | Installed in Task 2, with right-to-left support. Components in use: `button`, `accordion` |
 | TanStack Query | Calls to the API | Installed in Task 3. Used for the upload and the status checks |
-| react-pdf | Document viewer | Added with the viewer task |
+| react-pdf | Document viewer | Installed with the viewer task, version 10.5 (decision 134). Loaded only when the viewer is shown |
 
 Libraries that came with shadcn/ui: `radix-ui` (the components underneath), `class-variance-authority` (component variants), `cn` (merges class names), `tw-animate-css` (open and close animations), `shadcn` (the CLI that adds components, and its base CSS) and `lucide-react` (icons).
 
@@ -390,7 +423,7 @@ MVP 5, step 4, and the Result Dashboard card. The page `/d/{id}/result` reads `G
 5. **Was this analysis helpful?** Thumbs up or down (`POST /analyses/{id}/feedback`).
 6. **The privacy line** from the landing page, as under the processing card (MVP 9).
 
-The attention points come with the Attention Points, Ask Your Document & Viewer task, between the cards and the summary (MVP 5, step 4).
+The attention points sit between the cards and the summary (MVP 5, step 4), and the chat after the feedback (MVP 5, step 5). See "Attention points, chat and document viewer".
 
 While loading, the page says so. `404` and `410` show the same messages as the processing page. A lost connection or a server error offers "Try again". A document that is not ready yet goes back to the processing page.
 
@@ -407,6 +440,36 @@ Values are written by the browser's `Intl`, in the interface language, with Lati
 | What Delete removes: the file, its text, the analysis and the chat | MVP 9 |
 | "Was this analysis helpful?", "Helpful", "Not helpful" | The Result Dashboard card: "helpful / not helpful" |
 | The privacy line at the bottom | The landing page line, MVP 9 |
+| The other titles, messages and buttons | Interface labels, our choice |
+
+## Attention points, chat and document viewer
+
+MVP 7 and 8, and the Attention Points, Ask Your Document & Viewer card.
+
+**Attention points** (contract, section 13: `findings`). Each one shows its severity as a word and an icon, not only a colour (High, Attention, Info), its category, the title and "why it matters" from the backend, the quote and the page. They are shown in the backend's order, high first. With none, the page says so and still advises reading the document. A test checks that no text on the site calls a clause "illegal" or "unfair" (MVP 7, wording rule).
+
+**Chat** (contract, sections 8 and 14). The MVP's two example questions are chips. Each answer shows its citations (page and quote), and an answer that is not in the document says so clearly. The questions left come from `remaining_questions`; the frontend never counts them. With none left (`0`, or `question_limit_reached`), the box closes, and a guest is invited to sign in for more (MVP 4.2). `ai_budget_reached` shows its message in the chat, and the question stays in the box. A question is never sent again on its own.
+
+**Document viewer** (contract, section 9). The original PDF, one page at a time. Every page reference (overview, term cards, attention points, citations) is a button that opens the viewer on that page.
+
+| Screen | Viewer |
+| --- | --- |
+| Wide (`lg`, 1024 px and up) | Beside the result, and stays in place while the result scrolls |
+| Phone and tablet | Hidden. A page reference opens it over the whole screen; "Close" goes back to the same button. The chat stays under the result |
+
+The signed URL is asked again 30 seconds before it expires. If loading fails, a new URL is asked once, with no error shown. A Word file cannot be shown (react-pdf shows PDF only): the viewer says so and offers to open the file.
+
+### Text sources
+
+| Text | From |
+| --- | --- |
+| The attention categories | MVP 7, the category names |
+| The severity words "High", "Attention", "Info" | MVP 7, the severity column |
+| "Ask your document" and the two suggested questions | MVP 5, step 5, and MVP 8 |
+| "Answers come only from your document, with the page and a short quote" | MVP 8 |
+| "Not found in your document" | MVP 8: "the reply says so clearly instead of guessing" |
+| "Sign in to ask more questions" | MVP 4.2: sign in to "chat longer" |
+| "The preview is available for PDF files only" | Our wording, for decision 133 |
 | The other titles, messages and buttons | Interface labels, our choice |
 
 ## Decisions
@@ -472,7 +535,7 @@ Choices made where the plan did not specify, with the reason for each.
 | # | Decision | Reason |
 | --- | --- | --- |
 | 45 | `shadcn`, `tailwindcss` and `@tailwindcss/vite` moved to `devDependencies` | The manager's review. They are tools used while building, like Vite: none of their JavaScript runs in the browser. `shadcn` is the CLI that adds components; the site only uses its base CSS (`shadcn/tailwind.css`), which Tailwind reads at build time. The Docker build runs `npm ci`, which installs `devDependencies` too, so the build is unchanged. |
-| 46 | `npm audit` warnings are known and left as they are | `npm audit --omit=dev` (the site's own libraries) finds 0 vulnerabilities. `npm audit` shows 7 high warnings, all in `braces`, which comes with the `shadcn` CLI (`shadcn` → `fast-glob` → `micromatch` → `braces`). It only runs when adding components on a developer's machine, and is not in the built site. Do not run `npm audit fix --force`: it "fixes" this by downgrading `shadcn` to version 1.0.0. To check again after updating `shadcn`. |
+| 46 | `npm audit` warnings are known and left as they are | `npm audit --omit=dev` (the site's own libraries) finds 0 vulnerabilities. `npm audit` shows warnings only in tools used while building, mostly brought by the `shadcn` CLI (in Task 1 `braces`; in October 2026 `undici`, `body-parser`, `qs`, `fast-uri` and `zod`). They run on a developer's machine, and are not in the built site. Do not run `npm audit fix --force`: it can downgrade `shadcn` to version 1.0.0. To check again after updating `shadcn`. |
 | 47 | Unused shadcn/ui theme settings removed: dark mode (`.dark` and the `dark` variant), `sidebar-*`, `chart-*`, `card-*`, `popover-*`, `accent-*`, `input`, `font-heading`, and the `sm`, `3xl` and `4xl` radius sizes | The manager's review. Each name was checked against the built CSS: none of these is used by the page or by the two components (`button`, `accordion`). The `dark:` classes in `button.tsx` were removed too: without the `.dark` setting, Tailwind would apply them whenever the phone or computer is in dark mode, and the outline button would change colour. `secondary` and `destructive` stay because `button.tsx` uses them in its variants. When a new shadcn/ui component needs a removed name, it is added back with a brand value. |
 | 48 | `src/lib/utils.ts` stays | The shadcn CLI created it, and `components.json` points the CLI to it (`"utils": "@/lib/utils"`). Removing it could break `npx shadcn add` for the next component. Since Task 3, our own components import `cn` from it too. |
 
@@ -573,6 +636,29 @@ The manager's Task 3 review, and the integration contract (`docs/integration-con
 | 123 | The summary component is `Summary`, as the Technical Plan names it (section 4). The page stays `ResultPage` | As decision 97: the code matches the plan's names. `TermCards` is named in the plan too. The plan's `ResultDashboard` is the page: it keeps the name from Task 3, as `ProcessingPage` (the plan's `ProcessingScreen`), because every file in `pages/` ends in `Page`. |
 | 124 | The privacy line is its own component (`PrivacyLine`), used by `CardLayout` and the result page | The result page has its own wide frame, not `CardLayout`, and it is a page about the uploaded document, so it keeps the line the processing page shows (decision 90). One component instead of two copies. |
 
+### Attention Points, Ask Your Document & Viewer
+
+| # | Decision | Reason |
+| --- | --- | --- |
+| 125 | The branch started from the Result Dashboard branch | This card adds to the result page, which was still in review. |
+| 126 | Severity is a word and an icon, with a colour: High (red), Attention (amber, as decision 40), Info (brand teal) | The card: "Severity is clear without relying on color alone". |
+| 127 | A finding category this version does not know shows "Other" | Section 3 lists the categories; a new one should not show a raw code. |
+| 128 | A test reads every Arabic and English text for "illegal", "unfair" and their Arabic words | The card and MVP 7: "never 'illegal' or 'unfair'". The texts from the backend follow the same rule on its side. |
+| 129 | The chat is in `features/chat`, with the plan's names: `ChatPanel`, `SuggestedQuestions`, `CitationChip` | Technical Plan, section 4. |
+| 130 | The suggested questions are the MVP's two examples, kept in the frontend in both languages | The contract has no suggested questions from the backend. |
+| 131 | The answer is added to the history on screen from the `POST` answer, without reading the history again. A failed question is not repeated on its own | Each question may use one of the questions left, so the frontend never sends one twice. |
+| 132 | The questions left use Arabic plural forms (zero, one, two, few, many, other). The language test groups plural keys, and checks every Arabic number text has all six | "بقي لك سؤالان", "3 أسئلة", "11 سؤالًا": i18next picks the form from the number, as `Intl` does. |
+| 133 | A Word file shows "The preview is available for PDF files only" and "Open the file" | The plan's react-pdf shows PDF only. Converting Word to PDF would be the backend's (see "For the backend"); if it does, the viewer shows those files with no change. |
+| 134 | react-pdf 10.5, not 11 | react-pdf 11 comes with PDF.js 6, which uses `Map.getOrInsertComputed`, a very new JavaScript feature: the page broke in the Chromium we test with, and not every browser in use has it yet. 10.5 (PDF.js 5) works there. To check again with react-pdf 11 later. |
+| 135 | The viewer reads the whole file once (`disableRange`, `disableStream`) | The URL expires after 5 minutes (section 9); a file read in parts would fail after that. Files are 10 MB at most (MVP 4.2). |
+| 136 | The signed URL counts as fresh until 30 seconds before `expires_at`. A failed load asks for a new URL once; a second failure shows "We could not open the document" with "Try again" | Section 9: "the viewer asks for a new one and reloads the file. The user sees no error." |
+| 137 | The viewer shows one page at a time, as wide as its box, with previous and next. Text and links in the PDF are not selectable | One page loads fast, also on a phone. The quotes are already text on the result. |
+| 138 | Beside the result on wide screens; over the whole screen on phones, opened by a page reference, with "Close" back to it | The card: "decide how the viewer and chat behave on small screens". Half a phone screen is too small to read a page. |
+| 139 | `DocumentViewer` is loaded only when shown (`React.lazy`), and react-pdf is left out of the `vendor` file | PDF.js is about 420 kB. The other pages never download it. |
+| 140 | The tests replace react-pdf and `DocumentViewer` with stand-ins, and `test/setup.ts` gives jsdom a phone-sized `matchMedia` and a `ResizeObserver` | jsdom cannot run PDF.js or measure the screen. |
+| 141 | The fake API serves a fake 9-page PDF (`mocks/fake-contract.pdf`) from a fake storage URL that expires after 5 minutes | The viewer can be tried, also with an expired URL, before the backend is ready. It is never part of the build. |
+| 142 | Arabic texts across the site made consistent: formal Arabic ("يمكنك", not "تقدر"), "جارٍ", and the same words for the same things ("إجابة", "اقتباس") | A review of every text. The English "Paid" became "Pay frequency", and "risk points" became "points that need attention" (MVP 7 wording). |
+
 ## Differences from the Technical Plan
 
 | The plan says | This repository has | Note |
@@ -600,10 +686,15 @@ Task 4 uses only what the contract (sections 5, 10 and 11) and the Technical Pla
 
 For the manager: the links to the Terms and Privacy pages in the consent line, once the pages exist (open question 4).
 
+Attention Points, Ask Your Document & Viewer:
+
+- **Word files in the viewer:** react-pdf shows PDF only. Should the backend convert a Word file to PDF for viewing (decision 133)?
+- **CORS on the storage:** the viewer reads the file from the signed URL in the browser, so the storage bucket must allow the frontend's address (`http://localhost:5173` in development).
+- **Chat when indexing fails:** the Technical Plan (section 5, step 6) says "Chat disabled for this document with a message". The contract does not say how the frontend learns it. Until then, a failed question shows the backend's message.
+
 Result Dashboard: the project files give one value of `contract.type` (`fixed_term`) and of `compensation.pay_frequency` (`monthly`). The page also translates `indefinite` (decision 116). The full list of these values is to be confirmed with the backend.
 
 ## Next
 
 - Connect to the real API once the backend endpoints are ready: set `VITE_API_MOCK=false` (see "The fake API").
-- Attention Points, Ask Your Document & Viewer task: the attention points, the chat and the document viewer on the result page.
 - Documents task: the list at `/documents` (contract, section 7).
