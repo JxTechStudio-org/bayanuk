@@ -1,6 +1,6 @@
 import { delay, http, HttpResponse } from 'msw'
 import type { DocumentStatus } from '@/features/analysis/types'
-import { FAKE_SUMMARY, FAKE_TERMS } from './fakeResult'
+import { FAKE_SUMMARIES, FAKE_TERMS } from './fakeResult'
 
 // A fake API that follows docs/integration-contract.md. Only used in development, when VITE_API_MOCK=true.
 //
@@ -31,6 +31,8 @@ interface FakeDocument {
   owner: string
   startedAt: number
   outcome: 'ready' | 'rejected' | 'failed' | 'paused' | 'expired'
+  // The interface language at upload (Accept-Language): the language of the summary.
+  language: 'ar' | 'en'
 }
 
 // The fake data is kept in localStorage, so it survives a page reload (Google sign-in reloads the page)
@@ -225,6 +227,7 @@ export const handlers = [
     documents.set(id, {
       owner,
       startedAt: Date.now(),
+      language: request.headers.get('Accept-Language') === 'en' ? 'en' : 'ar',
       outcome: name.includes('reject')
         ? 'rejected'
         : name.includes('fail')
@@ -262,6 +265,8 @@ export const handlers = [
     if (document.outcome === 'expired' && status === 'ready') return error(request, 410, 'document_expired')
 
     // Section 13. Before the document is ready there is no analysis yet.
+    // A document saved by an older version of the fake API has no language; it gets Arabic.
+    const language = document.language ?? 'ar'
     return HttpResponse.json({
       id: params.id,
       status,
@@ -271,7 +276,12 @@ export const handlers = [
       expires_at: new Date(document.startedAt + 24 * 60 * 60 * 1000).toISOString(),
       analysis:
         status === 'ready'
-          ? { id: `${params.id}-analysis`, summary: FAKE_SUMMARY, summary_language: 'ar', terms: FAKE_TERMS }
+          ? {
+              id: `${params.id}-analysis`,
+              summary: FAKE_SUMMARIES[language],
+              summary_language: language,
+              terms: FAKE_TERMS,
+            }
           : null,
     })
   }),

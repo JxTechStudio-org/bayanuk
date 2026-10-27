@@ -7,7 +7,7 @@ interface Props {
 }
 
 // MVP 5, step 4: the plain-language summary, after the terms.
-export function ResultSummary({ summary, language }: Props) {
+export function Summary({ summary, language }: Props) {
   const { t } = useTranslation()
 
   return (

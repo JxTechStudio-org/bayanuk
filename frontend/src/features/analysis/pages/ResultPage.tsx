@@ -10,7 +10,7 @@ import { ApiError } from '@/lib/api'
 import { DeleteDocument } from '../components/DeleteDocument'
 import { ResultFeedback } from '../components/ResultFeedback'
 import { ResultOverview } from '../components/ResultOverview'
-import { ResultSummary } from '../components/ResultSummary'
+import { Summary } from '../components/Summary'
 import { TermCards } from '../components/TermCards'
 import { useDocument } from '../hooks/useDocument'
 
@@ -90,7 +90,7 @@ export function ResultPage() {
             <TermCards terms={data.analysis.terms} />
           </div>
           <div className="mt-10">
-            <ResultSummary summary={data.analysis.summary} language={data.analysis.summary_language} />
+            <Summary summary={data.analysis.summary} language={data.analysis.summary_language} />
           </div>
           <div className="mt-6">
             <ResultFeedback analysisId={data.analysis.id} />

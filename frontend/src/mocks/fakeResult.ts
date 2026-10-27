@@ -49,5 +49,9 @@ export const FAKE_TERMS: Term[] = [
   found('termination.training_repayment', 'يرد تكلفة التدريب إذا ترك العمل خلال سنة', 8, 'يلتزم الطرف الثاني برد تكلفة التدريب إذا ترك العمل خلال سنة من انتهائه'),
 ]
 
-export const FAKE_SUMMARY =
-  'هذا عقد عمل محدد المدة لوظيفة محاسب لمدة سنة، يبدأ في 1 نوفمبر 2026 ويتجدد تلقائيًا. الراتب الشهري الإجمالي 10,000 ريال، وفترة التجربة 90 يومًا قابلة للتمديد. فيه شرط عدم منافسة لمدة 12 شهرًا بعد انتهاء العقد، وشرط رد تكلفة التدريب إذا تركت العمل خلال سنة.'
+// MVP 4.1: the summary is "in the user's interface language, whatever the document language".
+// It is written once, when the document is analyzed, so the fake API keeps the language of the upload.
+export const FAKE_SUMMARIES = {
+  ar: 'هذا عقد عمل محدد المدة لوظيفة محاسب لمدة سنة، يبدأ في 1 نوفمبر 2026 ويتجدد تلقائيًا. الراتب الشهري الإجمالي 10,000 ريال، وفترة التجربة 90 يومًا قابلة للتمديد. فيه شرط عدم منافسة لمدة 12 شهرًا بعد انتهاء العقد، وشرط رد تكلفة التدريب إذا تركت العمل خلال سنة.',
+  en: 'This is a one-year fixed-term employment contract for an accountant, starting on 1 November 2026 and renewing on its own. The total monthly pay is SAR 10,000, and the 90-day probation can be extended. It has a 12-month non-compete after the contract ends, and you repay the training cost if you leave within a year.',
+}
