@@ -21,7 +21,6 @@ class AuthController extends Controller
 
     public function googleRedirect(Request $request): JsonResponse
     {
-        // اختبار مفتاح جوجل الحقيقي عبر Socialite
         $url = Socialite::driver('google')->stateless()->redirect()->getTargetUrl();
 
         return response()->json(['url' => $url]);
