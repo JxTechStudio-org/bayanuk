@@ -1,11 +1,12 @@
-import { CircleCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { SaveInvite } from '@/features/auth/components/SaveInvite'
+import { AppHeader } from '@/features/shared/components/AppHeader'
 import { CardLayout } from '@/features/shared/components/CardLayout'
 import { PageMessage } from '@/features/shared/components/PageMessage'
 import { ApiError } from '@/lib/api'
+import { ResultOverview } from '../components/ResultOverview'
 import { useDocument } from '../hooks/useDocument'
 
 // The result of a document (integration contract, section 13).
@@ -61,13 +62,19 @@ export function ResultPage() {
 
   if (!data.analysis) return <Navigate to={`/d/${id}`} replace />
 
+  // MVP 5, step 4: the overview first, then the term cards and the summary.
   return (
-    <CardLayout>
-      <span className="grid size-12 place-items-center rounded-full bg-teal-deep text-white">
-        <CircleCheck aria-hidden="true" className="size-6" />
-      </span>
-      <h1 className="mt-4 text-xl font-semibold md:text-2xl">{t('result.ready')}</h1>
-      <SaveInvite />
-    </CardLayout>
+    <div className="flex min-h-svh flex-col">
+      <AppHeader />
+      <main className="flex-1 bg-linear-to-b from-muted to-background px-5 py-10 md:py-14">
+        <div className="mx-auto w-full max-w-5xl">
+          <h1 className="text-2xl font-semibold md:text-3xl">{t('result.title')}</h1>
+          <SaveInvite />
+          <div className="mt-8">
+            <ResultOverview documentType={data.document_type} terms={data.analysis.terms} />
+          </div>
+        </div>
+      </main>
+    </div>
   )
 }

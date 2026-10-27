@@ -180,10 +180,35 @@
     }
   },
   "result": {
-    "ready": "التحليل جاهز.",
+    "title": "نتيجة التحليل",
     "loading": "جارٍ تحميل التحليل...",
     "error": "تعذّر تحميل التحليل.",
-    "retry": "حاول مرة أخرى"
+    "retry": "حاول مرة أخرى",
+    "notFound": "غير موجود في المستند",
+    "page": "صفحة {{page}}",
+    "overview": {
+      "title": "نظرة عامة",
+      "documentType": "نوع المستند",
+      "contractType": "نوع العقد",
+      "duration": "المدة",
+      "probation": "فترة التجربة",
+      "notice": "فترة الإشعار",
+      "noticeEmployee": "أنت: {{value}}",
+      "noticeEmployer": "صاحب العمل: {{value}}",
+      "totalMonthly": "إجمالي الراتب الشهري"
+    },
+    "documentTypes": {
+      "job_offer": "عرض وظيفي",
+      "employment_contract": "عقد عمل",
+      "other": "مستند آخر"
+    },
+    "values": {
+      "yes": "نعم",
+      "no": "لا",
+      "fixed_term": "محدد المدة",
+      "indefinite": "غير محدد المدة",
+      "monthly": "شهري"
+    }
   },
   "signIn": {
     "title": "سجّل دخولك",

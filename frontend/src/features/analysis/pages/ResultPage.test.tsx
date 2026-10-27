@@ -49,7 +49,7 @@ it('says the analysis is loading, then shows it', async () => {
   apiAnswers({ body: READY })
   renderPage()
   expect(screen.getByRole('status')).toHaveTextContent(ar.result.loading)
-  expect(await screen.findByRole('heading', { name: ar.result.ready })).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: ar.result.title })).toBeInTheDocument()
 })
 
 it('says the document was not found (404)', async () => {
@@ -72,7 +72,7 @@ it('can load the result again after a server error', async () => {
   renderPage()
   expect(await screen.findByRole('alert')).toHaveTextContent(ar.result.error)
   await userEvent.click(screen.getByRole('button', { name: ar.result.retry }))
-  expect(await screen.findByRole('heading', { name: ar.result.ready })).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: ar.result.title })).toBeInTheDocument()
 })
 
 it('goes back to the processing page when the document is not ready yet', async () => {

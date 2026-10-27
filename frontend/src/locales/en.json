@@ -180,10 +180,35 @@
     }
   },
   "result": {
-    "ready": "Your analysis is ready.",
+    "title": "Your analysis",
     "loading": "Loading your analysis...",
     "error": "We could not load your analysis.",
-    "retry": "Try again"
+    "retry": "Try again",
+    "notFound": "Not found in the document",
+    "page": "Page {{page}}",
+    "overview": {
+      "title": "Overview",
+      "documentType": "Document type",
+      "contractType": "Contract type",
+      "duration": "Duration",
+      "probation": "Probation",
+      "notice": "Notice period",
+      "noticeEmployee": "You: {{value}}",
+      "noticeEmployer": "Employer: {{value}}",
+      "totalMonthly": "Total monthly pay"
+    },
+    "documentTypes": {
+      "job_offer": "Job offer",
+      "employment_contract": "Employment contract",
+      "other": "Other document"
+    },
+    "values": {
+      "yes": "Yes",
+      "no": "No",
+      "fixed_term": "Fixed term",
+      "indefinite": "Indefinite",
+      "monthly": "Monthly"
+    }
   },
   "signIn": {
     "title": "Sign in",
