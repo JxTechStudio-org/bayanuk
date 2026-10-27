@@ -11,6 +11,17 @@ Backend for **Bayanuk**, an AI review service for job offers and employment cont
 - RustFS (private S3-compatible file storage)
 - ClamAV (antivirus file scanner)
 
+## Ports Reference
+
+| Service | Container Port | Host Port | Purpose |
+| --- | --- | --- | --- |
+| **API / Nginx** | 80 | `8000` (or proxy) | Backend API access |
+| **PostgreSQL** | 5432 | `5466` | Database connection |
+| **RustFS S3 API** | 9000 | `9000` | File storage API |
+| **RustFS Console** | 9001 | `9010` | S3 storage dashboard |
+| **Redis** | 6379 | `6379` | Cache & Queues |
+| **ClamAV** | 3310 | `3310` | Antivirus scanner |
+
 ## Local Setup Instructions (Run with Docker)
 
 Everything runs with Docker Compose from the repository root: API (PHP-FPM), queue worker (Horizon), scheduler, PostgreSQL + pgvector, Redis, RustFS, ClamAV. You only need Docker Desktop.
@@ -32,6 +43,7 @@ Everything runs with Docker Compose from the repository root: API (PHP-FPM), que
    DB_CONNECTION=pgsql
    DB_HOST=postgres
    DB_PORT=5432
+   FORWARD_DB_PORT=5466
    DB_DATABASE=bayanuk
    DB_USERNAME=postgres
    DB_PASSWORD=postgres
@@ -58,10 +70,14 @@ Everything runs with Docker Compose from the repository root: API (PHP-FPM), que
 ```
  You can check container statuses with:
 ```bash
-     docker compose --env-file backend/.env ps
+     docker compose --env-file backend/.env --profile local ps
+```
+To stop all Docker services:
+```bash
+     docker compose --env-file backend/.env --profile local down
 ```
 4. **Set up RustFS (S3-compatible storage):**
-- Open the RustFS console in your browser at `http://localhost:9001` and log in with `rustfsadmin / rustfsadmin`.
+- Open the RustFS console in your browser at `http://localhost:9010` and log in with `rustfsadmin / rustfsadmin`.
 - Create a bucket named `bayanuk` (it must match `AWS_BUCKET` in your .env).
 
 5. **Generate application key:**
