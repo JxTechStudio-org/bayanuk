@@ -8,6 +8,7 @@ import { CardLayout } from '@/features/shared/components/CardLayout'
 import { PageMessage } from '@/features/shared/components/PageMessage'
 import { ApiError } from '@/lib/api'
 import { DeleteDocument } from '../components/DeleteDocument'
+import { ResultFeedback } from '../components/ResultFeedback'
 import { ResultOverview } from '../components/ResultOverview'
 import { ResultSummary } from '../components/ResultSummary'
 import { TermCards } from '../components/TermCards'
@@ -90,6 +91,9 @@ export function ResultPage() {
           </div>
           <div className="mt-10">
             <ResultSummary summary={data.analysis.summary} language={data.analysis.summary_language} />
+          </div>
+          <div className="mt-6">
+            <ResultFeedback analysisId={data.analysis.id} />
           </div>
         </div>
       </main>

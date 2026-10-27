@@ -12,7 +12,6 @@ function deleteAnswers(status: number) {
   return vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const url = String(input)
     if (url === '/api/v1/me') return Response.json({ error: { code: 'unauthorized', message: '' } }, { status: 401 })
-    if (url === '/api/v1/guest-token') return Response.json({ token: 'guest-1' }, { status: 201 })
     if (url === '/api/v1/documents/123' && init?.method === 'DELETE') {
       return status === 204
         ? new Response(null, { status })

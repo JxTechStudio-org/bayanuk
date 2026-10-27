@@ -277,6 +277,13 @@
       "confirm": "Delete",
       "deleting": "Deleting...",
       "error": "We could not delete the document. Try again."
+    },
+    "feedback": {
+      "question": "Was this analysis helpful?",
+      "helpful": "Helpful",
+      "notHelpful": "Not helpful",
+      "thanks": "Thank you for your feedback.",
+      "error": "We could not send your feedback. Try again."
     }
   },
   "signIn": {

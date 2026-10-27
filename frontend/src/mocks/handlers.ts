@@ -276,6 +276,22 @@ export const handlers = [
     })
   }),
 
+  // Section 13: the analysis id of a fake document is "<document id>-analysis".
+  http.post('/api/v1/analyses/:id/feedback', async ({ params, request }) => {
+    if (!hasCsrfToken(request)) return error(request, 419, 'csrf_token_mismatch')
+    const owner = ownerOf(request)
+    if (!owner) return error(request, 400, 'invalid_guest_token')
+
+    const document = documents.get(String(params.id).replace(/-analysis$/, ''))
+    if (!document || document.owner !== owner) return error(request, 404, 'document_not_found')
+
+    const { rating } = (await request.json()) as { rating?: number }
+    if (rating !== 1 && rating !== -1) {
+      return error(request, 422, 'validation_error', { rating: ['The rating must be 1 or -1.'] })
+    }
+    return new HttpResponse(null, { status: 201 })
+  }),
+
   // Technical Plan, section 7.2: everything is deleted at once.
   http.delete('/api/v1/documents/:id', ({ params, request }) => {
     if (!hasCsrfToken(request)) return error(request, 419, 'csrf_token_mismatch')
