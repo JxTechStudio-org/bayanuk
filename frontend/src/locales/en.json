@@ -180,7 +180,10 @@
     }
   },
   "result": {
-    "ready": "Your analysis is ready."
+    "ready": "Your analysis is ready.",
+    "loading": "Loading your analysis...",
+    "error": "We could not load your analysis.",
+    "retry": "Try again"
   },
   "signIn": {
     "title": "Sign in",

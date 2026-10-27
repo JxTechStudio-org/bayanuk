@@ -4,14 +4,15 @@ import type { ReactNode } from 'react'
 interface Props {
   title: string
   body?: string
-  // Shown under the text, for example a link to ask for a new sign-in link.
+  // Shown under the text, for example a link to ask for a new sign-in link or a button to try again.
   action?: ReactNode
   // While waiting, a spinner replaces the alert icon.
   waiting?: boolean
 }
 
-// The one message the sign-in link page and the Google return page show: waiting, or a problem.
-export function AuthMessage({ title, body, action, waiting = false }: Props) {
+// A page that shows one message: waiting, or a problem.
+// Used by the sign-in link page, the Google return page and the result page.
+export function PageMessage({ title, body, action, waiting = false }: Props) {
   return (
     <div role={waiting ? 'status' : 'alert'}>
       <span
