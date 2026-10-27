@@ -10,8 +10,10 @@
         "laravel/framework": "^13.17",
         "laravel/horizon": "^5.50",
         "laravel/sanctum": "^4.0",
+        "laravel/socialite": "^5.31",
         "laravel/tinker": "^3.0",
-        "league/flysystem-aws-s3-v3": "^3.35"
+        "league/flysystem-aws-s3-v3": "^3.35",
+        "resend/resend-laravel": "^1.7"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
