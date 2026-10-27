@@ -8,6 +8,7 @@ import { AppHeader } from '@/features/shared/components/AppHeader'
 import { CardLayout } from '@/features/shared/components/CardLayout'
 import { PageMessage } from '@/features/shared/components/PageMessage'
 import { PrivacyLine } from '@/features/shared/components/PrivacyLine'
+import { ViewerLayout } from '@/features/viewer/components/ViewerLayout'
 import { ApiError } from '@/lib/api'
 import { DeleteDocument } from '../components/DeleteDocument'
 import { FindingsList } from '../components/FindingsList'
@@ -78,7 +79,7 @@ export function ResultPage() {
     <div className="flex min-h-svh flex-col">
       <AppHeader />
       <main className="flex-1 bg-linear-to-b from-muted to-background px-5 py-10 md:py-14">
-        <div className="mx-auto w-full max-w-5xl">
+        <div className="mx-auto w-full max-w-5xl lg:max-w-7xl">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h1 className="text-2xl font-semibold md:text-3xl">{t('result.title')}</h1>
             <DeleteDocument id={id} />
@@ -89,26 +90,29 @@ export function ResultPage() {
             {t('disclaimer')}
           </p>
           <SaveInvite />
-          <div className="mt-8">
-            <ResultOverview documentType={data.document_type} terms={data.analysis.terms} />
-          </div>
-          <div className="mt-10">
-            <TermCards terms={data.analysis.terms} />
-          </div>
-          <div className="mt-10">
-            <FindingsList findings={data.analysis.findings} language={data.analysis.summary_language} />
-          </div>
-          <div className="mt-10">
-            <Summary summary={data.analysis.summary} language={data.analysis.summary_language} />
-          </div>
-          <div className="mt-6">
-            <ResultFeedback analysisId={data.analysis.id} />
-          </div>
-          {/* MVP 5, step 5: after the result, the user asks the document. */}
-          <div className="mt-10">
-            <ChatPanel documentId={id} />
-          </div>
-          <PrivacyLine className="mt-6" />
+          {/* The original document beside the result (wide screens), or over it when a page is opened (phones). */}
+          <ViewerLayout documentId={id}>
+            <div className="mt-8">
+              <ResultOverview documentType={data.document_type} terms={data.analysis.terms} />
+            </div>
+            <div className="mt-10">
+              <TermCards terms={data.analysis.terms} />
+            </div>
+            <div className="mt-10">
+              <FindingsList findings={data.analysis.findings} language={data.analysis.summary_language} />
+            </div>
+            <div className="mt-10">
+              <Summary summary={data.analysis.summary} language={data.analysis.summary_language} />
+            </div>
+            <div className="mt-6">
+              <ResultFeedback analysisId={data.analysis.id} />
+            </div>
+            {/* MVP 5, step 5: after the result, the user asks the document. */}
+            <div className="mt-10">
+              <ChatPanel documentId={id} />
+            </div>
+            <PrivacyLine className="mt-6" />
+          </ViewerLayout>
         </div>
       </main>
     </div>

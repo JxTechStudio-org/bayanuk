@@ -333,6 +333,20 @@
       "history": "We could not load the chat."
     }
   },
+  "viewer": {
+    "title": "Original document",
+    "description": "The original file, one page at a time.",
+    "openPage": "Open page {{page}} of the document",
+    "loading": "Loading the document...",
+    "error": "We could not open the document.",
+    "notPdf": "The preview is available for PDF files only.",
+    "openFile": "Open the file",
+    "previous": "Previous page",
+    "next": "Next page",
+    "pageOf": "Page {{page}} of {{total}}",
+    "pageImage": "Page {{page}} of the document",
+    "close": "Close"
+  },
   "signIn": {
     "title": "Sign in",
     "body": "Sign in to save your analysis, ask more questions, and compare.",

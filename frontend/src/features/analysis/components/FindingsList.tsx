@@ -1,5 +1,6 @@
 import { CircleCheck, Info, OctagonAlert, TriangleAlert, type LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { PageRef } from '@/features/viewer/components/PageRef'
 import { cn } from '@/lib/utils'
 import type { Finding, FindingSeverity } from '../types'
 
@@ -62,7 +63,9 @@ export function FindingsList({ findings, language }: Props) {
                   </blockquote>
                 ) : null}
                 {finding.page ? (
-                  <p className="mt-1 text-xs text-muted-foreground">{t('result.page', { page: finding.page })}</p>
+                  <p className="mt-1">
+                    <PageRef page={finding.page} />
+                  </p>
                 ) : null}
               </li>
             )

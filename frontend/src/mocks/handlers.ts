@@ -3,6 +3,8 @@ import type { DocumentStatus } from '@/features/analysis/types'
 import type { ChatMessage } from '@/features/chat/types'
 import { fakeAnswer } from './fakeChat'
 import { FAKE_FINDINGS, FAKE_SUMMARIES, FAKE_TERMS } from './fakeResult'
+// The original file of every fake PDF document: the fake contract, with the quotes on their pages.
+import fakeContractUrl from './fake-contract.pdf?url'
 
 // A fake API that follows docs/integration-contract.md. Only used in development, when VITE_API_MOCK=true.
 //
@@ -11,6 +13,9 @@ import { FAKE_FINDINGS, FAKE_SUMMARIES, FAKE_TERMS } from './fakeResult'
 // A name with "expired" gets ready, then its result answers 410, as a document deleted after the retention period.
 // Upload errors (section 4): a name with "limit" gets the daily upload limit, and "nobudget"
 // the daily AI budget. A wrong type or a file over 10 MB gets its error too, if sent.
+//
+// Viewer: a PDF shows the fake contract (fake-contract.pdf). A DOCX gets a file that is not a PDF,
+// as a Word file would be. The signed URL expires after 5 minutes, as the real one (section 9).
 //
 // Chat: a question about the notice period, the probation or the salary gets an answer with its page and quote;
 // any other question gets "not found". A question with "nobudget" gets the daily AI budget error.
@@ -39,6 +44,8 @@ interface FakeDocument {
   outcome: 'ready' | 'rejected' | 'failed' | 'paused' | 'expired'
   // The interface language at upload (Accept-Language): the language of the summary.
   language: 'ar' | 'en'
+  // The type of the uploaded file: only a PDF can be shown in the viewer.
+  kind: 'pdf' | 'docx'
 }
 
 // The fake data is kept in localStorage, so it survives a page reload (Google sign-in reloads the page)
@@ -243,6 +250,7 @@ export const handlers = [
       owner,
       startedAt: Date.now(),
       language: request.headers.get('Accept-Language') === 'en' ? 'en' : 'ar',
+      kind: name.endsWith('.docx') ? 'docx' : 'pdf',
       outcome: name.includes('reject')
         ? 'rejected'
         : name.includes('fail')
@@ -316,6 +324,34 @@ export const handlers = [
       return error(request, 422, 'validation_error', { rating: ['The rating must be 1 or -1.'] })
     }
     return new HttpResponse(null, { status: 201 })
+  }),
+
+  // Section 9: a signed URL of the file in storage, valid for 5 minutes.
+  http.get('/api/v1/documents/:id/file', ({ params, request }) => {
+    const owner = ownerOf(request)
+    if (!owner) return error(request, 400, 'invalid_guest_token')
+    const document = documents.get(String(params.id))
+    if (!document || document.owner !== owner) return error(request, 404, 'document_not_found')
+
+    const expiresAt = Date.now() + 5 * 60 * 1000
+    return HttpResponse.json({
+      url: `/fake-storage/${params.id}?expires=${expiresAt}`,
+      expires_at: new Date(expiresAt).toISOString(),
+    })
+  }),
+
+  // The fake storage behind the signed URL: an expired URL is refused, as by the real storage.
+  http.get('/fake-storage/:id', async ({ params, request }) => {
+    const expires = Number(new URL(request.url).searchParams.get('expires'))
+    const document = documents.get(String(params.id))
+    if (!document || !expires || Date.now() > expires) return new HttpResponse(null, { status: 403 })
+    if (document.kind === 'docx') {
+      return new HttpResponse('Not a PDF', {
+        headers: { 'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
+      })
+    }
+    const pdf = await fetch(fakeContractUrl).then((response) => response.arrayBuffer())
+    return new HttpResponse(pdf, { headers: { 'Content-Type': 'application/pdf' } })
   }),
 
   // Section 14: the history, and the questions left (section 8).

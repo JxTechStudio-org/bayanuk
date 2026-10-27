@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { PageRef } from '@/features/viewer/components/PageRef'
 import type { Term } from '../types'
 import { TERM_LAYOUT } from '../utils/termGroups'
 import { TermValue } from './TermValue'
@@ -13,7 +14,8 @@ export function TermCards({ terms }: { terms: Term[] }) {
       <h2 id="terms-title" className="text-lg font-semibold">
         {t('result.termsTitle')}
       </h2>
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
+      {/* Beside the document viewer (lg) one column is narrow, so the cards stack there. */}
+      <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
         {TERM_LAYOUT.map((cell) => (
           <div key={cell[0].id} className="flex flex-col gap-4">
             {cell.map((group) => (
@@ -55,7 +57,9 @@ function TermRow({ name, term }: { name: string; term?: Term }) {
           </blockquote>
         ) : null}
         {term?.found && term.page ? (
-          <p className="mt-1 text-xs text-muted-foreground">{t('result.page', { page: term.page })}</p>
+          <p className="mt-1">
+            <PageRef page={term.page} />
+          </p>
         ) : null}
       </dd>
     </div>
