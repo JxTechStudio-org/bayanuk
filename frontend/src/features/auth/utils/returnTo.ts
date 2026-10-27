@@ -1,8 +1,16 @@
 const STORAGE_KEY = 'bayanuk.returnTo'
 
-// Only an address inside this site, such as "/d/123/result". Anything else (another site, "//...") goes home.
+// Only an address inside this site, such as "/d/123/result". Anything else goes home.
+// The address is read the way the browser reads it, then its site is compared with ours,
+// so every way of writing another site ("https://...", "//...", "/\...") is caught.
 export function safePath(path: string | null | undefined): string {
-  return path && path.startsWith('/') && !path.startsWith('//') ? path : '/'
+  if (!path) return '/'
+  try {
+    const url = new URL(path, window.location.origin)
+    return url.origin === window.location.origin ? url.pathname + url.search + url.hash : '/'
+  } catch {
+    return '/'
+  }
 }
 
 // Integration contract, section 11: the page the user was on is saved before leaving for sign-in,
