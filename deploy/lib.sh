@@ -10,6 +10,11 @@ BAYANUK_JENKINS_CONTAINER="${BAYANUK_JENKINS_CONTAINER:-jenkins}"
 BAYANUK_ENV_FILE="${BAYANUK_ENV_FILE:-/root/secrets/bayanuk.env}"
 BAYANUK_PROJECT="${BAYANUK_PROJECT:-bayanuk}"
 
+# Unique per build across all branches of the multibranch job (BUILD_TAG is
+# jenkins-<job>-<branch>-<number>). Used for the CI project name and CI image tags, so main
+# and development never share a CI stack, even at the same build number or commit.
+BAYANUK_CI_ID="$(printf '%s' "${BUILD_TAG:-local}" | tr 'A-Z' 'a-z' | tr -c 'a-z0-9_-' '-' | cut -c1-60)"
+
 bayanuk_fail() {
   echo "ERROR: $*" >&2
   exit 1
@@ -18,7 +23,7 @@ bayanuk_fail() {
 # The only way the pipeline runs docker compose.
 #
 #   bayanuk_compose prod <compose args...>   production stack (project $BAYANUK_PROJECT)
-#   bayanuk_compose ci   <compose args...>   throwaway CI stack (project bayanuk-ci-$BUILD_NUMBER)
+#   bayanuk_compose ci   <compose args...>   throwaway CI stack (project bayanuk-ci-$BAYANUK_CI_ID)
 #
 # Compose runs in a short-lived helper container, not in Jenkins itself:
 # - --volumes-from gives the helper the Jenkins volumes at the same paths, so the workspace
@@ -50,13 +55,13 @@ bayanuk_compose() {
           --env-file "$BAYANUK_ENV_FILE" "$@"
       ;;
     ci)
-      [ -n "${BUILD_NUMBER:-}" ] || bayanuk_fail "BUILD_NUMBER is not set"
+      [ -n "${BUILD_TAG:-}" ] || bayanuk_fail "BUILD_TAG is not set"
       docker run --rm \
         --volumes-from "$BAYANUK_JENKINS_CONTAINER" \
         -w "$PWD" \
-        -e IMAGE_TAG \
+        -e IMAGE_TAG="$BAYANUK_CI_ID" \
         "$BAYANUK_HELPER_IMAGE" \
-        docker compose -p "bayanuk-ci-$BUILD_NUMBER" \
+        docker compose -p "bayanuk-ci-$BAYANUK_CI_ID" \
           -f docker-compose.yml -f deploy/ci/compose.ci.yaml \
           --env-file backend/.env "$@"
       ;;
@@ -84,11 +89,13 @@ bayanuk_running_tag() {
     --format '{{.Image}}' | head -n 1 | sed -n 's/^.*:\([0-9a-f]\{7,40\}\)$/\1/p'
 }
 
-# Removes the throwaway CI stack of this build only (project bayanuk-ci-$BUILD_NUMBER), by label.
+# Removes the throwaway CI stack and images of this build only, by label and tag.
 # It works even when backend/.env is gone, and it can never match the production project.
 bayanuk_ci_cleanup() {
-  [ -n "${BUILD_NUMBER:-}" ] || return 0
-  label="label=com.docker.compose.project=bayanuk-ci-$BUILD_NUMBER"
+  [ -n "${BUILD_TAG:-}" ] || return 0
+  docker image rm -f "bayanuk-api-dev:$BAYANUK_CI_ID" "bayanuk-api-ci:$BAYANUK_CI_ID" \
+    "bayanuk-web-build:$BAYANUK_CI_ID" >/dev/null 2>&1 || true
+  label="label=com.docker.compose.project=bayanuk-ci-$BAYANUK_CI_ID"
   ids="$(docker ps -aq --filter "$label")"
   [ -z "$ids" ] || docker rm -f $ids >/dev/null
   ids="$(docker volume ls -q --filter "$label")"

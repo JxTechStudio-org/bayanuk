@@ -35,7 +35,7 @@ pipeline {
                 checkout scm
                 script {
                     env.GIT_SHA   = sh(returnStdout: true, script: '#!/bin/sh\ngit rev-parse HEAD').trim()
-                    env.IMAGE_TAG = env.GIT_SHA.take(12)
+                    env.IMAGE_TAG = env.GIT_SHA.substring(0, 12)
                     currentBuild.displayName = "#${env.BUILD_NUMBER} ${env.IMAGE_TAG}"
                 }
                 echo "Branch ${env.BRANCH_NAME}, commit ${env.GIT_SHA}"
@@ -53,9 +53,9 @@ pipeline {
                             cp backend/.env.example backend/.env
                             sed -i 's/^DB_USERNAME=.*/DB_USERNAME=postgres/; s/^DB_PASSWORD=.*/DB_PASSWORD=ci-password/; s/^AWS_ACCESS_KEY_ID=.*/AWS_ACCESS_KEY_ID=ci-access-key/; s/^AWS_SECRET_ACCESS_KEY=.*/AWS_SECRET_ACCESS_KEY=ci-secret-key/' backend/.env
 
-                            docker build --target development -t "bayanuk-api-dev:$IMAGE_TAG" .
-                            docker build --build-arg BASE="bayanuk-api-dev:$IMAGE_TAG" \
-                                -f deploy/ci/backend.Dockerfile -t "bayanuk-api-ci:$IMAGE_TAG" backend
+                            docker build --target development -t "bayanuk-api-dev:$BAYANUK_CI_ID" .
+                            docker build --build-arg BASE="bayanuk-api-dev:$BAYANUK_CI_ID" \
+                                -f deploy/ci/backend.Dockerfile -t "bayanuk-api-ci:$BAYANUK_CI_ID" backend
 
                             bayanuk_compose ci up -d --wait postgres redis
                             bayanuk_compose ci run --rm --no-deps api sh -c \
@@ -67,11 +67,12 @@ pipeline {
                     steps {
                         sh '''#!/bin/sh
                             set -eu
+                            . deploy/lib.sh
                             # The build stage runs npm ci and npm run build (tsc -b, vite build).
                             # The audit gate covers the dependencies that ship in the site (--omit=dev);
                             # dev tooling never reaches the web image.
-                            docker build --target build -t "bayanuk-web-build:$IMAGE_TAG" frontend
-                            docker run --rm "bayanuk-web-build:$IMAGE_TAG" \
+                            docker build --target build -t "bayanuk-web-build:$BAYANUK_CI_ID" frontend
+                            docker run --rm "bayanuk-web-build:$BAYANUK_CI_ID" \
                                 sh -c "npm run lint && npx vitest run && npm audit --audit-level=high --omit=dev"
                         '''
                     }
@@ -154,10 +155,6 @@ pipeline {
             sh '''#!/bin/sh
                 . deploy/lib.sh 2>/dev/null || exit 0
                 bayanuk_ci_cleanup
-                if [ -n "${IMAGE_TAG:-}" ]; then
-                    docker image rm -f "bayanuk-api-dev:$IMAGE_TAG" "bayanuk-api-ci:$IMAGE_TAG" \
-                        "bayanuk-web-build:$IMAGE_TAG" >/dev/null 2>&1 || true
-                fi
                 docker logout ghcr.io >/dev/null 2>&1 || true
                 rm -rf "$DOCKER_CONFIG" backend/.env .deploy-previous-tag
             '''
