@@ -1,0 +1,11 @@
+# Built inside the image, never copied from the computer
+node_modules
+dist
+
+# Local settings and anything private
+*.local
+.git
+
+# Not needed in the image
+Dockerfile
+.dockerignore

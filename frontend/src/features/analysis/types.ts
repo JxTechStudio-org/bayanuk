@@ -26,3 +26,35 @@ export interface DocumentStatusResponse {
   // null while processing and when the document is ready.
   status_detail: StatusDetail | null
 }
+
+// Integration contract, section 3.
+export type DocumentType = 'job_offer' | 'employment_contract' | 'other'
+
+// Integration contract, section 13: one extracted term. A term that is not found has no value, unit, page or quote.
+// A yes or no answer is the text "yes" or "no".
+export interface Term {
+  key: string
+  found: boolean
+  value?: string | number
+  unit?: string
+  page?: number
+  quote?: string
+}
+
+// Integration contract, section 13: GET /documents/{id}.
+// The attention points (findings) are read by the Attention Points task, so they are not listed here yet.
+export interface DocumentResult {
+  id: string
+  status: DocumentStatus
+  document_type: DocumentType
+  language: 'ar' | 'en' | 'mixed'
+  page_count: number
+  expires_at: string
+  // null until the document is ready: there is no result to show yet.
+  analysis: {
+    id: string
+    summary: string
+    summary_language: 'ar' | 'en'
+    terms: Term[]
+  } | null
+}
