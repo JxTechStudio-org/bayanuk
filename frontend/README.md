@@ -450,7 +450,7 @@ MVP 7 and 8, and the Attention Points, Ask Your Document & Viewer card.
 
 **Chat** (contract, sections 8 and 14). The MVP's two example questions are chips. Each answer shows its citations (page and quote), and an answer that is not in the document says so clearly. The questions left come from `remaining_questions`; the frontend never counts them. With none left (`0`, or `question_limit_reached`), the box closes, and a guest is invited to sign in for more (MVP 4.2). `ai_budget_reached` shows its message in the chat, and the question stays in the box. A question is never sent again on its own.
 
-**Document viewer** (contract, section 9). The original PDF, one page at a time. Every page reference (overview, term cards, attention points, citations) is a button that opens the viewer on that page.
+**Document viewer** (contract, section 9). The original PDF, one page at a time. Every page reference (overview, term cards, attention points, citations) is a button that opens the viewer on that page. On a phone, where the document is hidden, it opens in two ways: the "View the document" button at the top of the result (from its first page), or any page reference (on that page).
 
 | Screen | Viewer |
 | --- | --- |
