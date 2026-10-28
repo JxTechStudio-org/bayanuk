@@ -43,6 +43,20 @@ it('on a wide screen, shows the document beside the result and opens the pressed
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })
 
+it('on a phone, opens the document from its own button, on the first page', async () => {
+  const user = userEvent.setup()
+  renderResult()
+  await user.click(screen.getByRole('button', { name: ar.viewer.show }))
+  expect(await screen.findByRole('dialog', { name: ar.viewer.title })).toBeInTheDocument()
+  expect(await screen.findByText('viewer on page 1')).toBeInTheDocument()
+})
+
+it('on a wide screen, has no "View the document" button: the document is already shown', () => {
+  screenIsWide(true)
+  renderResult()
+  expect(screen.queryByRole('button', { name: ar.viewer.show })).not.toBeInTheDocument()
+})
+
 it('on a phone, opens the document over the page on the pressed page, and closes back to the result', async () => {
   const user = userEvent.setup()
   renderResult()

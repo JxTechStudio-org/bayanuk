@@ -1,4 +1,4 @@
-import { X } from 'lucide-react'
+import { FileText, X } from 'lucide-react'
 import { Dialog } from 'radix-ui'
 import { lazy, Suspense, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -26,7 +26,11 @@ export function ViewerLayout({ documentId, children }: { documentId: string; chi
 
   function openPage(next: number) {
     setPage(next)
-    if (wide) return
+    if (!wide) openOver()
+  }
+
+  // On a phone: opens the document over the page, and remembers the button that opened it.
+  function openOver() {
     openedFrom.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
     setOpen(true)
   }
@@ -40,7 +44,16 @@ export function ViewerLayout({ documentId, children }: { documentId: string; chi
   return (
     <ViewerContext.Provider value={{ page, openPage }}>
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)] lg:items-start lg:gap-8">
-        <div className="min-w-0">{children}</div>
+        <div className="min-w-0">
+          {/* On a phone the document is hidden: this opens it on its first page, or the last page shown. */}
+          {wide ? null : (
+            <Button variant="outline" className="mt-6 h-10 px-4 font-semibold" onClick={openOver}>
+              <FileText aria-hidden="true" />
+              {t('viewer.show')}
+            </Button>
+          )}
+          {children}
+        </div>
         {wide ? (
           <aside
             aria-label={t('viewer.title')}

@@ -334,6 +334,7 @@
     }
   },
   "viewer": {
+    "show": "View the document",
     "title": "Original document",
     "description": "The original file, one page at a time.",
     "openPage": "Open page {{page}} of the document",

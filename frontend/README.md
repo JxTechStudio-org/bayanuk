@@ -455,7 +455,7 @@ MVP 7 and 8, and the Attention Points, Ask Your Document & Viewer card.
 | Screen | Viewer |
 | --- | --- |
 | Wide (`lg`, 1024 px and up) | Beside the result, and stays in place while the result scrolls |
-| Phone and tablet | Hidden. A page reference opens it over the whole screen; "Close" goes back to the same button. The chat stays under the result |
+| Phone and tablet | Hidden. "View the document" (above the overview) or a page reference opens it over the whole screen; "Close" goes back to the same button. The chat stays under the result |
 
 The signed URL is asked again 30 seconds before it expires. If loading fails, a new URL is asked once, with no error shown. A Word file cannot be shown (react-pdf shows PDF only): the viewer says so and offers to open the file.
 
@@ -653,7 +653,7 @@ The manager's Task 3 review, and the integration contract (`docs/integration-con
 | 135 | The viewer reads the whole file once (`disableRange`, `disableStream`) | The URL expires after 5 minutes (section 9); a file read in parts would fail after that. Files are 10 MB at most (MVP 4.2). |
 | 136 | The signed URL counts as fresh until 30 seconds before `expires_at`. A failed load asks for a new URL once; a second failure shows "We could not open the document" with "Try again" | Section 9: "the viewer asks for a new one and reloads the file. The user sees no error." |
 | 137 | The viewer shows one page at a time, as wide as its box, with previous and next. Text and links in the PDF are not selectable | One page loads fast, also on a phone. The quotes are already text on the result. |
-| 138 | Beside the result on wide screens; over the whole screen on phones, opened by a page reference, with "Close" back to it | The card: "decide how the viewer and chat behave on small screens". Half a phone screen is too small to read a page. |
+| 138 | Beside the result on wide screens; over the whole screen on phones, opened by a page reference or by "View the document", with "Close" back to it | The card: "decide how the viewer and chat behave on small screens". Half a phone screen is too small to read a page. The button lets a phone user read the document from its start, without looking for a page reference. |
 | 139 | `DocumentViewer` is loaded only when shown (`React.lazy`), and react-pdf is left out of the `vendor` file | PDF.js is about 420 kB. The other pages never download it. |
 | 140 | The tests replace react-pdf and `DocumentViewer` with stand-ins, and `test/setup.ts` gives jsdom a phone-sized `matchMedia` and a `ResizeObserver` | jsdom cannot run PDF.js or measure the screen. |
 | 141 | The fake API serves a fake 9-page PDF (`mocks/fake-contract.pdf`) from a fake storage URL that expires after 5 minutes | The viewer can be tried, also with an expired URL, before the backend is ready. It is never part of the build. |
