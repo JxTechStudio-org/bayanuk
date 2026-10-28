@@ -7,9 +7,9 @@
     "uploading": "Uploading...",
     "dropHere": "Drop the file here",
     "errors": {
-      "type": "The file must be a PDF or Word (DOCX) file.",
+      "type": "The file must be a PDF.",
       "size": "The file is larger than 10 MB.",
-      "generic": "The file could not be uploaded. Please try again."
+      "generic": "The file could not be uploaded. Try again."
     }
   },
   "hero": {
@@ -54,20 +54,20 @@
     },
     "contract": {
       "title": "Employment contract",
-      "body": "Usually 5 to 30 pages, with richer clauses and risk points."
+      "body": "Usually 5 to 30 pages, with more clauses and points that need attention."
     },
     "other": {
       "title": "Not supported",
       "body": "Freelance contracts, NDAs, internship agreements, rental and commercial contracts."
     },
-    "limits": "PDF or Word (DOCX), up to 10 MB and 30 pages."
+    "limits": "PDF, up to 10 MB and 30 pages."
   },
   "howItWorks": {
     "title": "How it works",
     "steps": {
       "upload": {
         "title": "Upload your document",
-        "body": "A PDF or Word file. We check its type, size and page count before anything else."
+        "body": "A PDF file. We check its type, size and page count before anything else."
       },
       "process": {
         "title": "We read it",
@@ -117,7 +117,7 @@
       },
       "documents": {
         "question": "Which documents does Bayanuk support?",
-        "answer": "Job offers and employment contracts, in Arabic and English, as a PDF or Word file up to 10 MB and 30 pages. Any other contract is declined with a clear message."
+        "answer": "Job offers and employment contracts, in Arabic and English, as a PDF file up to 10 MB and 30 pages. Any other contract is declined with a clear message."
       },
       "account": {
         "question": "Do I need an account?",
@@ -231,7 +231,7 @@
       "probation_extension_allowed": "Probation can be extended",
       "notice": {
         "employee_days": "Your notice period",
-        "employer_days": "Employer's notice period"
+        "employer_days": "Employer’s notice period"
       },
       "compensation": {
         "basic_salary": "Basic salary",
@@ -239,7 +239,7 @@
         "transportation": "Transportation allowance",
         "other": "Other allowances",
         "total_monthly": "Total monthly pay",
-        "pay_frequency": "Paid"
+        "pay_frequency": "Pay frequency"
       },
       "working_time": {
         "hours_per_week": "Hours per week",
@@ -284,7 +284,67 @@
       "notHelpful": "Not helpful",
       "thanks": "Thank you for your feedback.",
       "error": "We could not send your feedback. Try again."
+    },
+    "findings": {
+      "title": "Points that need attention",
+      "none": "We found no points that need attention. Still, read the document carefully before you sign.",
+      "severity": {
+        "high": "High",
+        "attention": "Attention",
+        "info": "Info"
+      },
+      "category": {
+        "non_compete": "Non-compete",
+        "long_notice": "Long notice period",
+        "long_probation": "Long probation",
+        "penalties": "Penalties and deductions",
+        "salary_mismatch": "Salary does not add up",
+        "missing_info": "Missing key information",
+        "one_sided_change": "One-sided change",
+        "working_time": "Unusual working time",
+        "other": "Other"
+      }
     }
+  },
+  "chat": {
+    "title": "Ask your document",
+    "intro": "Answers come only from your document, with the page and a short quote.",
+    "loading": "Loading the chat...",
+    "thinking": "Looking in your document...",
+    "suggestedLabel": "Suggested questions",
+    "suggested": {
+      "noticePeriod": "What is my notice period?",
+      "resignProbation": "Can I resign during probation?"
+    },
+    "remaining_zero": "No questions left",
+    "remaining_one": "1 question left",
+    "remaining_other": "{{count}} questions left",
+    "noneLeft": "You used all the questions for this document.",
+    "signInForMore": "Sign in to ask more questions",
+    "inputLabel": "Your question",
+    "placeholder": "Ask about your document...",
+    "send": "Send",
+    "you": "You",
+    "bayanuk": "Bayanuk",
+    "notFound": "Not found in your document",
+    "sources": "Sources",
+    "errors": {
+      "generic": "We could not send your question. Try again.",
+      "history": "We could not load the chat."
+    }
+  },
+  "viewer": {
+    "show": "View the document",
+    "title": "Original document",
+    "description": "The original file, one page at a time.",
+    "openPage": "Open page {{page}} of the document",
+    "loading": "Loading the document...",
+    "error": "We could not open the document.",
+    "previous": "Previous page",
+    "next": "Next page",
+    "pageOf": "Page {{page}} of {{total}}",
+    "pageImage": "Page {{page}} of the document",
+    "close": "Close"
   },
   "signIn": {
     "title": "Sign in",

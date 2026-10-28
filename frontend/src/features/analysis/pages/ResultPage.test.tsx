@@ -15,16 +15,19 @@ const READY: DocumentResult = {
   language: 'ar',
   page_count: 9,
   expires_at: '2026-11-20T10:00:00Z',
-  analysis: { id: 'a1', summary: 'عقد عمل لمدة سنة.', summary_language: 'ar', terms: [] },
+  analysis: { id: 'a1', summary: 'عقد عمل لمدة سنة.', summary_language: 'ar', terms: [], findings: [] },
 }
 
-// The visitor is a guest (GET /me answers 401), and GET /documents/123 answers with these bodies and statuses,
-// one per call (the last one repeats).
+// The visitor is a guest (GET /me answers 401), the chat is empty, and GET /documents/123 answers with
+// these bodies and statuses, one per call (the last one repeats).
 function apiAnswers(...answers: { body: unknown; status?: number }[]) {
   let call = 0
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
     if (String(input) === '/api/v1/me') {
       return Response.json({ error: { code: 'unauthorized', message: '' } }, { status: 401 })
+    }
+    if (String(input) === '/api/v1/documents/123/chat') {
+      return Response.json({ messages: [], remaining_questions: 3 })
     }
     const { body, status = 200 } = answers[Math.min(call++, answers.length - 1)]
     return Response.json(body, { status })

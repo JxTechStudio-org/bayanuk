@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import { PageRef } from '@/features/viewer/components/PageRef'
 import { useFormatTerm } from '../hooks/useFormatTerm'
 import type { DocumentType, Term } from '../types'
 import { TermValue } from './TermValue'
@@ -24,7 +25,7 @@ export function ResultOverview({ documentType, terms }: Props) {
       <h2 id="overview-title" className="text-lg font-semibold">
         {t('result.overview.title')}
       </h2>
-      <dl className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
+      <dl className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
         <Item label={t('result.overview.documentType')}>
           <Value>{t(`result.documentTypes.${documentType}`)}</Value>
         </Item>
@@ -64,12 +65,13 @@ function Value({ children }: { children: ReactNode }) {
 }
 
 function TermItem({ label, term }: { label: string; term?: Term }) {
-  const { t } = useTranslation()
   return (
     <Item label={label}>
       <TermValue term={term} />
       {term?.found && term.page ? (
-        <p className="mt-1 text-xs text-muted-foreground">{t('result.page', { page: term.page })}</p>
+        <p className="mt-1">
+          <PageRef page={term.page} />
+        </p>
       ) : null}
     </Item>
   )
