@@ -2,7 +2,9 @@
 
 Frontend of Bayanuk (بيانك): a React single-page app in Arabic (right to left) and English (left to right).
 
-This README covers Task 1 (project setup), Task 2 (the landing page), Task 3 (the upload and processing flow), Task 4 (sign-in and guest mode) and the frontend part of the root Dockerfile. It explains how to run the project, how it is organised, where every text on the page comes from, and the decisions made where the Technical Plan left a choice open.
+This README covers Task 1 (project setup), Task 2 (the landing page), Task 3 (the upload and processing flow), Task 4 (sign-in and guest mode) and the frontend Docker image. It explains how to run the project, how it is organised, where every text on the page comes from, and the decisions made where the Technical Plan left a choice open.
+
+The result page, from the Result Dashboard task, is described in "Result". The attention points, the chat and the document viewer, from the Attention Points, Ask Your Document & Viewer task, are in "Attention points, chat and document viewer".
 
 ## Requirements
 
@@ -39,12 +41,19 @@ The browser console shows `[MSW] Mocking enabled.` when it runs. It follows the 
 
 | File name | Outcome |
 | --- | --- |
-| Any PDF or DOCX | Ready after about 12 seconds |
+| Any PDF | Ready after about 12 seconds |
 | Contains `reject` (for example `reject-lease.pdf`) | Rejected, `status_detail` = `not_employment_document` |
 | Contains `fail` (for example `fail-scan.pdf`) | Failed, `status_detail` = `file_unreadable` |
 | Contains `budget` (for example `budget-offer.pdf`) | Paused while analyzing, `status_detail` = `ai_budget_reached` |
 | Contains `limit` (for example `limit-offer.pdf`) | Upload refused: `429 upload_limit_reached` |
 | Contains `nobudget` (for example `nobudget-offer.pdf`) | Upload refused: `429 ai_budget_reached` |
+| Contains `expired` (for example `expired-offer.pdf`) | Ready, then the result answers `410 document_expired`, as a document deleted after the retention period |
+
+A ready document's result (`GET /documents/{id}`) is always the same Arabic employment contract, with the example values of MVP 6 (`mocks/fakeResult.ts`), whatever file was uploaded. Its summary is in the interface language at the time of the upload, as MVP 4.1 asks of the real API. Some terms are not found, so the "not found" state shows too. Delete and the feedback buttons work too. It has three attention points (`mocks/fakeResult.ts`).
+
+The document viewer shows a fake 9-page contract (`mocks/fake-contract.pdf`, made for development), with each quote on its page. The signed URL expires after 5 minutes, as the real one.
+
+The chat (`mocks/fakeChat.ts`) answers a question about the notice period, the probation or the salary with its page and quote, and any other question with "not found". The answer is in the question's language. Guests have 3 questions per document and signed-in users 20. A question with `nobudget` gets the daily AI budget error.
 
 Every error has a code and a message in the interface language, like the real API (contract, section 4). The browser already stops a wrong type or a file over 10 MB, so those two errors show only if such a file is sent another way.
 
@@ -77,14 +86,16 @@ To use the real API, set `VITE_API_MOCK=false` in a `.env.development.local` fil
 
 ## Docker
 
-The frontend build stage is in the root `Dockerfile`, as the `frontend-build` stage. To build and check it from the repository root:
+The frontend has its own image, built from `frontend/Dockerfile` (decision 104). Node builds the site, then nginx serves the built files on port `8089`. From the repository root:
 
 ```bash
-docker build --target frontend-build -t bayanuk-frontend .
-docker run --rm bayanuk-frontend ls dist
+docker build -t bayanuk-web frontend
+docker run --rm -p 8089:8089 bayanuk-web
 ```
 
-The built site is in `/app/frontend/dist` inside the `frontend-build` stage. The final runtime stage copies it from there.
+Then open `http://localhost:8089`. The image has the built site only: no source code, no Node, and no fake API. `nginx.conf` sends every page address to `index.html`, so a link such as `/d/123/result` opens the right page, and `/api` is not part of this image.
+
+For daily work, `npm run dev` is still the way to run the frontend (Technical Plan, section 10).
 
 ## Folder structure
 
@@ -92,6 +103,9 @@ The built site is in `/app/frontend/dist` inside the `frontend-build` stage. The
 frontend/
   index.html               Page shell. Starts as Arabic, right to left. Links the icons.
   components.json          shadcn/ui settings (Radix, RTL, where components go)
+  Dockerfile               The frontend image: build with Node, serve with nginx
+  nginx.conf               nginx settings in the image: page addresses, caching
+  .dockerignore            What the image build never copies (node_modules, dist, local settings)
   vite.config.ts           Vite, Tailwind, the "@/" shortcut, the dev proxy, the library files, test settings
   public/
     favicon.svg            Browser tab icon (modern browsers)
@@ -113,19 +127,33 @@ frontend/
       ui/                  shadcn/ui components (button, accordion)
     features/
       analysis/
-        types.ts           Document statuses and the status response
+        types.ts           Document statuses, the status response, the result and its terms
         api/
           getDocumentStatus.ts   GET /documents/{id}/status
+          getDocument.ts         GET /documents/{id}: the result
+          deleteDocument.ts      DELETE /documents/{id}
+          sendFeedback.ts        POST /analyses/{id}/feedback
         hooks/
           useDocumentStatus.ts   Asks for the status every 2 seconds until processing ends
+          useDocument.ts         Reads the result once
+          useDeleteDocument.ts   Deletes the document, then goes to the home page
+          useFormatTerm.ts       Writes a value in the interface language: amounts, units, dates, yes or no
         utils/
           stages.ts        Maps the statuses to the 4 progress stages
+          termGroups.ts    Which term goes in which card, and where each card sits
         components/
           ProcessingStages.tsx   The 4 stages: done, in progress, waiting
           ProcessingNotice.tsx   The line under the stages: in the queue, paused, or offline
+          ResultOverview.tsx     The overview at the top of the result
+          TermCards.tsx          The key-term cards, with page and quote
+          TermValue.tsx          A value, or "not found"
+          FindingsList.tsx       The attention points
+          Summary.tsx            The plain-language summary
+          ResultFeedback.tsx     "Was this analysis helpful?"
+          DeleteDocument.tsx     The Delete document button and its confirmation
         pages/
           ProcessingPage.tsx     /d/:id, shown right after upload
-          ResultPage.tsx         /d/:id/result, placeholder until the result task
+          ResultPage.tsx         /d/:id/result, the result
       auth/
         types.ts           The user from GET /me
         api/               One file per call: /me, the email link, its check, Google, sign-out
@@ -141,7 +169,6 @@ frontend/
           GoogleButton.tsx       "Continue with Google"
           MagicLinkForm.tsx      The email field that sends the sign-in link
           CheckEmail.tsx         "Check your email", send again
-          AuthMessage.tsx        Waiting or a problem, on the two return pages
           AccountMenu.tsx        In the header: "Sign in", or the user menu
           RequireSignIn.tsx      Wraps a page that needs an account
           SaveInvite.tsx         Invites a guest to sign in, on the result page
@@ -149,6 +176,18 @@ frontend/
           SignInPage.tsx         /sign-in
           VerifyPage.tsx         /auth/verify, opened by the email link
           CallbackPage.tsx       /auth/callback, after Google
+      chat/
+        types.ts           The messages, citations and answers of the chat
+        api/
+          getChat.ts             GET /documents/{id}/chat: the history and the questions left
+          askQuestion.ts         POST /documents/{id}/chat
+        hooks/
+          useChat.ts             Reads the history
+          useAskQuestion.ts      Sends a question, and adds the answer to the history
+        components/
+          ChatPanel.tsx          "Ask your document"
+          SuggestedQuestions.tsx The MVP's two example questions
+          CitationChip.tsx       The page and quote of an answer
       documents/
         pages/
           MyDocumentsPage.tsx    /documents, needs an account. Placeholder until the documents task
@@ -170,6 +209,22 @@ frontend/
           Logo.tsx               The logo, chosen by language
           AppHeader.tsx          Header for the pages after the landing page
           CardLayout.tsx         The frame of those pages: header, one card, the privacy line
+          PageMessage.tsx        A page with one message: waiting, or a problem
+          PrivacyLine.tsx        The privacy line from the landing page, on the document pages
+        hooks/
+          useMediaQuery.ts       Whether the screen is wide (the viewer beside the result) or not
+      viewer/
+        types.ts           The signed URL of the file
+        viewerContext.ts   The page the viewer shows, for every page reference
+        api/
+          getDocumentFile.ts     GET /documents/{id}/file
+        hooks/
+          useDocumentFile.ts     The signed URL, asked again before it expires
+          useViewer.ts           Opens the viewer on a page
+        components/
+          ViewerLayout.tsx       The document beside the result, or over it on a phone
+          DocumentViewer.tsx     The original PDF, one page at a time (react-pdf). Loaded only when shown
+          PageRef.tsx            "Page 3": opens the viewer on that page
       upload/
         api/
           uploadDocument.ts      POST /documents
@@ -185,6 +240,9 @@ frontend/
       utils.ts             The `cn` helper, created by the shadcn CLI (see decision 48)
     mocks/
       handlers.ts          The fake API (development only)
+      fakeResult.ts        The result the fake API returns, with its attention points
+      fakeChat.ts          The answers of the fake chat
+      fake-contract.pdf    The fake contract the viewer shows (development only)
       browser.ts           Starts it in the browser
     locales/
       ar.json              Arabic text
@@ -221,7 +279,7 @@ Every frontend library named in the Technical Plan (section 3), and its status.
 | Vitest + Testing Library | Tests | Installed |
 | shadcn/ui (Radix) | Shared components | Installed in Task 2, with right-to-left support. Components in use: `button`, `accordion` |
 | TanStack Query | Calls to the API | Installed in Task 3. Used for the upload and the status checks |
-| react-pdf | Document viewer | Added with the viewer task |
+| react-pdf | Document viewer | Installed with the viewer task, version 10.5 (decision 134). Loaded only when the viewer is shown |
 
 Libraries that came with shadcn/ui: `radix-ui` (the components underneath), `class-variance-authority` (component variants), `cn` (merges class names), `tw-animate-css` (open and close animations), `shadcn` (the CLI that adds components, and its base CSS) and `lucide-react` (icons).
 
@@ -270,7 +328,7 @@ Sections, top to bottom, and the source of their text. Every sentence on the pag
 | Header | `Header.tsx` | Section titles below. "الخصوصية" is the short form of the section 9 title |
 | Hero | `Hero.tsx` | Title: MVP 1 (the one-line promise, with its Arabic). Subtitle: MVP 1 (product overview). Privacy line: MVP 9. Example card: MVP 6 (example column: probation 90, basic salary 8,000, employee notice 30, non-compete 12 months) |
 | Who it is for | `TargetUsers.tsx` | MVP 3, the two primary segments (fresh graduates, job switchers) |
-| Supported documents | `SupportedFiles.tsx` | MVP 4.1 (document types) and 4.2 (PDF or DOCX, up to 10 MB and 30 pages) |
+| Supported documents | `SupportedFiles.tsx` | MVP 4.1 (document types) and 4.2 (up to 10 MB and 30 pages). PDF only (decision 144) |
 | How it works | `HowItWorks.tsx` | MVP 5, steps 2 to 5. The two example questions are quoted from step 5 |
 | Trust and privacy | `Privacy.tsx` | MVP 9 (training, storage, deletion, and the automatic deletion periods), MVP 6 (masking of personal identifiers) |
 | FAQ | `FAQ.tsx` | Questions written for this page. Answers from MVP 9 (disclaimer), 4.1 and 4.2 (documents, guest mode, sign-in), 8 (chat answers and question limits) |
@@ -291,7 +349,7 @@ Real photos, free for commercial use. Resized to at most 1600 pixels at 75% qual
 The flow from MVP 5, steps 2 and 3. The API follows the integration contract (`docs/integration-contract.md`).
 
 1. **Choose or drop a file.** The "Choose a file" button opens the file picker. A file can also be dropped anywhere on the page.
-2. **Check it in the browser.** PDF or DOCX, up to 10 MB (MVP 4.2). If not, a message shows under the button and nothing is sent.
+2. **Check it in the browser.** PDF only (decision 144), up to 10 MB (MVP 4.2). If not, a message shows under the button and nothing is sent.
 3. **Send it.** `POST /api/v1/documents`, as a form with one field, `file`. The API answers `202` with the new document's `id`.
 4. **Show the processing page** at `/d/{id}`, with the file name. It asks `GET /api/v1/documents/{id}/status` every 2 seconds and stops when processing ends, or on `404` or `410`.
 5. **Explain any wait** with one line under the stages: in the queue (`uploaded`), paused by the daily AI budget, or offline.
@@ -354,6 +412,65 @@ MVP 4.2: "Guest mode: upload and see results without an account; sign in to save
 | The terms consent line | The Task 4 card: "Consent to terms and privacy is shown at sign-in". The wording is our choice |
 | The other titles, messages and buttons | Interface labels, our choice |
 
+## Result
+
+MVP 5, step 4, and the Result Dashboard card. The page `/d/{id}/result` reads `GET /api/v1/documents/{id}` once (contract, section 13). From top to bottom:
+
+1. **The title, the Delete document button and the disclaimer** (MVP 9: "A visible disclaimer on every result page"). A guest also sees the invitation to sign in (MVP 5, step 6).
+2. **Overview:** document type, contract type, duration, probation, notice period, total monthly pay. Each value shows its page.
+3. **Key-term cards:** compensation, working time, leave, contract, benefits, restrictions. Every value shows its page and the quote from the document. A value that is not found says "Not found in the document" (MVP 6).
+4. **The summary**, written by the backend in the interface language of the upload, whatever the document language (MVP 4.1). Its language is in `summary_language`.
+5. **Was this analysis helpful?** Thumbs up or down (`POST /analyses/{id}/feedback`), at the end of the page, after the chat (decision 143).
+6. **The privacy line** from the landing page, as under the processing card (MVP 9).
+
+The attention points sit between the cards and the summary (MVP 5, step 4), and the chat after the summary (MVP 5, step 5). See "Attention points, chat and document viewer".
+
+While loading, the page says so. `404` and `410` show the same messages as the processing page. A lost connection or a server error offers "Try again". A document that is not ready yet goes back to the processing page.
+
+Values are written by the browser's `Intl`, in the interface language, with Latin digits in both (as "10 ميجابايت" on the rest of the site): `10,000 ر.س.` and `SAR 10,000`, `90 يومًا` and `90 days`, `1 نوفمبر 2026` and `November 1, 2026`. `yes` and `no`, the document type and the contract type codes are translated. The quote stays in the language of the document.
+
+### Text sources
+
+| Text | From |
+| --- | --- |
+| The disclaimer, word for word (shared with the footer) | MVP 9 |
+| The overview items and the six card titles | The Result Dashboard card |
+| The term names | MVP 6, and the keys in the contract, section 13 |
+| "Not found in the document" | MVP 6: a value that is not found is returned as "not found" |
+| What Delete removes: the file, its text, the analysis and the chat | MVP 9 |
+| "Was this analysis helpful?", "Helpful", "Not helpful" | The Result Dashboard card: "helpful / not helpful" |
+| The privacy line at the bottom | The landing page line, MVP 9 |
+| The other titles, messages and buttons | Interface labels, our choice |
+
+## Attention points, chat and document viewer
+
+MVP 7 and 8, and the Attention Points, Ask Your Document & Viewer card.
+
+**Attention points** (contract, section 13: `findings`). Each one shows its severity as a word and an icon, not only a colour (High, Attention, Info), its category, the title and "why it matters" from the backend, the quote and the page. They are shown in the backend's order, high first. With none, the page says so and still advises reading the document. A test checks that no text on the site calls a clause "illegal" or "unfair" (MVP 7, wording rule).
+
+**Chat** (contract, sections 8 and 14). The MVP's two example questions are chips. Each answer shows its citations (page and quote), and an answer that is not in the document says so clearly. The questions left come from `remaining_questions`; the frontend never counts them. With none left (`0`, or `question_limit_reached`), the box closes, and a guest is invited to sign in for more (MVP 4.2). `ai_budget_reached` shows its message in the chat, and the question stays in the box. A question is never sent again on its own.
+
+**Document viewer** (contract, section 9). The original PDF, one page at a time. Every page reference (overview, term cards, attention points, citations) is a button that opens the viewer on that page. On a phone, where the document is hidden, it opens in two ways: the "View the document" button at the top of the result (from its first page), or any page reference (on that page).
+
+| Screen | Viewer |
+| --- | --- |
+| Wide (`lg`, 1024 px and up) | Beside the result, and stays in place while the result scrolls |
+| Phone and tablet | Hidden. "View the document" (above the overview) or a page reference opens it over the whole screen; "Close" goes back to the same button. The chat stays under the result |
+
+The signed URL is asked again 30 seconds before it expires. If loading fails, a new URL is asked once, with no error shown.
+
+### Text sources
+
+| Text | From |
+| --- | --- |
+| The attention categories | MVP 7, the category names |
+| The severity words "High", "Attention", "Info" | MVP 7, the severity column |
+| "Ask your document" and the two suggested questions | MVP 5, step 5, and MVP 8 |
+| "Answers come only from your document, with the page and a short quote" | MVP 8 |
+| "Not found in your document" | MVP 8: "the reply says so clearly instead of guessing" |
+| "Sign in to ask more questions" | MVP 4.2: sign in to "chat longer" |
+| The other titles, messages and buttons | Interface labels, our choice |
+
 ## Decisions
 
 Choices made where the plan did not specify, with the reason for each.
@@ -379,7 +496,7 @@ Choices made where the plan did not specify, with the reason for each.
 | 15 | First tests cover the language files and the direction switch | These are the two things that existed in Task 1, and the plan asks for checks in both RTL and LTR. |
 | 16 | `npm ci` in the Docker build, not `npm install` | `npm ci` installs exactly the versions in `package-lock.json` and stops if the two disagree, so the server builds what was tested locally. The backend stage of the studio's existing Dockerfile uses it too. |
 | 17 | ~~No `VITE_API_BASE_URL` in the Docker build yet~~ | Not needed. Decided in Task 3 by decision 52. |
-| 18 | A root `.dockerignore` that skips `node_modules`, `dist` and `.git` | Without it, the build would copy the macOS `node_modules` into the Linux image and break the build. It also keeps the files sent to Docker small. It sits at the root so it covers the backend too. |
+| 18 | ~~A root `.dockerignore` that skips `node_modules`, `dist` and `.git`~~ Replaced by decision 104 | The frontend image now has its own `frontend/.dockerignore`. |
 
 ### Task 2
 
@@ -389,7 +506,7 @@ Choices made where the plan did not specify, with the reason for each.
 | 20 | The landing header is in `features/landing/components` | Its links point to sections of this page only. Other pages will have their own header, as invoi's dashboard pages use `NavBar` and not the landing `Header`. |
 | 21 | The language switch is in `features/shared/components` | The manager asked for it in every page. `features/shared` is where invoi keeps components used by several pages. invoi has no language switch (it is Arabic only), so its place is our choice. |
 | 22 | shadcn/ui components stay in `src/components/ui` | The plan puts shadcn/ui in `components/`, and the shadcn CLI adds new components there. |
-| 23 | The "Choose a file" button is in `features/upload` | The plan names `features/upload` for the upload. The button opens the file picker and accepts PDF and DOCX only. Sending the file to the API comes with the upload task. |
+| 23 | The "Choose a file" button is in `features/upload` | The plan names `features/upload` for the upload. The button opens the file picker and accepts PDF files only (PDF and DOCX until decision 144). Sending the file to the API comes with the upload task. |
 | 24 | One upload button on the page, in the hero. No closing "call to action" section with a second one | MVP 5, step 1: "The user sees the promise, the privacy message, and one upload button." This is a difference from invoi, which has two. |
 | 25 | Every sentence on the page comes from the MVP Definition | The page describes the product, and the MVP Definition is the agreed description. The landing page section above lists the source of each text. |
 | 26 | The privacy section shows the automatic deletion periods: 24 hours for guests, 30 days for signed-in users unless they choose to keep it | MVP 9 states them, with the same exception (the `keep_documents` setting in the Database Schema). They were first hidden because MVP "Open questions" lists them as "to be confirmed". The manager confirmed them in the Task 2 review. If they change, only the `privacy.points.retention` text in `ar.json` and `en.json` changes. |
@@ -417,7 +534,7 @@ Choices made where the plan did not specify, with the reason for each.
 | # | Decision | Reason |
 | --- | --- | --- |
 | 45 | `shadcn`, `tailwindcss` and `@tailwindcss/vite` moved to `devDependencies` | The manager's review. They are tools used while building, like Vite: none of their JavaScript runs in the browser. `shadcn` is the CLI that adds components; the site only uses its base CSS (`shadcn/tailwind.css`), which Tailwind reads at build time. The Docker build runs `npm ci`, which installs `devDependencies` too, so the build is unchanged. |
-| 46 | `npm audit` warnings are known and left as they are | `npm audit --omit=dev` (the site's own libraries) finds 0 vulnerabilities. `npm audit` shows 7 high warnings, all in `braces`, which comes with the `shadcn` CLI (`shadcn` → `fast-glob` → `micromatch` → `braces`). It only runs when adding components on a developer's machine, and is not in the built site. Do not run `npm audit fix --force`: it "fixes" this by downgrading `shadcn` to version 1.0.0. To check again after updating `shadcn`. |
+| 46 | `npm audit` warnings are known and left as they are | `npm audit --omit=dev` (the site's own libraries) finds 0 vulnerabilities. `npm audit` shows warnings only in tools used while building, mostly brought by the `shadcn` CLI (in Task 1 `braces`; in October 2026 `undici`, `body-parser`, `qs`, `fast-uri` and `zod`). They run on a developer's machine, and are not in the built site. Do not run `npm audit fix --force`: it can downgrade `shadcn` to version 1.0.0. To check again after updating `shadcn`. |
 | 47 | Unused shadcn/ui theme settings removed: dark mode (`.dark` and the `dark` variant), `sidebar-*`, `chart-*`, `card-*`, `popover-*`, `accent-*`, `input`, `font-heading`, and the `sm`, `3xl` and `4xl` radius sizes | The manager's review. Each name was checked against the built CSS: none of these is used by the page or by the two components (`button`, `accordion`). The `dark:` classes in `button.tsx` were removed too: without the `.dark` setting, Tailwind would apply them whenever the phone or computer is in dark mode, and the outline button would change colour. `secondary` and `destructive` stay because `button.tsx` uses them in its variants. When a new shadcn/ui component needs a removed name, it is added back with a brand value. |
 | 48 | `src/lib/utils.ts` stays | The shadcn CLI created it, and `components.json` points the CLI to it (`"utils": "@/lib/utils"`). Removing it could break `npx shadcn add` for the next component. Since Task 3, our own components import `cn` from it too. |
 
@@ -431,15 +548,15 @@ Choices made where the plan did not specify, with the reason for each.
 | 52 | The API base is the relative path `/api/v1`, with no `VITE_API_BASE_URL` | The plan serves the frontend and `/api/v1` from the same nginx (section 2), so the browser reaches the API on the same address. It also keeps the Sanctum cookie on the same site. |
 | 53 | Every call sends `credentials: 'include'` | Signed-in users use Sanctum SPA cookie sessions (plan, section 7). Guests are not affected. |
 | 54 | ~~The guest token is 32 random bytes made in the browser~~ Replaced by decision 71 | The Integration Contract card decided that the backend issues it. |
-| 55 | The browser checks type and size only; the API checks the page count (30) | A browser cannot count DOCX pages reliably. The plan's pipeline checks pages on the server (section 5, step 1), and the server checks everything again anyway. |
-| 56 | A file is also accepted by its extension (`.pdf`, `.docx`), whatever type the browser reports | Some systems report an empty or unusual type for these files. The server checks the real content anyway (plan, section 5, step 1). |
+| 55 | The browser checks type and size only; the API checks the page count (30) | Counting the pages means reading the whole file in the browser. The plan's pipeline checks pages on the server (section 5, step 1), and the server checks everything again anyway. |
+| 56 | A file is also accepted by its extension (`.pdf`; `.docx` too until decision 144), whatever type the browser reports | Some systems report an empty or unusual type for these files. The server checks the real content anyway (plan, section 5, step 1). |
 | 57 | A file can be dropped anywhere on the page, with a full-page "Drop the file here" layer | MVP 5, step 2: "The user drops a PDF or DOCX". A small drop zone is easy to miss on a long page. |
 | 58 | A failed upload is not repeated on its own; a failed status check is tried once more | Sending a file twice could create two documents. Asking for the status again is safe. |
 | 59 | The API's error message is shown when it sends one, and ours otherwise | The plan says API errors carry "a translated message". Ours covers network errors and an empty message. `status_detail` is a code with our own translated text (decision 74). |
 | 60 | The processing page shows the file name | The Database Schema says `original_filename` is "shown to the owner only". It helps a visitor who uploads two offers to compare. The name is passed with the page change, so it is not sent anywhere. |
 | 61 | No progress bar and no time estimate on the processing page | The four stages already show the progress. The MVP's "under 60 seconds" is a target for the team, not a promise to visitors (same reason as decision 28). |
 | 62 | `Logo` and `AppHeader` in `features/shared/components` | The processing page needs the logo and the language switch (decision 21) without the landing page links. The landing `Header` now uses the same `Logo`. |
-| 63 | `ResultPage` is a placeholder that says the analysis is ready | Processing has to end somewhere. The result dashboard is a separate task. |
+| 63 | ~~`ResultPage` is a placeholder that says the analysis is ready~~ Replaced by the Result Dashboard (decisions 105 to 124) | Processing has to end somewhere. The result dashboard is a separate task. |
 | 64 | `renderWithProviders` for tests, with an optional starting address | Components now need TanStack Query and the router. One helper avoids repeating that in every test. Pages that read the address (`/d/123`) start there. |
 | 65 | Only a `404` shows "Document not found" (and a `410` "This document was deleted", decision 75), and the checks stop there. Any other error keeps the stages on screen, and the next check tries again | A dropped connection for a few seconds should not tell the visitor their document is gone. Without the stop, a missing document would be asked about every 2 seconds for as long as the page is open. |
 | 66 | ~~`AnalysisLayout` in `features/analysis/components`~~ Moved by decision 90 | The processing and result pages share the same frame. One place to change it, and the pages only hold their own content. |
@@ -475,7 +592,7 @@ The manager's Task 3 review, and the integration contract (`docs/integration-con
 | 84 | Each request says how it uses the guest token: `'guest'` (a guest's document request), `'claim'` (a sign-in request) or none. This replaces `{ guest: true }` from decision 71, and a signed-in user's document requests send none | Contract, section 5: the token goes only with document and question requests, while not signed in, and once at sign-in to claim. A sign-in request never asks for a new token: there is nothing to claim. |
 | 85 | Who is signed in comes from `GET /me`, loaded once and kept (`useCurrentUser`). Document requests (the upload and the status check) wait for it | Contract, section 11 and Technical Plan, section 7. Waiting means a signed-in user never gets a guest token by mistake. |
 | 86 | The consent line has no checkbox: signing in, by email or Google, means accepting the terms. The frontend sends no terms version | The Task 4 card: "Consent to terms and privacy is shown at sign-in". The contract's sign-in requests have no terms field (sections 10 and 11). Which terms are current is known by the backend, so it stores `users.terms_version` and `terms_accepted_at` (Database Schema, section 3.1) when it creates the account. A version sent by the browser could also be changed by anyone. |
-| 87 | The page to come back to is saved in the browser (`bayanuk.returnTo`), and only an address inside the site is accepted | Contract, section 11. The email link and Google both come back in a new page load. Accepting only "/..." stops a link from sending the user to another site after sign-in. |
+| 87 | The page to come back to is saved in the browser (`bayanuk.returnTo`), and only an address inside the site is accepted: the address is read the way the browser reads it (`new URL`), and its site must be ours | Contract, section 11. The email link and Google both come back in a new page load. Checking the site, not the first characters, stops every way of sending the user to another site after sign-in (Open Redirect): `https://...`, `//...`, and `/\...`, which the browser reads as `//...`. |
 | 88 | The email link token is sent once, even when React runs the effect twice in development | The link works only once (Database Schema, `login_tokens`). A second request would answer "already used". A test renders the page in `StrictMode` to check it. |
 | 89 | Cancelling Google has its own text; every other Google failure shares one | Cancelling is the user's choice, not an error. The other two codes mean the same to the user: try again. |
 | 90 | `AnalysisLayout` moved to `features/shared/components/CardLayout`, with a `privacyLine` option | The sign-in pages use the same frame. The privacy line talks about "your document", so pages without a document leave it out. |
@@ -491,6 +608,57 @@ The manager's Task 3 review, and the integration contract (`docs/integration-con
 | 100 | Any `401` forgets the signed-in user, so a page that needs an account sends the user to sign in, and back to the same page afterwards | Contract, section 4: "The frontend sends the user to sign in", and the Task 4 card: "401 sends the user to sign in". It is done once, in the query client (`app/queryClient.ts`), so every request is covered, also the ones added by later tasks. |
 | 101 | After the email link is verified, the user is loaded from `GET /me`, as after Google | The Technical Plan (section 7.4) and the contract (section 10) do not set the verify answer's body, only that the backend sets the session cookie. Loading `/me` works with any success answer, and both ways of signing in end the same way. |
 | 102 | The build puts the libraries in their own files: `react` (React and the router) and `vendor` (the others), apart from our code (`index`) | With the account menu, one file passed 500 kB and the build warned. The libraries change rarely, so after an update of the site the browser keeps them from its cache and downloads only our code (about 60 kB). Set in `vite.config.ts`. |
+| 104 | The frontend has its own `Dockerfile` in `frontend/`: Node builds the site, then nginx (`nginx-unprivileged`, port 8089, as the manager asked in the review) serves it. The `frontend-build` stage left the root `Dockerfile` | Front end Docker setup card. The backend runs PHP-FPM, which cannot serve files, so the built site in the root image had no use, and the root `.dockerignore` leaves `frontend/` out for the backend image. The Technical Plan (section 2) has the frontend as a static build served by nginx, apart from the API. This is the layout of Docker's own guide for React apps. The nginx image runs as a normal user, not root. |
+
+### Result Dashboard
+
+| # | Decision | Reason |
+| --- | --- | --- |
+| 105 | The result is read once (`useDocument`). A lost connection or a server error is tried once more; `404` and `410` are final | As the status check (decision 85 and contract, section 6). It waits for `/me`, so a signed-in user never sends a guest token. |
+| 106 | The result is not kept after the page closes (`gcTime: 0`) | Opened before the document is ready, the answer has no analysis. Kept, it would send the next visit back to the processing page, and that page back to the result, again and again. |
+| 107 | Before the document is ready, `analysis` is `null`, and the page goes back to the processing page | The contract (section 13) shows only a ready document. A document with no analysis yet has nothing to show. The fake API answers the same way. |
+| 108 | An error after the result is shown keeps the result on screen | A check when the tab is opened again can fail (no connection, for example). The result already shown is still right. |
+| 109 | `AuthMessage` moved to `features/shared/components/PageMessage`. It can show a problem in red (`tone`) and with another icon (`icon`) | The result page shows the same kind of message (loading, or a problem) as the sign-in return pages. One component instead of two copies. "Document not found" and "This document was deleted" then look the same on the result page as on the processing page: red, and calm with a crossed file. |
+| 110 | The result page is wider (`max-w-5xl`) than the card pages. Loading and errors keep the card | The overview and six cards do not fit in one narrow card. A single message reads best in the card, as on the other pages. |
+| 111 | The overview shows each value's page; the cards show the page and the quote | The card asks for the source page and quote of every value. Every overview value is also in a card, with its quote, so the overview stays short. |
+| 112 | The notice period shows both sides only when the employer's is found and differs | MVP 6: "notice_period_days (employee and employer, if different)". |
+| 113 | The contract card also holds the employer, job title, probation, notice and termination terms | The card lists six areas, and MVP 6 has these groups too. They are all terms of the contract, so no term is left out and no card is added. |
+| 114 | A term missing from the answer shows "not found", as a term with `found: false` | Every term of section 13 always has a row, so the page never has a gap. |
+| 115 | Numbers use Latin digits in both languages, and `Intl` writes the currency, units and dates. Whole amounts have no `.00`. Dates are read in UTC | Latin digits as on the rest of the site. `Intl` writes the Arabic plural forms ("يومًا", "شهرًا") without our own rules. A date without a time read in local time could move to the day before. |
+| 116 | Codes are translated (`yes`, `no`, the document type, `fixed_term`, `indefinite`, `monthly`). A code this version does not know is shown as it is | Section 13 sets `yes` and `no`. Only `fixed_term` and `monthly` are in the project files; `indefinite` is assumed (see "For the backend"). |
+| 117 | The quote and the summary keep their own language and direction (`dir="auto"`, and `lang` for the summary). Switching the interface language does not change them | The quote comes from the document. The summary is written once, when the document is analyzed, in the interface language of that moment (MVP 4.1, and Database Schema: `users.locale` is the "default summary language"). |
+| 118 | The disclaimer is under the title, and its text is one key (`disclaimer`) for the footer and the result page. It was `footer.disclaimer` | MVP 9: "visible on every result page". One key means one place to change the wording. |
+| 119 | Delete uses Radix `AlertDialog` directly. The dialog stays open with a message if deleting fails | As the account menu (decision 93): keyboard focus stays inside, Escape closes it, and screen readers read it. The delete button is not the dialog's own "action" button, which would close the dialog before the answer. |
+| 120 | A document that is already gone (`404` or `410`) counts as deleted. After deleting, the page goes home and forgets the document's data | What the user asked for is done. The page leaves first, as sign-out (decision 94), so the result is not loaded again. |
+| 121 | The feedback sends the rating only. A guest sends the guest token with it | The card asks for "helpful / not helpful". The rating is on the guest's own analysis, so the backend can check it, as with document requests (contract, section 5). |
+| 122 | On a wide screen the cards sit in two columns: compensation, working time and leave stacked beside the contract card, then benefits beside restrictions. The cards of a row end on one line | In a plain grid, each row took the height of its longest card: the contract card (13 terms) left a large gap beside the leave card (2 terms). The three short cards together are about as long as the contract card. The order stays the order of MVP 5, also for screen readers and on a phone. |
+| 123 | The summary component is `Summary`, as the Technical Plan names it (section 4). The page stays `ResultPage` | As decision 97: the code matches the plan's names. `TermCards` is named in the plan too. The plan's `ResultDashboard` is the page: it keeps the name from Task 3, as `ProcessingPage` (the plan's `ProcessingScreen`), because every file in `pages/` ends in `Page`. |
+| 124 | The privacy line is its own component (`PrivacyLine`), used by `CardLayout` and the result page | The result page has its own wide frame, not `CardLayout`, and it is a page about the uploaded document, so it keeps the line the processing page shows (decision 90). One component instead of two copies. |
+
+### Attention Points, Ask Your Document & Viewer
+
+| # | Decision | Reason |
+| --- | --- | --- |
+| 125 | The branch started from the Result Dashboard branch | This card adds to the result page, which was still in review. |
+| 126 | Severity is a word and an icon, with a colour: High (red), Attention (amber, as decision 40), Info (brand teal) | The card: "Severity is clear without relying on color alone". |
+| 127 | A finding category this version does not know shows "Other" | Section 3 lists the categories; a new one should not show a raw code. |
+| 128 | A test reads every Arabic and English text for "illegal", "unfair" and their Arabic words | The card and MVP 7: "never 'illegal' or 'unfair'". The texts from the backend follow the same rule on its side. |
+| 129 | The chat is in `features/chat`, with the plan's names: `ChatPanel`, `SuggestedQuestions`, `CitationChip` | Technical Plan, section 4. |
+| 130 | The suggested questions are the MVP's two examples, kept in the frontend in both languages | The contract has no suggested questions from the backend. |
+| 131 | The answer is added to the history on screen from the `POST` answer, without reading the history again. A failed question is not repeated on its own | Each question may use one of the questions left, so the frontend never sends one twice. |
+| 132 | The questions left use Arabic plural forms (zero, one, two, few, many, other). The language test groups plural keys, and checks every Arabic number text has all six | "بقي لك سؤالان", "3 أسئلة", "11 سؤالًا": i18next picks the form from the number, as `Intl` does. |
+| 133 | ~~A Word file shows "The preview is available for PDF files only" and "Open the file"~~ Replaced by decision 144 | Word files are no longer accepted. |
+| 134 | react-pdf 10.5, not 11 | react-pdf 11 comes with PDF.js 6, which uses `Map.getOrInsertComputed`, a very new JavaScript feature: the page broke in the Chromium we test with, and not every browser in use has it yet. 10.5 (PDF.js 5) works there. To check again with react-pdf 11 later. |
+| 135 | The viewer reads the whole file once (`disableRange`, `disableStream`) | The URL expires after 5 minutes (section 9); a file read in parts would fail after that. Files are 10 MB at most (MVP 4.2). |
+| 136 | The signed URL counts as fresh until 30 seconds before `expires_at`. A failed load asks for a new URL once; a second failure shows "We could not open the document" with "Try again" | Section 9: "the viewer asks for a new one and reloads the file. The user sees no error." |
+| 137 | The viewer shows one page at a time, as wide as its box, with previous and next. Text and links in the PDF are not selectable | One page loads fast, also on a phone. The quotes are already text on the result. |
+| 138 | Beside the result on wide screens; over the whole screen on phones, opened by a page reference or by "View the document", with "Close" back to it | The card: "decide how the viewer and chat behave on small screens". Half a phone screen is too small to read a page. The button lets a phone user read the document from its start, without looking for a page reference. |
+| 139 | `DocumentViewer` is loaded only when shown (`React.lazy`), and react-pdf is left out of the `vendor` file | PDF.js is about 420 kB. The other pages never download it. |
+| 140 | The tests replace react-pdf and `DocumentViewer` with stand-ins, and `test/setup.ts` gives jsdom a phone-sized `matchMedia` and a `ResizeObserver` | jsdom cannot run PDF.js or measure the screen. |
+| 141 | The fake API serves a fake 9-page PDF (`mocks/fake-contract.pdf`) from a fake storage URL that expires after 5 minutes | The viewer can be tried, also with an expired URL, before the backend is ready. It is never part of the build. |
+| 142 | Arabic texts across the site made consistent: formal Arabic ("يمكنك", not "تقدر"), "جارٍ", and the same words for the same things ("إجابة", "اقتباس") | A review of every text. The English "Paid" became "Pay frequency", and "risk points" became "points that need attention" (MVP 7 wording). |
+| 143 | "Was this analysis helpful?" is the last thing on the page, after the chat | The card asks for the feedback but not its place, and MVP 5 does not list it. At the end, the user has read the result and asked their questions, so the rating covers all of it. |
+| 144 | Only PDF files are accepted: the upload, the texts of the landing page, the fake API and the viewer. MVP 4.2 said PDF and DOCX | The manager's decision in the team chat: companies do not send employment contracts as Word files. A Word file has no fixed pages, so its page numbers could not match the viewer. The manager updates the MVP and the Technical Plan. |
 
 ## Differences from the Technical Plan
 
@@ -519,8 +687,15 @@ Task 4 uses only what the contract (sections 5, 10 and 11) and the Technical Pla
 
 For the manager: the links to the Terms and Privacy pages in the consent line, once the pages exist (open question 4).
 
+Attention Points, Ask Your Document & Viewer:
+
+- **PDF only (decision 144):** the backend should refuse a Word file with `file_type_not_supported`, as the frontend does. The manager updates the MVP and the Technical Plan.
+- **CORS on the storage:** the viewer reads the file from the signed URL in the browser, so the storage bucket must allow the frontend's address (`http://localhost:5173` in development).
+- **Chat when indexing fails:** the Technical Plan (section 5, step 6) says "Chat disabled for this document with a message". The contract does not say how the frontend learns it. Until then, a failed question shows the backend's message.
+
+Result Dashboard: the project files give one value of `contract.type` (`fixed_term`) and of `compensation.pay_frequency` (`monthly`). The page also translates `indefinite` (decision 116). The full list of these values is to be confirmed with the backend.
+
 ## Next
 
 - Connect to the real API once the backend endpoints are ready: set `VITE_API_MOCK=false` (see "The fake API").
-- Result task: the result dashboard at `/d/{id}/result`.
 - Documents task: the list at `/documents` (contract, section 7).
