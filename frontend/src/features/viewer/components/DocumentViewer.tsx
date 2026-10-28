@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, ExternalLink, LoaderCircle } from 'lucide-react'
+import { ChevronLeft, ChevronRight, LoaderCircle } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Document, Page, pdfjs } from 'react-pdf'
@@ -19,15 +19,13 @@ interface Props {
 }
 
 // Technical Plan, section 4: DocumentViewer (react-pdf). It shows one page of the original file at a time,
-// as wide as its box, with the previous and next pages. Only a PDF can be shown: for a Word file
-// it says so and offers to open the file. An expired or failed URL is asked again once, with no error
-// shown (contract, section 9).
+// as wide as its box, with the previous and next pages. Every uploaded file is a PDF (decision 144).
+// An expired or failed URL is asked again once, with no error shown (contract, section 9).
 export default function DocumentViewer({ documentId, page, onPageChange }: Props) {
   const { t } = useTranslation()
   const file = useDocumentFile(documentId)
   const [pageCount, setPageCount] = useState(0)
   const [width, setWidth] = useState(0)
-  const [notPdf, setNotPdf] = useState(false)
   // The URL that already failed once and was asked again. A second failure shows the error.
   const [retriedUrl, setRetriedUrl] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
@@ -40,8 +38,7 @@ export default function DocumentViewer({ documentId, page, onPageChange }: Props
     return () => observer.disconnect()
   }, [])
 
-  function onLoadError(error: Error) {
-    if (error.name === 'InvalidPDFException') return setNotPdf(true)
+  function onLoadError() {
     const url = file.data?.url ?? null
     if (url && retriedUrl !== url) {
       setRetriedUrl(url)
@@ -78,19 +75,6 @@ export default function DocumentViewer({ documentId, page, onPageChange }: Props
     )
   }
   if (!file.data) return loading
-  if (notPdf) {
-    return (
-      <div className="p-4 text-sm">
-        <p className="text-muted-foreground">{t('viewer.notPdf')}</p>
-        <Button asChild variant="outline" className="mt-3 h-9 px-3">
-          <a href={file.data.url} target="_blank" rel="noreferrer">
-            <ExternalLink aria-hidden="true" />
-            {t('viewer.openFile')}
-          </a>
-        </Button>
-      </div>
-    )
-  }
 
   return (
     <div className="flex h-full flex-col">

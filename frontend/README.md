@@ -41,7 +41,7 @@ The browser console shows `[MSW] Mocking enabled.` when it runs. It follows the 
 
 | File name | Outcome |
 | --- | --- |
-| Any PDF or DOCX | Ready after about 12 seconds |
+| Any PDF | Ready after about 12 seconds |
 | Contains `reject` (for example `reject-lease.pdf`) | Rejected, `status_detail` = `not_employment_document` |
 | Contains `fail` (for example `fail-scan.pdf`) | Failed, `status_detail` = `file_unreadable` |
 | Contains `budget` (for example `budget-offer.pdf`) | Paused while analyzing, `status_detail` = `ai_budget_reached` |
@@ -51,7 +51,7 @@ The browser console shows `[MSW] Mocking enabled.` when it runs. It follows the 
 
 A ready document's result (`GET /documents/{id}`) is always the same Arabic employment contract, with the example values of MVP 6 (`mocks/fakeResult.ts`), whatever file was uploaded. Its summary is in the interface language at the time of the upload, as MVP 4.1 asks of the real API. Some terms are not found, so the "not found" state shows too. Delete and the feedback buttons work too. It has three attention points (`mocks/fakeResult.ts`).
 
-The document viewer shows a fake 9-page contract (`mocks/fake-contract.pdf`, made for development), with each quote on its page. The signed URL expires after 5 minutes, as the real one. A `.docx` file gets a file that is not a PDF, so the viewer says it cannot show it.
+The document viewer shows a fake 9-page contract (`mocks/fake-contract.pdf`, made for development), with each quote on its page. The signed URL expires after 5 minutes, as the real one.
 
 The chat (`mocks/fakeChat.ts`) answers a question about the notice period, the probation or the salary with its page and quote, and any other question with "not found". The answer is in the question's language. Guests have 3 questions per document and signed-in users 20. A question with `nobudget` gets the daily AI budget error.
 
@@ -328,7 +328,7 @@ Sections, top to bottom, and the source of their text. Every sentence on the pag
 | Header | `Header.tsx` | Section titles below. "الخصوصية" is the short form of the section 9 title |
 | Hero | `Hero.tsx` | Title: MVP 1 (the one-line promise, with its Arabic). Subtitle: MVP 1 (product overview). Privacy line: MVP 9. Example card: MVP 6 (example column: probation 90, basic salary 8,000, employee notice 30, non-compete 12 months) |
 | Who it is for | `TargetUsers.tsx` | MVP 3, the two primary segments (fresh graduates, job switchers) |
-| Supported documents | `SupportedFiles.tsx` | MVP 4.1 (document types) and 4.2 (PDF or DOCX, up to 10 MB and 30 pages) |
+| Supported documents | `SupportedFiles.tsx` | MVP 4.1 (document types) and 4.2 (up to 10 MB and 30 pages). PDF only (decision 144) |
 | How it works | `HowItWorks.tsx` | MVP 5, steps 2 to 5. The two example questions are quoted from step 5 |
 | Trust and privacy | `Privacy.tsx` | MVP 9 (training, storage, deletion, and the automatic deletion periods), MVP 6 (masking of personal identifiers) |
 | FAQ | `FAQ.tsx` | Questions written for this page. Answers from MVP 9 (disclaimer), 4.1 and 4.2 (documents, guest mode, sign-in), 8 (chat answers and question limits) |
@@ -349,7 +349,7 @@ Real photos, free for commercial use. Resized to at most 1600 pixels at 75% qual
 The flow from MVP 5, steps 2 and 3. The API follows the integration contract (`docs/integration-contract.md`).
 
 1. **Choose or drop a file.** The "Choose a file" button opens the file picker. A file can also be dropped anywhere on the page.
-2. **Check it in the browser.** PDF or DOCX, up to 10 MB (MVP 4.2). If not, a message shows under the button and nothing is sent.
+2. **Check it in the browser.** PDF only (decision 144), up to 10 MB (MVP 4.2). If not, a message shows under the button and nothing is sent.
 3. **Send it.** `POST /api/v1/documents`, as a form with one field, `file`. The API answers `202` with the new document's `id`.
 4. **Show the processing page** at `/d/{id}`, with the file name. It asks `GET /api/v1/documents/{id}/status` every 2 seconds and stops when processing ends, or on `404` or `410`.
 5. **Explain any wait** with one line under the stages: in the queue (`uploaded`), paused by the daily AI budget, or offline.
@@ -457,7 +457,7 @@ MVP 7 and 8, and the Attention Points, Ask Your Document & Viewer card.
 | Wide (`lg`, 1024 px and up) | Beside the result, and stays in place while the result scrolls |
 | Phone and tablet | Hidden. "View the document" (above the overview) or a page reference opens it over the whole screen; "Close" goes back to the same button. The chat stays under the result |
 
-The signed URL is asked again 30 seconds before it expires. If loading fails, a new URL is asked once, with no error shown. A Word file cannot be shown (react-pdf shows PDF only): the viewer says so and offers to open the file.
+The signed URL is asked again 30 seconds before it expires. If loading fails, a new URL is asked once, with no error shown.
 
 ### Text sources
 
@@ -469,7 +469,6 @@ The signed URL is asked again 30 seconds before it expires. If loading fails, a 
 | "Answers come only from your document, with the page and a short quote" | MVP 8 |
 | "Not found in your document" | MVP 8: "the reply says so clearly instead of guessing" |
 | "Sign in to ask more questions" | MVP 4.2: sign in to "chat longer" |
-| "The preview is available for PDF files only" | Our wording, for decision 133 |
 | The other titles, messages and buttons | Interface labels, our choice |
 
 ## Decisions
@@ -507,7 +506,7 @@ Choices made where the plan did not specify, with the reason for each.
 | 20 | The landing header is in `features/landing/components` | Its links point to sections of this page only. Other pages will have their own header, as invoi's dashboard pages use `NavBar` and not the landing `Header`. |
 | 21 | The language switch is in `features/shared/components` | The manager asked for it in every page. `features/shared` is where invoi keeps components used by several pages. invoi has no language switch (it is Arabic only), so its place is our choice. |
 | 22 | shadcn/ui components stay in `src/components/ui` | The plan puts shadcn/ui in `components/`, and the shadcn CLI adds new components there. |
-| 23 | The "Choose a file" button is in `features/upload` | The plan names `features/upload` for the upload. The button opens the file picker and accepts PDF and DOCX only. Sending the file to the API comes with the upload task. |
+| 23 | The "Choose a file" button is in `features/upload` | The plan names `features/upload` for the upload. The button opens the file picker and accepts PDF files only (PDF and DOCX until decision 144). Sending the file to the API comes with the upload task. |
 | 24 | One upload button on the page, in the hero. No closing "call to action" section with a second one | MVP 5, step 1: "The user sees the promise, the privacy message, and one upload button." This is a difference from invoi, which has two. |
 | 25 | Every sentence on the page comes from the MVP Definition | The page describes the product, and the MVP Definition is the agreed description. The landing page section above lists the source of each text. |
 | 26 | The privacy section shows the automatic deletion periods: 24 hours for guests, 30 days for signed-in users unless they choose to keep it | MVP 9 states them, with the same exception (the `keep_documents` setting in the Database Schema). They were first hidden because MVP "Open questions" lists them as "to be confirmed". The manager confirmed them in the Task 2 review. If they change, only the `privacy.points.retention` text in `ar.json` and `en.json` changes. |
@@ -549,8 +548,8 @@ Choices made where the plan did not specify, with the reason for each.
 | 52 | The API base is the relative path `/api/v1`, with no `VITE_API_BASE_URL` | The plan serves the frontend and `/api/v1` from the same nginx (section 2), so the browser reaches the API on the same address. It also keeps the Sanctum cookie on the same site. |
 | 53 | Every call sends `credentials: 'include'` | Signed-in users use Sanctum SPA cookie sessions (plan, section 7). Guests are not affected. |
 | 54 | ~~The guest token is 32 random bytes made in the browser~~ Replaced by decision 71 | The Integration Contract card decided that the backend issues it. |
-| 55 | The browser checks type and size only; the API checks the page count (30) | A browser cannot count DOCX pages reliably. The plan's pipeline checks pages on the server (section 5, step 1), and the server checks everything again anyway. |
-| 56 | A file is also accepted by its extension (`.pdf`, `.docx`), whatever type the browser reports | Some systems report an empty or unusual type for these files. The server checks the real content anyway (plan, section 5, step 1). |
+| 55 | The browser checks type and size only; the API checks the page count (30) | Counting the pages means reading the whole file in the browser. The plan's pipeline checks pages on the server (section 5, step 1), and the server checks everything again anyway. |
+| 56 | A file is also accepted by its extension (`.pdf`; `.docx` too until decision 144), whatever type the browser reports | Some systems report an empty or unusual type for these files. The server checks the real content anyway (plan, section 5, step 1). |
 | 57 | A file can be dropped anywhere on the page, with a full-page "Drop the file here" layer | MVP 5, step 2: "The user drops a PDF or DOCX". A small drop zone is easy to miss on a long page. |
 | 58 | A failed upload is not repeated on its own; a failed status check is tried once more | Sending a file twice could create two documents. Asking for the status again is safe. |
 | 59 | The API's error message is shown when it sends one, and ours otherwise | The plan says API errors carry "a translated message". Ours covers network errors and an empty message. `status_detail` is a code with our own translated text (decision 74). |
@@ -648,7 +647,7 @@ The manager's Task 3 review, and the integration contract (`docs/integration-con
 | 130 | The suggested questions are the MVP's two examples, kept in the frontend in both languages | The contract has no suggested questions from the backend. |
 | 131 | The answer is added to the history on screen from the `POST` answer, without reading the history again. A failed question is not repeated on its own | Each question may use one of the questions left, so the frontend never sends one twice. |
 | 132 | The questions left use Arabic plural forms (zero, one, two, few, many, other). The language test groups plural keys, and checks every Arabic number text has all six | "بقي لك سؤالان", "3 أسئلة", "11 سؤالًا": i18next picks the form from the number, as `Intl` does. |
-| 133 | A Word file shows "The preview is available for PDF files only" and "Open the file" | The plan's react-pdf shows PDF only. Converting Word to PDF would be the backend's (see "For the backend"); if it does, the viewer shows those files with no change. |
+| 133 | ~~A Word file shows "The preview is available for PDF files only" and "Open the file"~~ Replaced by decision 144 | Word files are no longer accepted. |
 | 134 | react-pdf 10.5, not 11 | react-pdf 11 comes with PDF.js 6, which uses `Map.getOrInsertComputed`, a very new JavaScript feature: the page broke in the Chromium we test with, and not every browser in use has it yet. 10.5 (PDF.js 5) works there. To check again with react-pdf 11 later. |
 | 135 | The viewer reads the whole file once (`disableRange`, `disableStream`) | The URL expires after 5 minutes (section 9); a file read in parts would fail after that. Files are 10 MB at most (MVP 4.2). |
 | 136 | The signed URL counts as fresh until 30 seconds before `expires_at`. A failed load asks for a new URL once; a second failure shows "We could not open the document" with "Try again" | Section 9: "the viewer asks for a new one and reloads the file. The user sees no error." |
@@ -659,6 +658,7 @@ The manager's Task 3 review, and the integration contract (`docs/integration-con
 | 141 | The fake API serves a fake 9-page PDF (`mocks/fake-contract.pdf`) from a fake storage URL that expires after 5 minutes | The viewer can be tried, also with an expired URL, before the backend is ready. It is never part of the build. |
 | 142 | Arabic texts across the site made consistent: formal Arabic ("يمكنك", not "تقدر"), "جارٍ", and the same words for the same things ("إجابة", "اقتباس") | A review of every text. The English "Paid" became "Pay frequency", and "risk points" became "points that need attention" (MVP 7 wording). |
 | 143 | "Was this analysis helpful?" is the last thing on the page, after the chat | The card asks for the feedback but not its place, and MVP 5 does not list it. At the end, the user has read the result and asked their questions, so the rating covers all of it. |
+| 144 | Only PDF files are accepted: the upload, the texts of the landing page, the fake API and the viewer. MVP 4.2 said PDF and DOCX | The manager's decision in the team chat: companies do not send employment contracts as Word files. A Word file has no fixed pages, so its page numbers could not match the viewer. The manager updates the MVP and the Technical Plan. |
 
 ## Differences from the Technical Plan
 
@@ -689,7 +689,7 @@ For the manager: the links to the Terms and Privacy pages in the consent line, o
 
 Attention Points, Ask Your Document & Viewer:
 
-- **Word files in the viewer:** react-pdf shows PDF only. Should the backend convert a Word file to PDF for viewing (decision 133)?
+- **PDF only (decision 144):** the backend should refuse a Word file with `file_type_not_supported`, as the frontend does. The manager updates the MVP and the Technical Plan.
 - **CORS on the storage:** the viewer reads the file from the signed URL in the browser, so the storage bucket must allow the frontend's address (`http://localhost:5173` in development).
 - **Chat when indexing fails:** the Technical Plan (section 5, step 6) says "Chat disabled for this document with a message". The contract does not say how the frontend learns it. Until then, a failed question shows the backend's message.
 

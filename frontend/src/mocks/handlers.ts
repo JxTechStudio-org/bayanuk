@@ -14,8 +14,8 @@ import fakeContractUrl from './fake-contract.pdf?url'
 // Upload errors (section 4): a name with "limit" gets the daily upload limit, and "nobudget"
 // the daily AI budget. A wrong type or a file over 10 MB gets its error too, if sent.
 //
-// Viewer: a PDF shows the fake contract (fake-contract.pdf). A DOCX gets a file that is not a PDF,
-// as a Word file would be. The signed URL expires after 5 minutes, as the real one (section 9).
+// Viewer: every document shows the fake contract (fake-contract.pdf). The signed URL expires after 5 minutes,
+// as the real one (section 9).
 //
 // Chat: a question about the notice period, the probation or the salary gets an answer with its page and quote;
 // any other question gets "not found". A question with "nobudget" gets the daily AI budget error.
@@ -44,8 +44,6 @@ interface FakeDocument {
   outcome: 'ready' | 'rejected' | 'failed' | 'paused' | 'expired'
   // The interface language at upload (Accept-Language): the language of the summary.
   language: 'ar' | 'en'
-  // The type of the uploaded file: only a PDF can be shown in the viewer.
-  kind: 'pdf' | 'docx'
 }
 
 // The fake data is kept in localStorage, so it survives a page reload (Google sign-in reloads the page)
@@ -101,8 +99,8 @@ function save() {
 // The real messages are written by the backend; these stand in for them.
 const MESSAGES: Record<string, { ar: string; en: string }> = {
   file_type_not_supported: {
-    ar: 'نوع الملف غير مدعوم. ارفع ملف PDF أو Word.',
-    en: 'This file type is not supported. Upload a PDF or Word file.',
+    ar: 'نوع الملف غير مدعوم. ارفع ملف PDF.',
+    en: 'This file type is not supported. Upload a PDF file.',
   },
   file_too_large: {
     ar: 'حجم الملف يتجاوز الحد المسموح به (10 ميجابايت).',
@@ -240,7 +238,7 @@ export const handlers = [
     const form = await request.formData()
     const file = form.get('file')
     const name = file instanceof File ? file.name.toLowerCase() : ''
-    if (!/\.(pdf|docx)$/.test(name)) return error(request, 422, 'file_type_not_supported')
+    if (!name.endsWith('.pdf')) return error(request, 422, 'file_type_not_supported')
     if (file instanceof File && file.size > 10 * 1024 * 1024) return error(request, 422, 'file_too_large')
     if (name.includes('nobudget')) return error(request, 429, 'ai_budget_reached')
     if (name.includes('limit')) return error(request, 429, 'upload_limit_reached')
@@ -250,7 +248,6 @@ export const handlers = [
       owner,
       startedAt: Date.now(),
       language: request.headers.get('Accept-Language') === 'en' ? 'en' : 'ar',
-      kind: name.endsWith('.docx') ? 'docx' : 'pdf',
       outcome: name.includes('reject')
         ? 'rejected'
         : name.includes('fail')
@@ -345,11 +342,6 @@ export const handlers = [
     const expires = Number(new URL(request.url).searchParams.get('expires'))
     const document = documents.get(String(params.id))
     if (!document || !expires || Date.now() > expires) return new HttpResponse(null, { status: 403 })
-    if (document.kind === 'docx') {
-      return new HttpResponse('Not a PDF', {
-        headers: { 'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
-      })
-    }
     const pdf = await fetch(fakeContractUrl).then((response) => response.arrayBuffer())
     return new HttpResponse(pdf, { headers: { 'Content-Type': 'application/pdf' } })
   }),

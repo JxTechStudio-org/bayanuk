@@ -74,14 +74,3 @@ it('shows an error with "Try again" when the new URL fails too', async () => {
   renderWithProviders(<DocumentViewer documentId="d1" page={1} onPageChange={() => {}} />)
   expect(await screen.findByRole('alert')).toHaveTextContent(ar.viewer.error)
 })
-
-it('says a Word file cannot be shown, and offers to open it', async () => {
-  urls = ['/storage/offer-docx']
-  const notPdf = new Error('Invalid PDF structure.')
-  notPdf.name = 'InvalidPDFException'
-  loadErrors.set('/storage/offer-docx', notPdf)
-  fileAnswers()
-  renderWithProviders(<DocumentViewer documentId="d1" page={1} onPageChange={() => {}} />)
-  expect(await screen.findByText(ar.viewer.notPdf)).toBeInTheDocument()
-  expect(screen.getByRole('link', { name: ar.viewer.openFile })).toHaveAttribute('href', '/storage/offer-docx')
-})
