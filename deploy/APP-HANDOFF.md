@@ -3,6 +3,22 @@
 These are changes to the application code. The production infrastructure (Compose override,
 Jenkins pipeline, host nginx, backups) is separate and doesn't depend on them. Each item can be one card.
 
+## Rule: database migrations (applies from the first production deploy)
+
+Production runs `php artisan migrate --force` on every deploy, so every migration already merged to
+`main` has run on the production database. From now on:
+
+- **Add a new migration** for every schema change (new table, column, index, rename, drop).
+- **Never edit, rename, or delete a migration** that is already on `main`. Laravel will not run it
+  again, so the change never reaches production, and production and local databases drift apart.
+- Keep migrations safe for the previous release: if a deploy fails, the pipeline rolls back the
+  images but not the database. Prefer adding over renaming or dropping in the same release.
+- Write a working `down()` method anyway, for local work and manual fixes.
+- Before you open a PR, check locally: `php artisan migrate:fresh` and `php artisan migrate:rollback`
+  both work.
+
+If an old migration has to change anyway, ask Jana first: it needs a planned production fix.
+
 ## 1. Build the API routes in the integration contract
 
 Only these exist now: `GET /api/v1/health`, `POST /api/v1/auth/google/redirect`, and Laravel's
