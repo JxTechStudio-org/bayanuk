@@ -24,6 +24,23 @@ managed by hand, outside this repository.
 
 Postgres, Redis, the RustFS S3 API, ClamAV and Horizon have no host ports.
 
+## ClamAV (off for now)
+
+ClamAV isn't started in production until the upload scanning code exists. No app code calls it
+yet, and it needs about 1.2 GB of RAM on a server with roughly 3.7 GB free. It sits behind the Compose
+profile `clamav` in `compose.production.yaml`. Local development still starts it as before.
+
+To turn it on:
+
+1. Check the memory: `free -m`. "available" should be at least 2 GB above what the stack uses.
+2. Add `COMPOSE_PROFILES=clamav` to `/root/secrets/bayanuk.env` (the template has it commented out).
+3. Deploy again. `deploy/deploy.sh` starts ClamAV when the profile is on. The first start downloads
+   the signatures and can take up to 5 minutes before the healthcheck passes.
+4. Check: `IMAGE_TAG=<tag> $C ps clamav` shows `healthy` (`$C` as in "Manual commands" below).
+
+To turn it off again, remove the line, then run `$C stop clamav && $C rm -f clamav`. The
+signature volume `bayanuk_clamav-data` stays, so a later start is quicker.
+
 ## Requirements
 
 - Docker Compose **2.24.4 or newer**, for `!reset` / `!override` in the override file. The pipeline

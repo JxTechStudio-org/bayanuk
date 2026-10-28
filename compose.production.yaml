@@ -126,7 +126,10 @@ services:
         limits:
           memory: 256M
 
+  # Off until the upload scanning code exists (no app code calls ClamAV yet). It needs about
+  # 1.2 GB of RAM. To turn it on: add COMPOSE_PROFILES=clamav to the env file and redeploy.
   clamav:
+    profiles: ["clamav"]
     image: clamav/clamav:1.5.4
     environment:
       # A reload normally keeps the old and new signatures in memory at once (about twice the RAM).

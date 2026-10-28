@@ -23,10 +23,15 @@ echo "Running now: ${previous_tag:-nothing (first deploy)}. Deploying: $new_tag.
 # 3. Pull the new images before anything is stopped.
 IMAGE_TAG="$new_tag" bayanuk_compose prod pull --quiet $app_services
 
-# 4. Data services. ClamAV loads its signatures for minutes the first time, so it is not
-#    waited for; nothing depends on it at start.
+# 4. Data services. ClamAV runs only when the env file has COMPOSE_PROFILES=clamav (it is off
+#    until the upload scanning code exists). It loads its signatures for minutes the first
+#    time, so it is not waited for; nothing depends on it at start.
 IMAGE_TAG="$new_tag" bayanuk_compose prod up -d --wait --wait-timeout 180 postgres redis rustfs
-IMAGE_TAG="$new_tag" bayanuk_compose prod up -d clamav
+if IMAGE_TAG="$new_tag" bayanuk_compose prod config --services | grep -qx clamav; then
+  IMAGE_TAG="$new_tag" bayanuk_compose prod up -d clamav
+else
+  echo "ClamAV is off (COMPOSE_PROFILES does not include clamav)."
+fi
 
 # 5. Migrations, with the new code, while the previous release keeps serving.
 #    If this fails, the app containers were not touched, so there is nothing to roll back.

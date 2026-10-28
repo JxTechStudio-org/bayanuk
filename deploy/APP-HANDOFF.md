@@ -78,15 +78,36 @@ so Danah and Jumanah need to approve the change. Files are at most 10 MB, so PHP
 - keep `GEMINI_*` and `GOOGLE_*` optional: the app must start, and `php artisan optimize` must
   pass, when they're empty.
 
-## 7. Make the CI checks pass (the pipeline blocks deploys until they do)
+## 7. Card for Danah: make the backend CI checks pass (blocks every deploy)
 
-Results from running the new pipeline's checks on `development` (commit 46fcd12):
+**Owner:** Danah (backend). **Why now:** the pipeline runs Pint and PHPStan on every branch, and
+nothing reaches production until they pass. They fail on `development` today (commit 46fcd12).
 
-| Check | Result | Fix |
-| --- | --- | --- |
-| Pint | 3 files | `vendor/bin/pint` on `AuthController.php`, `bootstrap/providers.php`, `routes/api.php` |
-| PHPStan | 1 error | `AuthController.php:14`, `stateless()` isn't on the Socialite `Provider` contract. Type the driver as `\Laravel\Socialite\Two\GoogleProvider` (e.g. `/** @var GoogleProvider $driver */`) |
-| Pest | 3 passed | none |
-| composer audit | clean | none |
-| npm audit (shipped deps) | clean | none |
-| npm audit (dev deps) | 5 high, 2 moderate, 1 low (zod, undici, qs, body-parser, fast-uri, deepmerge, mostly through the `shadcn` CLI) | `npm audit fix`, or move `shadcn` out of the dependencies and run it with `npx` |
+**Tasks**
+
+1. Pint: 3 files have style issues. Run `vendor/bin/pint` and commit the result:
+   - `app/Http/Controllers/Api/V1/AuthController.php` (single_blank_line_at_eof)
+   - `bootstrap/providers.php` (fully_qualified_strict_types, single_line_after_imports)
+   - `routes/api.php` (no_unused_imports, no_extra_blank_lines, ordered_imports)
+2. PHPStan: 1 error. `AuthController.php:14` calls `stateless()`, which isn't declared on the
+   `Laravel\Socialite\Contracts\Provider` interface that `Socialite::driver()` returns. Narrow the type, e.g.:
+   ```php
+   /** @var \Laravel\Socialite\Two\GoogleProvider $driver */
+   $driver = Socialite::driver('google');
+   $url = $driver->stateless()->redirect()->getTargetUrl();
+   ```
+
+**Done when** these all pass locally:
+
+```sh
+docker compose run --rm api sh -c "vendor/bin/pint --test && vendor/bin/phpstan analyse --memory-limit=1G && vendor/bin/pest"
+```
+
+and the Jenkins `bayanuk` job is green on the branch.
+
+**Already passing (no action):** Pest (3 tests), composer audit, npm audit of the shipped frontend deps.
+
+**Frontend (Jumanah, not blocking):** `npm audit` reports 5 high, 2 moderate and 1 low in **dev**
+dependencies (zod, undici, qs, body-parser, fast-uri, deepmerge, mostly through the `shadcn` CLI).
+The pipeline gate skips dev dependencies, but fix them anyway: `npm audit fix`, or move `shadcn`
+out of the dependencies and run it with `npx`.
