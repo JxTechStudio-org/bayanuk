@@ -38,9 +38,12 @@ web_index() {
     wget -q -O - "http://127.0.0.1:$web_port/" | grep -q 'id="root"'
 }
 
-# PHP-FPM sends a Status header only for non-200 answers.
+# Passes only on a real answer: cgi-fcgi must succeed and the answer must have a Content-Type
+# header (an empty answer means PHP-FPM is down or unreachable). PHP-FPM sends a Status header
+# only for non-200 answers, so any Status line here is a failure unless it is 2xx.
 api_up() {
-  out="$(fpm_get /up)"
+  out="$(fpm_get /up)" || return 1
+  printf '%s\n' "$out" | grep -qi '^Content-Type: ' || return 1
   ! printf '%s\n' "$out" | grep -qi '^Status: [^2]'
 }
 

@@ -67,7 +67,7 @@ The frontend viewer then loads that URL directly (same origin, the session cooki
 asking for `{ url, expires_at }`. Contract §9 point 2 ("never from the API domain") changes,
 so Danah and Jumanah need to approve the change. Files are at most 10 MB, so PHP-FPM can stream them.
 
-## 6. Production defaults in `.env.example`
+## 5. Production defaults in `.env.example`
 
 `.env.example` is for local development and has `APP_DEBUG=true`, `LOG_LEVEL=debug`, and
 `SESSION_DOMAIN=localhost`. That's fine locally, but nobody should copy it to a server. Production uses
@@ -78,7 +78,7 @@ so Danah and Jumanah need to approve the change. Files are at most 10 MB, so PHP
 - keep `GEMINI_*` and `GOOGLE_*` optional: the app must start, and `php artisan optimize` must
   pass, when they're empty.
 
-## 7. Card for Danah: make the backend CI checks pass (blocks every deploy)
+## 6. Card for Danah: make the backend CI checks pass (blocks every deploy)
 
 **Owner:** Danah (backend). **Why now:** the pipeline runs Pint and PHPStan on every branch, and
 nothing reaches production until they pass. They fail on `development` today (commit 46fcd12).
