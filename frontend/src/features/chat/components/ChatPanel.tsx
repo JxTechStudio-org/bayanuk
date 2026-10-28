@@ -30,7 +30,8 @@ export function ChatPanel({ documentId }: { documentId: string }) {
     const trimmed = text.trim()
     if (!trimmed || !canAsk) return
     setQuestion(trimmed)
-    ask.mutate(trimmed, { onSuccess: () => setQuestion('') })
+    // After the answer the box is emptied, unless a new question was typed while waiting.
+    ask.mutate(trimmed, { onSuccess: () => setQuestion((current) => (current.trim() === trimmed ? '' : current)) })
   }
 
   function onSubmit(event: FormEvent) {
@@ -72,7 +73,10 @@ export function ChatPanel({ documentId }: { documentId: string }) {
             ))}
             {ask.isPending ? (
               <>
-                <Message message={{ role: 'user', content: question, citations: [], answer_found: null, created_at: '' }} />
+                {/* The question that was sent, even if the box is edited while waiting. */}
+                <Message
+                  message={{ role: 'user', content: ask.variables ?? '', citations: [], answer_found: null, created_at: '' }}
+                />
                 <li role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
                   <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />
                   {t('chat.thinking')}
