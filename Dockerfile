@@ -44,5 +44,6 @@ FROM base AS production
 COPY --from=vendor /var/www/html/vendor ./vendor
 COPY backend/ .
 RUN composer dump-autoload --optimize --no-dev --no-scripts \
+    && php artisan package:discover --ansi \
     && mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
     && chown -R www-data:www-data storage bootstrap/cache
