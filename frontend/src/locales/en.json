@@ -133,8 +133,8 @@
       }
     }
   },
+  "disclaimer": "Bayanuk provides AI-generated information to help you understand your document. It is not legal advice.",
   "footer": {
-    "disclaimer": "Bayanuk provides AI-generated information to help you understand your document. It is not legal advice.",
     "studio": "Bayanuk, by JX Tech Studio"
   },
   "nav": {
@@ -180,7 +180,111 @@
     }
   },
   "result": {
-    "ready": "Your analysis is ready."
+    "title": "Your analysis",
+    "loading": "Loading your analysis...",
+    "error": "We could not load your analysis.",
+    "retry": "Try again",
+    "notFound": "Not found in the document",
+    "page": "Page {{page}}",
+    "overview": {
+      "title": "Overview",
+      "documentType": "Document type",
+      "contractType": "Contract type",
+      "duration": "Duration",
+      "probation": "Probation",
+      "notice": "Notice period",
+      "noticeEmployee": "You: {{value}}",
+      "noticeEmployer": "Employer: {{value}}",
+      "totalMonthly": "Total monthly pay"
+    },
+    "documentTypes": {
+      "job_offer": "Job offer",
+      "employment_contract": "Employment contract",
+      "other": "Other document"
+    },
+    "values": {
+      "yes": "Yes",
+      "no": "No",
+      "fixed_term": "Fixed term",
+      "indefinite": "Indefinite",
+      "monthly": "Monthly"
+    },
+    "termsTitle": "Key terms",
+    "groups": {
+      "compensation": "Compensation",
+      "workingTime": "Working time",
+      "leave": "Leave",
+      "contract": "Contract",
+      "benefits": "Benefits",
+      "restrictions": "Restrictions"
+    },
+    "terms": {
+      "employer_name": "Employer",
+      "job_title": "Job title",
+      "contract": {
+        "type": "Contract type",
+        "start_date": "Start date",
+        "duration_months": "Duration",
+        "renewal": "Renewal"
+      },
+      "probation_days": "Probation",
+      "probation_extension_allowed": "Probation can be extended",
+      "notice": {
+        "employee_days": "Your notice period",
+        "employer_days": "Employer's notice period"
+      },
+      "compensation": {
+        "basic_salary": "Basic salary",
+        "housing": "Housing allowance",
+        "transportation": "Transportation allowance",
+        "other": "Other allowances",
+        "total_monthly": "Total monthly pay",
+        "pay_frequency": "Paid"
+      },
+      "working_time": {
+        "hours_per_week": "Hours per week",
+        "working_days": "Working days",
+        "overtime": "Overtime"
+      },
+      "annual_leave_days": "Annual leave",
+      "other_leave": "Other leave",
+      "benefits": {
+        "medical_insurance": "Medical insurance",
+        "tickets": "Travel tickets",
+        "bonus": "Bonus",
+        "training": "Training",
+        "end_of_service": "End-of-service award"
+      },
+      "non_compete": {
+        "exists": "Non-compete",
+        "duration_months": "Non-compete duration",
+        "scope": "Non-compete scope"
+      },
+      "confidentiality": "Confidentiality",
+      "exclusivity": "Exclusivity",
+      "termination": {
+        "conditions": "Termination conditions",
+        "penalties": "Penalties and deductions",
+        "training_repayment": "Training cost repayment"
+      }
+    },
+    "summaryTitle": "Summary",
+    "delete": {
+      "button": "Delete document",
+      "title": "Delete this document?",
+      "body": "The file, its text, the analysis and the chat are deleted now. This cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "deleting": "Deleting...",
+      "error": "We could not delete the document. Try again."
+    },
+    "feedback": {
+      "question": "Was this analysis helpful?",
+      "helpful": "Helpful",
+      "notHelpful": "Not helpful",
+      "thanks": "Thank you for your feedback.",
+      "error": "We could not send your feedback. Try again."
+    }
   },
   "signIn": {
     "title": "Sign in",

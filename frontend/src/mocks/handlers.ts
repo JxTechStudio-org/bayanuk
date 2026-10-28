@@ -1,10 +1,12 @@
 import { delay, http, HttpResponse } from 'msw'
 import type { DocumentStatus } from '@/features/analysis/types'
+import { FAKE_SUMMARIES, FAKE_TERMS } from './fakeResult'
 
 // A fake API that follows docs/integration-contract.md. Only used in development, when VITE_API_MOCK=true.
 //
 // Pick the outcome by file name: a name with "reject" ends as rejected, "fail" ends as failed,
 // and "budget" pauses while analyzing, as when the daily AI budget is reached.
+// A name with "expired" gets ready, then its result answers 410, as a document deleted after the retention period.
 // Upload errors (section 4): a name with "limit" gets the daily upload limit, and "nobudget"
 // the daily AI budget. A wrong type or a file over 10 MB gets its error too, if sent.
 //
@@ -28,7 +30,9 @@ interface FakeDocument {
   // The owner: a guest token, or a user once signed in.
   owner: string
   startedAt: number
-  outcome: 'ready' | 'rejected' | 'failed' | 'paused'
+  outcome: 'ready' | 'rejected' | 'failed' | 'paused' | 'expired'
+  // The interface language at upload (Accept-Language): the language of the summary.
+  language: 'ar' | 'en'
 }
 
 // The fake data is kept in localStorage, so it survives a page reload (Google sign-in reloads the page)
@@ -95,6 +99,7 @@ const MESSAGES: Record<string, { ar: string; en: string }> = {
     en: 'New analyses are paused for today. Try again tomorrow.',
   },
   document_not_found: { ar: 'لم نجد هذا المستند.', en: 'Document not found.' },
+  document_expired: { ar: 'حُذف هذا المستند بعد انتهاء مدة حفظه.', en: 'This document was deleted after its retention period.' },
   invalid_guest_token: { ar: 'رقم الزائر غير صحيح.', en: 'The guest token is not valid.' },
   csrf_token_mismatch: { ar: 'انتهت الجلسة. حاول مرة أخرى.', en: 'The session expired. Try again.' },
   unauthorized: { ar: 'سجّل دخولك للمتابعة.', en: 'Sign in to continue.' },
@@ -222,13 +227,16 @@ export const handlers = [
     documents.set(id, {
       owner,
       startedAt: Date.now(),
+      language: request.headers.get('Accept-Language') === 'en' ? 'en' : 'ar',
       outcome: name.includes('reject')
         ? 'rejected'
         : name.includes('fail')
           ? 'failed'
           : name.includes('budget')
             ? 'paused'
-            : 'ready',
+            : name.includes('expired')
+              ? 'expired'
+              : 'ready',
     })
     save()
     await delay(600)
@@ -243,20 +251,85 @@ export const handlers = [
     const document = documents.get(String(params.id))
     if (!document || document.owner !== owner) return error(request, 404, 'document_not_found')
 
-    const step = Math.floor((Date.now() - document.startedAt) / 1000 / SECONDS_PER_STEP)
+    return HttpResponse.json({ id: params.id, ...statusOf(document) })
+  }),
 
-    // Rejected after classifying, failed while extracting (Technical Plan, section 5).
-    // Section 6: status_detail is a code.
-    if (document.outcome === 'rejected' && step >= FLOW.indexOf('classifying')) {
-      return HttpResponse.json({ id: params.id, status: 'rejected', status_detail: 'not_employment_document' })
+  http.get('/api/v1/documents/:id', ({ params, request }) => {
+    const owner = ownerOf(request)
+    if (!owner) return error(request, 400, 'invalid_guest_token')
+
+    const document = documents.get(String(params.id))
+    if (!document || document.owner !== owner) return error(request, 404, 'document_not_found')
+
+    const { status } = statusOf(document)
+    if (document.outcome === 'expired' && status === 'ready') return error(request, 410, 'document_expired')
+
+    // Section 13. Before the document is ready there is no analysis yet.
+    // A document saved by an older version of the fake API has no language; it gets Arabic.
+    const language = document.language ?? 'ar'
+    return HttpResponse.json({
+      id: params.id,
+      status,
+      document_type: 'employment_contract',
+      language: 'ar',
+      page_count: 9,
+      expires_at: new Date(document.startedAt + 24 * 60 * 60 * 1000).toISOString(),
+      analysis:
+        status === 'ready'
+          ? {
+              id: `${params.id}-analysis`,
+              summary: FAKE_SUMMARIES[language],
+              summary_language: language,
+              terms: FAKE_TERMS,
+            }
+          : null,
+    })
+  }),
+
+  // Section 13: the analysis id of a fake document is "<document id>-analysis".
+  http.post('/api/v1/analyses/:id/feedback', async ({ params, request }) => {
+    if (!hasCsrfToken(request)) return error(request, 419, 'csrf_token_mismatch')
+    const owner = ownerOf(request)
+    if (!owner) return error(request, 400, 'invalid_guest_token')
+
+    const document = documents.get(String(params.id).replace(/-analysis$/, ''))
+    if (!document || document.owner !== owner) return error(request, 404, 'document_not_found')
+
+    const { rating } = (await request.json()) as { rating?: number }
+    if (rating !== 1 && rating !== -1) {
+      return error(request, 422, 'validation_error', { rating: ['The rating must be 1 or -1.'] })
     }
-    if (document.outcome === 'failed' && step >= FLOW.indexOf('extracting')) {
-      return HttpResponse.json({ id: params.id, status: 'failed', status_detail: 'file_unreadable' })
-    }
-    if (document.outcome === 'paused' && step >= FLOW.indexOf('analyzing')) {
-      return HttpResponse.json({ id: params.id, status: 'analyzing', status_detail: 'ai_budget_reached' })
-    }
-    const status = FLOW[Math.min(step, FLOW.length - 1)]
-    return HttpResponse.json({ id: params.id, status, status_detail: null })
+    return new HttpResponse(null, { status: 201 })
+  }),
+
+  // Technical Plan, section 7.2: everything is deleted at once.
+  http.delete('/api/v1/documents/:id', ({ params, request }) => {
+    if (!hasCsrfToken(request)) return error(request, 419, 'csrf_token_mismatch')
+    const owner = ownerOf(request)
+    if (!owner) return error(request, 400, 'invalid_guest_token')
+
+    const document = documents.get(String(params.id))
+    if (!document || document.owner !== owner) return error(request, 404, 'document_not_found')
+
+    documents.delete(String(params.id))
+    save()
+    return new HttpResponse(null, { status: 204 })
   }),
 ]
+
+// Where a document is in its processing, from the time since upload: one stage every SECONDS_PER_STEP.
+// Rejected after classifying, failed while extracting (Technical Plan, section 5).
+// Section 6: status_detail is a code.
+function statusOf(document: FakeDocument): { status: DocumentStatus; status_detail: string | null } {
+  const step = Math.floor((Date.now() - document.startedAt) / 1000 / SECONDS_PER_STEP)
+  if (document.outcome === 'rejected' && step >= FLOW.indexOf('classifying')) {
+    return { status: 'rejected', status_detail: 'not_employment_document' }
+  }
+  if (document.outcome === 'failed' && step >= FLOW.indexOf('extracting')) {
+    return { status: 'failed', status_detail: 'file_unreadable' }
+  }
+  if (document.outcome === 'paused' && step >= FLOW.indexOf('analyzing')) {
+    return { status: 'analyzing', status_detail: 'ai_budget_reached' }
+  }
+  return { status: FLOW[Math.min(step, FLOW.length - 1)], status_detail: null }
+}
