@@ -60,8 +60,23 @@ Everything runs with Docker Compose from the repository root: API (PHP-FPM), que
    AWS_USE_PATH_STYLE_ENDPOINT=true
    AWS_ENDPOINT=http://rustfs:9000
 
+   MAIL_MAILER=log
+   RESEND_API_KEY=
+   MAIL_SCHEME=null
+   MAIL_HOST=127.0.0.1
+   MAIL_PORT=2525
+   MAIL_USERNAME=null
+   MAIL_PASSWORD=null
+   MAIL_FROM_ADDRESS="no-reply@bayanuk.test"
+   MAIL_FROM_NAME="${APP_NAME}"
+
    CLAMAV_HOST=clamav
 ```
+**Email Configuration:**
+  - Local Development: Configured with MAIL_MAILER=log in .env.example so developers can run the app locally without needing a real email API key.
+
+  - Production: Real mail credentials and API keys are injected securely via the Jenkins Pipeline variables at deployment time.
+
    Google sign-in, and AI provider settings (`GOOGLE_*`, `GEMINI_API_KEY`, `VOYAGE_API_KEY`, `BAYANUK_DAILY_AI_BUDGET_USD`) can stay empty until those features are implemented.
 
 3. **Start all Docker services (PostgreSQL, Redis, RustFS, ClamAV, API, Horizon, Scheduler):**
