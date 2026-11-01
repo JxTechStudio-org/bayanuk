@@ -13,7 +13,7 @@ return [
     'limits' => [
         'max_file_size_mb' => (int) env('BAYANUK_MAX_FILE_SIZE_MB', 10),
         'max_pages' => (int) env('BAYANUK_MAX_PAGES', 30),
-        'allowed_mimes' => ['pdf', 'docx'],
+        'allowed_mimes' => ['pdf'],
         'supported_document_types' => [
             'job_offer',
             'employment_contract',
