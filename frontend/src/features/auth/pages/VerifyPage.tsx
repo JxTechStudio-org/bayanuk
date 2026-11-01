@@ -4,9 +4,9 @@ import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { CardLayout } from '@/features/shared/components/CardLayout'
+import { PageMessage } from '@/features/shared/components/PageMessage'
 import { ApiError, errorMessage } from '@/lib/api'
 import { verifySignInLink } from '../api/verifySignInLink'
-import { AuthMessage } from '../components/AuthMessage'
 import { useFinishSignIn } from '../hooks/useFinishSignIn'
 import { peekReturnTo } from '../utils/returnTo'
 
@@ -41,7 +41,7 @@ export function VerifyPage() {
   return (
     <CardLayout privacyLine={false}>
       {problem ? (
-        <AuthMessage
+        <PageMessage
           title={t(`auth.${problem}.title`)}
           body={t(`auth.${problem}.body`)}
           action={
@@ -51,7 +51,7 @@ export function VerifyPage() {
           }
         />
       ) : verify.isError ? (
-        <AuthMessage
+        <PageMessage
           title={t('auth.failed.title')}
           body={errorMessage(verify.error, t('auth.failed.body'))}
           action={
@@ -61,7 +61,7 @@ export function VerifyPage() {
           }
         />
       ) : (
-        <AuthMessage title={t('auth.waiting')} waiting />
+        <PageMessage title={t('auth.waiting')} waiting />
       )}
     </CardLayout>
   )

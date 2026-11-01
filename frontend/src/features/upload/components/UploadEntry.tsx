@@ -6,8 +6,8 @@ import { errorMessage } from '@/lib/api'
 import { useUploadDocument } from '../hooks/useUploadDocument'
 import { type FileProblem, validateFile } from '../utils/validateFile'
 
-// MVP: PDF or Word (DOCX) only.
-const ACCEPTED = '.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+// PDF files only (decision 144).
+const ACCEPTED = '.pdf,application/pdf'
 
 function hasFiles(event: DragEvent) {
   return Array.from(event.dataTransfer?.types ?? []).includes('Files')

@@ -1,0 +1,19 @@
+# CI override: throwaway stack for backend checks (project bayanuk-ci-<BAYANUK_CI_ID>).
+# IMAGE_TAG here is the CI id (deploy/lib.sh sets it), not the release tag.
+#
+# Jenkins talks to the host Docker daemon, which cannot see the Jenkins workspace as a host
+# path, so bind-mounting ./backend from Jenkins gives an empty folder. Instead, the code is
+# copied into a CI image (deploy/ci/backend.Dockerfile) and run from there.
+
+services:
+  api:
+    image: bayanuk-api-ci:${IMAGE_TAG:?Set IMAGE_TAG}
+    build: !reset null
+    pull_policy: never
+    volumes: !reset []
+
+  postgres:
+    ports: !reset []
+
+  rustfs:
+    ports: !reset []

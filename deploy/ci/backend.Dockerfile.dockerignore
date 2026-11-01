@@ -1,0 +1,7 @@
+vendor
+node_modules
+.phpunit.cache
+storage/logs/*
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*

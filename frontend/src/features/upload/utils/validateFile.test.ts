@@ -7,14 +7,13 @@ function fileOf(name: string, type: string, size = 1000) {
   return file
 }
 
-it('accepts PDF and DOCX', () => {
+it('accepts a PDF', () => {
   expect(validateFile(fileOf('offer.pdf', 'application/pdf'))).toBeNull()
-  expect(
-    validateFile(fileOf('contract.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')),
-  ).toBeNull()
 })
 
-it('refuses other types', () => {
+it('refuses other types, Word files too', () => {
+  const word = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  expect(validateFile(fileOf('contract.docx', word))).toBe('type')
   expect(validateFile(fileOf('photo.jpg', 'image/jpeg'))).toBe('type')
   expect(validateFile(fileOf('old.doc', 'application/msword'))).toBe('type')
 })

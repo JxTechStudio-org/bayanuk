@@ -34,7 +34,6 @@ export function SupportedFiles() {
               {supported ? (
                 <div className="mt-3 flex gap-2">
                   <span className="rounded-md border px-2 py-0.5 text-xs font-semibold">PDF</span>
-                  <span className="rounded-md border px-2 py-0.5 text-xs font-semibold">Word</span>
                 </div>
               ) : null}
             </div>

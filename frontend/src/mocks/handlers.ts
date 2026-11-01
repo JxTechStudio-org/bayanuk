@@ -1,12 +1,25 @@
 import { delay, http, HttpResponse } from 'msw'
 import type { DocumentStatus } from '@/features/analysis/types'
+import type { ChatMessage } from '@/features/chat/types'
+import { fakeAnswer } from './fakeChat'
+import { FAKE_FINDINGS, FAKE_SUMMARIES, FAKE_TERMS } from './fakeResult'
+// The original file of every fake PDF document: the fake contract, with the quotes on their pages.
+import fakeContractUrl from './fake-contract.pdf?url'
 
 // A fake API that follows docs/integration-contract.md. Only used in development, when VITE_API_MOCK=true.
 //
 // Pick the outcome by file name: a name with "reject" ends as rejected, "fail" ends as failed,
 // and "budget" pauses while analyzing, as when the daily AI budget is reached.
+// A name with "expired" gets ready, then its result answers 410, as a document deleted after the retention period.
 // Upload errors (section 4): a name with "limit" gets the daily upload limit, and "nobudget"
 // the daily AI budget. A wrong type or a file over 10 MB gets its error too, if sent.
+//
+// Viewer: every document shows the fake contract (fake-contract.pdf). The signed URL expires after 5 minutes,
+// as the real one (section 9).
+//
+// Chat: a question about the notice period, the probation or the salary gets an answer with its page and quote;
+// any other question gets "not found". A question with "nobudget" gets the daily AI budget error.
+// Guests have 3 questions per document and signed-in users 20 (MVP 8).
 //
 // Sign-in: there is no email, so the sign-in link is printed in the browser console.
 // An email with "limit" gets the "too many requests" answer. The links /auth/verify?token=expired
@@ -28,7 +41,9 @@ interface FakeDocument {
   // The owner: a guest token, or a user once signed in.
   owner: string
   startedAt: number
-  outcome: 'ready' | 'rejected' | 'failed' | 'paused'
+  outcome: 'ready' | 'rejected' | 'failed' | 'paused' | 'expired'
+  // The interface language at upload (Accept-Language): the language of the summary.
+  language: 'ar' | 'en'
 }
 
 // The fake data is kept in localStorage, so it survives a page reload (Google sign-in reloads the page)
@@ -38,6 +53,8 @@ const STORAGE_KEY = 'bayanuk.fakeApi'
 const guestTokens = new Set<string>()
 const documents = new Map<string, FakeDocument>()
 const signInLinks = new Map<string, { email: string; used: boolean }>()
+// The chat of each document, by document id (Database Schema: chat_sessions and chat_messages).
+const chats = new Map<string, { messages: ChatMessage[]; questionCount: number }>()
 // The accounts, by email: signing in again with the same email opens the same account and its documents.
 const users = new Map<string, FakeUser>()
 let currentUser: FakeUser | null = null
@@ -47,10 +64,12 @@ function load() {
   guestTokens.clear()
   documents.clear()
   signInLinks.clear()
+  chats.clear()
   users.clear()
   for (const token of saved.guestTokens ?? []) guestTokens.add(token)
   for (const [id, document] of saved.documents ?? []) documents.set(id, document)
   for (const [token, link] of saved.signInLinks ?? []) signInLinks.set(token, link)
+  for (const [id, chat] of saved.chats ?? []) chats.set(id, chat)
   for (const [email, user] of saved.users ?? []) users.set(email, user)
   currentUser = saved.currentUser ?? null
 }
@@ -69,6 +88,7 @@ function save() {
       guestTokens: [...guestTokens],
       documents: [...documents],
       signInLinks: [...signInLinks],
+      chats: [...chats],
       users: [...users],
       currentUser,
     }),
@@ -79,8 +99,8 @@ function save() {
 // The real messages are written by the backend; these stand in for them.
 const MESSAGES: Record<string, { ar: string; en: string }> = {
   file_type_not_supported: {
-    ar: 'نوع الملف غير مدعوم. ارفع ملف PDF أو Word.',
-    en: 'This file type is not supported. Upload a PDF or Word file.',
+    ar: 'نوع الملف غير مدعوم. ارفع ملف PDF.',
+    en: 'This file type is not supported. Upload a PDF file.',
   },
   file_too_large: {
     ar: 'حجم الملف يتجاوز الحد المسموح به (10 ميجابايت).',
@@ -95,6 +115,7 @@ const MESSAGES: Record<string, { ar: string; en: string }> = {
     en: 'New analyses are paused for today. Try again tomorrow.',
   },
   document_not_found: { ar: 'لم نجد هذا المستند.', en: 'Document not found.' },
+  document_expired: { ar: 'حُذف هذا المستند بعد انتهاء مدة حفظه.', en: 'This document was deleted after its retention period.' },
   invalid_guest_token: { ar: 'رقم الزائر غير صحيح.', en: 'The guest token is not valid.' },
   csrf_token_mismatch: { ar: 'انتهت الجلسة. حاول مرة أخرى.', en: 'The session expired. Try again.' },
   unauthorized: { ar: 'سجّل دخولك للمتابعة.', en: 'Sign in to continue.' },
@@ -106,6 +127,10 @@ const MESSAGES: Record<string, { ar: string; en: string }> = {
   link_expired: { ar: 'انتهت صلاحية الرابط.', en: 'This link has expired.' },
   link_used: { ar: 'استُخدم هذا الرابط من قبل.', en: 'This link was already used.' },
   link_invalid: { ar: 'الرابط غير صحيح.', en: 'This link is not valid.' },
+  question_limit_reached: {
+    ar: 'وصلت إلى حد الأسئلة لهذا المستند.',
+    en: 'You reached the question limit for this document.',
+  },
 }
 
 function error(request: Request, status: number, code: string, details?: Record<string, string[]>) {
@@ -213,7 +238,7 @@ export const handlers = [
     const form = await request.formData()
     const file = form.get('file')
     const name = file instanceof File ? file.name.toLowerCase() : ''
-    if (!/\.(pdf|docx)$/.test(name)) return error(request, 422, 'file_type_not_supported')
+    if (!name.endsWith('.pdf')) return error(request, 422, 'file_type_not_supported')
     if (file instanceof File && file.size > 10 * 1024 * 1024) return error(request, 422, 'file_too_large')
     if (name.includes('nobudget')) return error(request, 429, 'ai_budget_reached')
     if (name.includes('limit')) return error(request, 429, 'upload_limit_reached')
@@ -222,13 +247,16 @@ export const handlers = [
     documents.set(id, {
       owner,
       startedAt: Date.now(),
+      language: request.headers.get('Accept-Language') === 'en' ? 'en' : 'ar',
       outcome: name.includes('reject')
         ? 'rejected'
         : name.includes('fail')
           ? 'failed'
           : name.includes('budget')
             ? 'paused'
-            : 'ready',
+            : name.includes('expired')
+              ? 'expired'
+              : 'ready',
     })
     save()
     await delay(600)
@@ -243,20 +271,154 @@ export const handlers = [
     const document = documents.get(String(params.id))
     if (!document || document.owner !== owner) return error(request, 404, 'document_not_found')
 
-    const step = Math.floor((Date.now() - document.startedAt) / 1000 / SECONDS_PER_STEP)
+    return HttpResponse.json({ id: params.id, ...statusOf(document) })
+  }),
 
-    // Rejected after classifying, failed while extracting (Technical Plan, section 5).
-    // Section 6: status_detail is a code.
-    if (document.outcome === 'rejected' && step >= FLOW.indexOf('classifying')) {
-      return HttpResponse.json({ id: params.id, status: 'rejected', status_detail: 'not_employment_document' })
+  http.get('/api/v1/documents/:id', ({ params, request }) => {
+    const owner = ownerOf(request)
+    if (!owner) return error(request, 400, 'invalid_guest_token')
+
+    const document = documents.get(String(params.id))
+    if (!document || document.owner !== owner) return error(request, 404, 'document_not_found')
+
+    const { status } = statusOf(document)
+    if (document.outcome === 'expired' && status === 'ready') return error(request, 410, 'document_expired')
+
+    // Section 13. Before the document is ready there is no analysis yet.
+    // A document saved by an older version of the fake API has no language; it gets Arabic.
+    const language = document.language ?? 'ar'
+    return HttpResponse.json({
+      id: params.id,
+      status,
+      document_type: 'employment_contract',
+      language: 'ar',
+      page_count: 9,
+      expires_at: new Date(document.startedAt + 24 * 60 * 60 * 1000).toISOString(),
+      analysis:
+        status === 'ready'
+          ? {
+              id: `${params.id}-analysis`,
+              summary: FAKE_SUMMARIES[language],
+              summary_language: language,
+              terms: FAKE_TERMS,
+              findings: FAKE_FINDINGS[language],
+            }
+          : null,
+    })
+  }),
+
+  // Section 13: the analysis id of a fake document is "<document id>-analysis".
+  http.post('/api/v1/analyses/:id/feedback', async ({ params, request }) => {
+    if (!hasCsrfToken(request)) return error(request, 419, 'csrf_token_mismatch')
+    const owner = ownerOf(request)
+    if (!owner) return error(request, 400, 'invalid_guest_token')
+
+    const document = documents.get(String(params.id).replace(/-analysis$/, ''))
+    if (!document || document.owner !== owner) return error(request, 404, 'document_not_found')
+
+    const { rating } = (await request.json()) as { rating?: number }
+    if (rating !== 1 && rating !== -1) {
+      return error(request, 422, 'validation_error', { rating: ['The rating must be 1 or -1.'] })
     }
-    if (document.outcome === 'failed' && step >= FLOW.indexOf('extracting')) {
-      return HttpResponse.json({ id: params.id, status: 'failed', status_detail: 'file_unreadable' })
-    }
-    if (document.outcome === 'paused' && step >= FLOW.indexOf('analyzing')) {
-      return HttpResponse.json({ id: params.id, status: 'analyzing', status_detail: 'ai_budget_reached' })
-    }
-    const status = FLOW[Math.min(step, FLOW.length - 1)]
-    return HttpResponse.json({ id: params.id, status, status_detail: null })
+    return new HttpResponse(null, { status: 201 })
+  }),
+
+  // Section 9: a signed URL of the file in storage, valid for 5 minutes.
+  http.get('/api/v1/documents/:id/file', ({ params, request }) => {
+    const owner = ownerOf(request)
+    if (!owner) return error(request, 400, 'invalid_guest_token')
+    const document = documents.get(String(params.id))
+    if (!document || document.owner !== owner) return error(request, 404, 'document_not_found')
+
+    const expiresAt = Date.now() + 5 * 60 * 1000
+    return HttpResponse.json({
+      url: `/fake-storage/${params.id}?expires=${expiresAt}`,
+      expires_at: new Date(expiresAt).toISOString(),
+    })
+  }),
+
+  // The fake storage behind the signed URL: an expired URL is refused, as by the real storage.
+  http.get('/fake-storage/:id', async ({ params, request }) => {
+    const expires = Number(new URL(request.url).searchParams.get('expires'))
+    const document = documents.get(String(params.id))
+    if (!document || !expires || Date.now() > expires) return new HttpResponse(null, { status: 403 })
+    const pdf = await fetch(fakeContractUrl).then((response) => response.arrayBuffer())
+    return new HttpResponse(pdf, { headers: { 'Content-Type': 'application/pdf' } })
+  }),
+
+  // Section 14: the history, and the questions left (section 8).
+  http.get('/api/v1/documents/:id/chat', ({ params, request }) => {
+    const owner = ownerOf(request)
+    if (!owner) return error(request, 400, 'invalid_guest_token')
+    const document = documents.get(String(params.id))
+    if (!document || document.owner !== owner) return error(request, 404, 'document_not_found')
+
+    const chat = chats.get(String(params.id)) ?? { messages: [], questionCount: 0 }
+    return HttpResponse.json({ messages: chat.messages, remaining_questions: questionLimit() - chat.questionCount })
+  }),
+
+  http.post('/api/v1/documents/:id/chat', async ({ params, request }) => {
+    if (!hasCsrfToken(request)) return error(request, 419, 'csrf_token_mismatch')
+    const owner = ownerOf(request)
+    if (!owner) return error(request, 400, 'invalid_guest_token')
+    const id = String(params.id)
+    const document = documents.get(id)
+    if (!document || document.owner !== owner) return error(request, 404, 'document_not_found')
+
+    const { question = '' } = (await request.json()) as { question?: string }
+    if (!question.trim()) return error(request, 422, 'validation_error', { question: ['Write a question.'] })
+    const chat = chats.get(id) ?? { messages: [], questionCount: 0 }
+    if (chat.questionCount >= questionLimit()) return error(request, 429, 'question_limit_reached')
+    // Section 8: refused before any AI call, and the question is not counted.
+    if (question.includes('nobudget')) return error(request, 429, 'ai_budget_reached')
+
+    await delay(800)
+    chat.questionCount += 1
+    const answer = fakeAnswer(question, questionLimit() - chat.questionCount)
+    const now = new Date().toISOString()
+    chat.messages.push(
+      { role: 'user', content: question, citations: [], answer_found: null, created_at: now },
+      { role: 'assistant', content: answer.answer, citations: answer.citations, answer_found: answer.answer_found, created_at: now },
+    )
+    chats.set(id, chat)
+    save()
+    return HttpResponse.json(answer)
+  }),
+
+  // Technical Plan, section 7.2: everything is deleted at once.
+  http.delete('/api/v1/documents/:id', ({ params, request }) => {
+    if (!hasCsrfToken(request)) return error(request, 419, 'csrf_token_mismatch')
+    const owner = ownerOf(request)
+    if (!owner) return error(request, 400, 'invalid_guest_token')
+
+    const document = documents.get(String(params.id))
+    if (!document || document.owner !== owner) return error(request, 404, 'document_not_found')
+
+    documents.delete(String(params.id))
+    chats.delete(String(params.id))
+    save()
+    return new HttpResponse(null, { status: 204 })
   }),
 ]
+
+// MVP 8: 3 questions per document for guests, 20 for signed-in users.
+function questionLimit() {
+  return currentUser ? 20 : 3
+}
+
+// Where a document is in its processing, from the time since upload: one stage every SECONDS_PER_STEP.
+// Rejected after classifying, failed while extracting (Technical Plan, section 5).
+// Section 6: status_detail is a code.
+function statusOf(document: FakeDocument): { status: DocumentStatus; status_detail: string | null } {
+  const step = Math.floor((Date.now() - document.startedAt) / 1000 / SECONDS_PER_STEP)
+  if (document.outcome === 'rejected' && step >= FLOW.indexOf('classifying')) {
+    return { status: 'rejected', status_detail: 'not_employment_document' }
+  }
+  if (document.outcome === 'failed' && step >= FLOW.indexOf('extracting')) {
+    return { status: 'failed', status_detail: 'file_unreadable' }
+  }
+  if (document.outcome === 'paused' && step >= FLOW.indexOf('analyzing')) {
+    return { status: 'analyzing', status_detail: 'ai_budget_reached' }
+  }
+  return { status: FLOW[Math.min(step, FLOW.length - 1)], status_detail: null }
+}

@@ -28,7 +28,9 @@ export default defineConfig({
         codeSplitting: {
           groups: [
             { name: 'react', test: /node_modules[\\/](react|react-dom|react-router|scheduler)[\\/]/ },
-            { name: 'vendor', test: /node_modules[\\/]/ },
+            // The PDF library (react-pdf, the Technical Plan's viewer) is large and used by the document viewer only.
+            // It is left out of "vendor", so it stays with the viewer, which loads only when it is shown.
+            { name: 'vendor', test: /node_modules[\\/](?!react-pdf[\\/]|pdfjs-dist[\\/])/ },
           ],
         },
       },

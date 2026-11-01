@@ -1,0 +1,142 @@
+# Production override. Layers on top of docker-compose.yml; local development is unchanged.
+#
+#   IMAGE_TAG=<sha> docker compose -p bayanuk \
+#     -f docker-compose.yml -f compose.production.yaml \
+#     --env-file /root/secrets/bayanuk.env up -d
+#
+# Jenkins runs this through a helper container (see Jenkinsfile, bayanukCompose), so the
+# env file path is the same on the host and in the helper. Needs Docker Compose >= 2.24.4
+# for !reset / !override. A staging copy can run later with -p bayanuk-staging, its own
+# env file, and different BAYANUK_*_PORT values.
+#
+# Rules for this file:
+# - No host bind mounts. The deploy fails if the merged config has any `type: bind`.
+# - No secret values. Secrets come from the env file only.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-app: &app
+  image: ghcr.io/jxtechstudio-org/bayanuk-api:${IMAGE_TAG:?Set IMAGE_TAG to the commit SHA}
+  pull_policy: missing
+  build: !reset null
+  volumes: !reset []
+  env_file:
+    - path: ${BAYANUK_ENV_FILE:-/root/secrets/bayanuk.env}
+      required: true
+  logging: *logging
+  restart: unless-stopped
+
+services:
+  api:
+    <<: *app
+    # Config, route, event and view caches are built per container at start, from the
+    # runtime env file, as www-data so the files belong to the PHP-FPM workers.
+    command: ["sh", "-c", "runuser -u www-data -- php artisan optimize && exec php-fpm"]
+    ports: !override
+      - "127.0.0.1:${BAYANUK_FPM_PORT:-9110}:9000"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  horizon:
+    <<: *app
+    user: www-data
+    command: ["sh", "-c", "php artisan optimize && exec php artisan horizon"]
+    stop_grace_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  scheduler:
+    <<: *app
+    user: www-data
+    command: ["sh", "-c", "php artisan optimize && exec php artisan schedule:work"]
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  web:
+    image: ghcr.io/jxtechstudio-org/bayanuk-web:${IMAGE_TAG:?Set IMAGE_TAG to the commit SHA}
+    pull_policy: missing
+    ports:
+      - "127.0.0.1:${BAYANUK_WEB_PORT:-8090}:8089"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8089/ || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    logging: *logging
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+
+  # Local-only service (profile "local"); never started in production. Its bind mount and port
+  # are removed so the merged production config has no host bind mounts at all.
+  nginx:
+    volumes: !reset []
+    ports: !reset []
+    configs: !reset []
+
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg16
+    ports: !reset []
+    # The bayanuk_test database is for local tests only.
+    configs: !reset []
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  redis:
+    image: redis:7.4.12-alpine
+    # Only REDIS_PASSWORD is passed in (not the whole env file). It is read at runtime, so it is
+    # not in the command line that `docker inspect` shows. AOF keeps queued jobs across restarts.
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in the env file}
+    command: ["sh", "-c", "exec redis-server --requirepass \"$$REDIS_PASSWORD\" --appendonly yes --appendfsync everysec --maxmemory 200mb --maxmemory-policy noeviction"]
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -q PONG"]
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  rustfs:
+    image: rustfs/rustfs:1.0.0-rc.6
+    # S3 API stays on the Docker network only. The console is on localhost, for an SSH tunnel:
+    #   ssh -L 9012:127.0.0.1:9012 root@<server>   then open http://localhost:9012
+    ports: !override
+      - "127.0.0.1:${BAYANUK_RUSTFS_CONSOLE_PORT:-9012}:9001"
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1:9000/health/ready >/dev/null"]
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # Off until the upload scanning code exists (no app code calls ClamAV yet). It needs about
+  # 1.2 GB of RAM. To turn it on: add COMPOSE_PROFILES=clamav to the env file and redeploy.
+  clamav:
+    profiles: ["clamav"]
+    image: clamav/clamav:1.5.4
+    environment:
+      # A reload normally keeps the old and new signatures in memory at once (about twice the RAM).
+      # With this off, scanning pauses for the reload, but memory stays within the limit.
+      CLAMD_CONF_ConcurrentDatabaseReload: "no"
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          memory: 1536M

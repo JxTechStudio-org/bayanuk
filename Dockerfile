@@ -1,16 +1,5 @@
 # syntax=docker/dockerfile:1
 
-# Stage: Frontend build
-FROM node:22-alpine AS frontend-build
-
-WORKDIR /app/frontend
-
-COPY frontend/package*.json ./
-RUN npm ci
-
-COPY frontend/ ./
-RUN npm run build
-
 # Stage: Base PHP Environment
 # PHP 8.3.36 fixes CVE-2026-109618 and CVE-2026-109619 (critical RCE). Never go below it.
 FROM php:8.3.36-fpm-bookworm AS base
@@ -55,5 +44,6 @@ FROM base AS production
 COPY --from=vendor /var/www/html/vendor ./vendor
 COPY backend/ .
 RUN composer dump-autoload --optimize --no-dev --no-scripts \
+    && php artisan package:discover --ansi \
     && mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
     && chown -R www-data:www-data storage bootstrap/cache
