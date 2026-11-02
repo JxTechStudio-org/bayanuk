@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\GuestTokenController;
+use App\Http\Controllers\Api\V1\MagicLinkController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -24,6 +25,10 @@ Route::prefix('v1')->group(function () {
     // Authentication Routes
     Route::prefix('auth')->group(function () {
         Route::post('/google/redirect', [AuthController::class, 'googleRedirect']);
+        Route::get('/google/callback', [AuthController::class, 'googleCallback']);
+
+        Route::post('/magic-link', [MagicLinkController::class, 'send']);
+        Route::post('/magic-link/verify', [MagicLinkController::class, 'verify']);
     });
 
 });
