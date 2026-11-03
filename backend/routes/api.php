@@ -35,7 +35,7 @@ Route::prefix('v1')->group(function () {
         Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logout']);
     });
 
-   // Authenticated User (/me) Routes (Protected by Sanctum)
+    // Authenticated User (/me) Routes (Protected by Sanctum)
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/me', [UserController::class, 'show']);
         Route::patch('/me', [UserController::class, 'update']);

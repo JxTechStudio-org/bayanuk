@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Document;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
@@ -24,7 +25,7 @@ class AuthController extends Controller
 
         // Store the guest token against the state in cache for 10 minutes if provided
         if ($guestToken) {
-            Cache::put('google_state_' . $state, $guestToken, now()->addMinutes(10));
+            Cache::put('google_state_'.$state, $guestToken, now()->addMinutes(10));
         }
 
         /** @var GoogleProvider $driver */
@@ -34,23 +35,22 @@ class AuthController extends Controller
         return response()->json(['url' => $url]);
     }
 
-    
     // Handle Google Sign-in callback, validate state, and authenticate user.
-    
-    public function googleCallback(Request $request)
+
+    public function googleCallback(Request $request): RedirectResponse
     {
         $frontendUrl = config('app.frontend_url', 'http://localhost:3000');
 
         // 1. Check if the user cancelled the login on Google's side
         if ($request->has('error') && $request->error === 'access_denied') {
-            return redirect()->to($frontendUrl . '/auth/callback?error=google_cancelled');
+            return redirect()->to($frontendUrl.'/auth/callback?error=google_cancelled');
         }
 
         $state = $request->input('state');
 
         // 2. Validate state presence and validity
-        if (!$state || !Cache::has('google_state_' . $state)) {
-            return redirect()->to($frontendUrl . '/auth/callback?error=google_invalid_state');
+        if (! $state || ! Cache::has('google_state_'.$state)) {
+            return redirect()->to($frontendUrl.'/auth/callback?error=google_invalid_state');
         }
 
         try {
@@ -58,11 +58,11 @@ class AuthController extends Controller
             $driver = Socialite::driver('google');
             $googleUser = $driver->stateless()->user();
         } catch (\Exception $e) {
-            return redirect()->to($frontendUrl . '/auth/callback?error=google_sign_in_failed');
+            return redirect()->to($frontendUrl.'/auth/callback?error=google_sign_in_failed');
         }
 
-        if (!$googleUser->getEmail()) {
-            return redirect()->to($frontendUrl . '/auth/callback?error=google_sign_in_failed');
+        if (! $googleUser->getEmail()) {
+            return redirect()->to($frontendUrl.'/auth/callback?error=google_sign_in_failed');
         }
 
         // 3. Find or create the user account based on Google's email
@@ -76,7 +76,7 @@ class AuthController extends Controller
             ]
         );
 
-        if (!$user->email_verified_at) {
+        if (! $user->email_verified_at) {
             $user->update(['email_verified_at' => now()]);
         }
 
@@ -84,7 +84,7 @@ class AuthController extends Controller
         Auth::login($user);
 
         // 5. Retrieve and claim guest documents using the saved guest token from cache
-        $guestToken = Cache::pull('google_state_' . $state);
+        $guestToken = Cache::pull('google_state_'.$state);
         if ($guestToken) {
             $guestTokenHash = hash('sha256', $guestToken);
             Document::where('guest_token_hash', $guestTokenHash)
@@ -96,7 +96,7 @@ class AuthController extends Controller
         }
 
         // 6. Redirect to frontend callback page on success
-        return redirect()->to($frontendUrl . '/auth/callback');
+        return redirect()->to($frontendUrl.'/auth/callback');
     }
 
     // POST /api/v1/auth/logout
@@ -109,11 +109,8 @@ class AuthController extends Controller
             $request->session()->regenerateToken();
         }
 
-        // Terminate the current Sanctum token if applicable
-        $request->user()?->currentAccessToken()?->delete();
-
         return response()->json([
-            'message' => 'Successfully logged out.'
+            'message' => 'Successfully logged out.',
         ], 200);
     }
 }

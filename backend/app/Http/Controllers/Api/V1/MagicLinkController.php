@@ -22,14 +22,14 @@ class MagicLinkController extends Controller
         ]);
 
         // 2. Apply Rate Limiting (Max 5 attempts per minute per IP)
-        $rateKey = 'magic-link-' . $request->ip();
+        $rateKey = 'magic-link-'.$request->ip();
 
         if (RateLimiter::tooManyAttempts($rateKey, 5)) {
             return response()->json([
                 'error' => [
                     'code' => 'magic_link_limit_reached',
                     'message' => __('messages.magic_link_limit_reached'),
-                ]
+                ],
             ], 429);
         }
 
@@ -37,7 +37,7 @@ class MagicLinkController extends Controller
 
         // 3. Generate a raw token and store its SHA-256 hash in the database
         $rawToken = Str::random(64);
-        
+
         LoginToken::create([
             'email' => strtolower($request->email),
             'token_hash' => hash('sha256', $rawToken),
@@ -51,7 +51,7 @@ class MagicLinkController extends Controller
 
     }
 
-    //Verify the magic link token and authenticate the user.
+    // Verify the magic link token and authenticate the user.
     public function verify(Request $request): JsonResponse
     {
         // 1. Validate that the token is present in the request
@@ -65,12 +65,12 @@ class MagicLinkController extends Controller
         $loginToken = LoginToken::where('token_hash', $tokenHash)->first();
 
         // Error: Token does not exist (Invalid Link - 400)
-        if (!$loginToken) {
+        if (! $loginToken) {
             return response()->json([
                 'error' => [
                     'code' => 'link_invalid',
                     'message' => __('messages.link_invalid'),
-                ]
+                ],
             ], 400);
         }
 
@@ -80,7 +80,7 @@ class MagicLinkController extends Controller
                 'error' => [
                     'code' => 'link_used',
                     'message' => __('messages.link_used'),
-                ]
+                ],
             ], 410);
         }
 
@@ -90,7 +90,7 @@ class MagicLinkController extends Controller
                 'error' => [
                     'code' => 'link_expired',
                     'message' => __('messages.link_expired'),
-                ]
+                ],
             ], 410);
         }
 
@@ -98,7 +98,7 @@ class MagicLinkController extends Controller
         $loginToken->update(['used_at' => now()]);
 
         // 4. Find or create the user account based on the token's email
-        $user = \App\Models\User::firstOrCreate(
+        $user = User::firstOrCreate(
             ['email' => $loginToken->email],
             [
                 'email_verified_at' => now(),
@@ -107,7 +107,7 @@ class MagicLinkController extends Controller
             ]
         );
 
-        if (!$user->email_verified_at) {
+        if (! $user->email_verified_at) {
             $user->update(['email_verified_at' => now()]);
         }
 
@@ -118,7 +118,7 @@ class MagicLinkController extends Controller
         $guestToken = $request->header('X-Guest-Token');
         if ($guestToken) {
             $guestTokenHash = hash('sha256', $guestToken);
-            \App\Models\Document::where('guest_token_hash', $guestTokenHash)
+            Document::where('guest_token_hash', $guestTokenHash)
                 ->whereNull('user_id')
                 ->update([
                     'user_id' => $user->id,

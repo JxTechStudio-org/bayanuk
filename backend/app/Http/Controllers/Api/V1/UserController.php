@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\DeletionReason;
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use App\Enums\DeletionReason;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
@@ -47,6 +48,7 @@ class UserController extends Controller
     // DELETE /api/v1/me
     public function destroy(Request $request): JsonResponse
     {
+        /** @var User $user */
         $user = $request->user();
 
         DB::transaction(function () use ($user) {
@@ -71,7 +73,7 @@ class UserController extends Controller
         });
 
         // 4. Terminate the current Sanctum token/session
-        $request->user()->currentAccessToken()?->delete();
+        $user->currentAccessToken()->delete();
 
         return response()->json(null, 204);
     }
