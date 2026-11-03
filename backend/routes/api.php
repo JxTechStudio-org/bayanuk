@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\GuestTokenController;
 use App\Http\Controllers\Api\V1\MagicLinkController;
+use App\Http\Controllers\Api\V1\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -29,6 +30,16 @@ Route::prefix('v1')->group(function () {
 
         Route::post('/magic-link', [MagicLinkController::class, 'send']);
         Route::post('/magic-link/verify', [MagicLinkController::class, 'verify']);
+
+        // Logout Endpoint (Protected by Sanctum)
+        Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logout']);
+    });
+
+   // Authenticated User (/me) Routes (Protected by Sanctum)
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/me', [UserController::class, 'show']);
+        Route::patch('/me', [UserController::class, 'update']);
+        Route::delete('/me', [UserController::class, 'destroy']);
     });
 
 });

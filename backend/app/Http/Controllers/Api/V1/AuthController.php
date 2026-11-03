@@ -98,4 +98,22 @@ class AuthController extends Controller
         // 6. Redirect to frontend callback page on success
         return redirect()->to($frontendUrl . '/auth/callback');
     }
+
+    // POST /api/v1/auth/logout
+    public function logout(Request $request): JsonResponse
+    {
+        // Invalidate session and clear token for Sanctum SPA
+        if ($request->hasSession()) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+        }
+
+        // Terminate the current Sanctum token if applicable
+        $request->user()?->currentAccessToken()?->delete();
+
+        return response()->json([
+            'message' => 'Successfully logged out.'
+        ], 200);
+    }
 }
