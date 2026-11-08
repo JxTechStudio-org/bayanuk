@@ -23,10 +23,8 @@ class AuthController extends Controller
 
         $state = Str::random(40);
 
-        // Store the guest token against the state in cache for 10 minutes if provided
-        if ($guestToken) {
-            Cache::put('google_state_'.$state, $guestToken, now()->addMinutes(10));
-        }
+        // Always store state against the guest token (or empty string) in cache for 10 minutes
+        Cache::put('google_state_'.$state, $guestToken ?? '', now()->addMinutes(10));
 
         /** @var GoogleProvider $driver */
         $driver = Socialite::driver('google');
@@ -39,7 +37,7 @@ class AuthController extends Controller
 
     public function googleCallback(Request $request): RedirectResponse
     {
-        $frontendUrl = config('app.frontend_url', 'http://localhost:3000');
+        $frontendUrl = config('app.frontend_url', 'http://localhost:5173');
 
         // 1. Check if the user cancelled the login on Google's side
         if ($request->has('error') && $request->error === 'access_denied') {
@@ -82,10 +80,13 @@ class AuthController extends Controller
 
         // 4. Authenticate the user session
         Auth::login($user);
+        if ($request->hasSession()) {
+            $request->session()->regenerate();
+        }
 
         // 5. Retrieve and claim guest documents using the saved guest token from cache
         $guestToken = Cache::pull('google_state_'.$state);
-        if ($guestToken) {
+        if (! empty($guestToken)) {
             $guestTokenHash = hash('sha256', $guestToken);
             Document::where('guest_token_hash', $guestTokenHash)
                 ->whereNull('user_id')

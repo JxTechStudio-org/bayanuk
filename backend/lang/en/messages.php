@@ -13,6 +13,7 @@ return [
     'question_limit_reached' => 'Question limit for the document reached.',
     'ai_budget_reached' => 'Daily AI budget reached.',
     'magic_link_limit_reached' => 'Too many sign-in link requests, please try again later.',
+    'magic_link_subject' => 'Login to Bayanuk',
     'too_many_requests' => 'Too many requests, please wait a moment.',
     'link_expired' => 'Sign-in link expired.',
     'link_used' => 'Sign-in link already used.',

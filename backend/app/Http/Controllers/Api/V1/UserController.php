@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
@@ -51,14 +52,28 @@ class UserController extends Controller
         /** @var User $user */
         $user = $request->user();
 
+        // 1. Invalidate session and log out web guard for Sanctum SPA cookies
+        if ($request->hasSession()) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+        }
+
+        // 2. Terminate current token if present (safe for SPA cookie sessions)
+        try {
+            $user->currentAccessToken()->delete();
+        } catch (\Throwable) {
+            // Safely ignored for SPA cookie sessions where currentAccessToken is null
+        }
+
         DB::transaction(function () use ($user) {
-            // 1. Delete all associated user documents from RustFS storage first
+            // 3. Delete all associated user documents from RustFS storage first
             foreach ($user->documents as $document) {
                 if ($document->storage_key && Storage::disk('s3')->exists($document->storage_key)) {
                     Storage::disk('s3')->delete($document->storage_key);
                 }
 
-                // 2. Write an audit entry to deletion_logs with reason account_deleted
+                // 4. Write an audit entry to deletion_logs with reason account_deleted
                 DB::table('deletion_logs')->insert([
                     'document_id' => $document->id,
                     'reason' => DeletionReason::ACCOUNT_DELETED->value,
@@ -67,13 +82,10 @@ class UserController extends Controller
                 ]);
             }
 
-            // 3. Delete the user record (DB cascade will remove documents, analyses, chunks, etc.)
+            // 5. Delete the user record (DB cascade will remove documents, analyses, chunks, etc.)
             // Note: usage_events rows remain intact without content for cost reporting.
             $user->delete();
         });
-
-        // 4. Terminate the current Sanctum token/session
-        $user->currentAccessToken()->delete();
 
         return response()->json(null, 204);
     }

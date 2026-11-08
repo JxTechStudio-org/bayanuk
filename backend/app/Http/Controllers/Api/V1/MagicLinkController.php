@@ -8,8 +8,10 @@ use App\Models\LoginToken;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
+use Resend\Laravel\Facades\Resend;
 
 class MagicLinkController extends Controller
 {
@@ -44,6 +46,26 @@ class MagicLinkController extends Controller
             'expires_at' => now()->addMinutes(15),
             'ip_hash' => hash('sha256', $request->ip()),
         ]);
+
+        // 4. Send the actual email via Resend SDK
+        $frontendUrl = config('app.frontend_url', 'http://localhost:5173');
+        $verificationUrl = $frontendUrl.'/auth/verify?token='.$rawToken;
+
+        try {
+            Resend::emails()->send([
+                'from' => config('mail.from.name', 'Bayanuk').' <'.config('mail.from.address', 'no-reply@bayanuk.test').'>',
+                'to' => [$request->email],
+                'subject' => __('messages.magic_link_subject') ?: 'تسجيل الدخول إلى بيانك | Login to Bayanuk',
+                'html' => view('emails.magic-link', ['url' => $verificationUrl])->render(),
+            ]);
+        } catch (\Throwable $e) {
+            // Graceful fallback for local development & testing when RESEND_API_KEY is not set
+            if (app()->environment(['local', 'testing']) && empty(config('services.resend.key'))) {
+                Log::info("Magic link generated for {$request->email}: {$verificationUrl}");
+            } else {
+                throw $e;
+            }
+        }
 
         return response()->json([
             'message' => 'Magic link sent successfully.',
@@ -113,6 +135,9 @@ class MagicLinkController extends Controller
 
         // Authenticate the user session
         auth()->login($user);
+        if ($request->hasSession()) {
+            $request->session()->regenerate();
+        }
 
         // 5. Claim guest documents if an X-Guest-Token header is provided
         $guestToken = $request->header('X-Guest-Token');

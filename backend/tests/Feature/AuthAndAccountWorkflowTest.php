@@ -5,16 +5,37 @@ use App\Models\Document;
 use App\Models\LoginToken;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
+use Laravel\Socialite\Facades\Socialite;
+use Laravel\Socialite\Two\GoogleProvider;
+use Laravel\Socialite\Two\User as SocialiteUser;
+use Resend\Client;
+use Resend\Laravel\Facades\Resend;
+use Resend\Service\Email;
 use Tests\TestCase;
 
 uses(TestCase::class);
 uses(RefreshDatabase::class);
 
-// 1. Guest Token Flow: Test invalid guest token
+// 1. Guest Token Flow: Test successful generation (201) and ensure no fake document is created
+it('successfully generates and returns a new 64-char guest token without creating fake documents', function () {
+    $response = $this->postJson('/api/v1/guest-token');
+
+    $response->assertStatus(201)
+        ->assertJsonStructure(['token']);
+
+    $token = $response->json('token');
+    expect(strlen($token))->toBe(64);
+
+    // Verify that NO fake document was created in the database
+    $this->assertDatabaseCount('documents', 0);
+});
+
+// 1.5. Guest Token Flow: Test malformed guest token header validation
 it('returns invalid guest token error for invalid or malformed guest tokens', function () {
-    $response = $this->withHeader('X-Guest-Token', 'invalid-token-string')
+    $response = $this->withHeader('X-Guest-Token', 'malformed-token-string')
         ->postJson('/api/v1/guest-token');
 
     $response->assertStatus(400)
@@ -25,23 +46,41 @@ it('returns invalid guest token error for invalid or malformed guest tokens', fu
         ]);
 });
 
-// 1.5. Guest Token Flow: Test successful guest token generation (201)
-it('successfully generates and returns a new guest token and stores its hash', function () {
-    $response = $this->postJson('/api/v1/guest-token');
+// 2. Magic Link Flow: Test real Resend email sending
+it('dispatches a real email via Resend SDK when requesting a magic link', function () {
+    $mockClient = Mockery::mock(Client::class);
+    $mockEmails = Mockery::mock(Email::class);
 
-    $response->assertStatus(201)
-        ->assertJsonStructure([
-            'token',
+    $mockClient->shouldReceive('emails')->andReturn($mockEmails);
+    $mockEmails->shouldReceive('send')->once()->with(Mockery::on(function ($payload) {
+        return $payload['to'][0] === 'user@example.com'
+            && str_contains($payload['html'], '/auth/verify?token=')
+            && ! empty($payload['subject']);
+    }))->andReturn((object) ['id' => 'email_123']);
+
+    Resend::swap($mockClient);
+
+    $response = $this->postJson('/api/v1/auth/magic-link', [
+        'email' => 'user@example.com',
+    ]);
+
+    $response->assertOk()
+        ->assertJson([
+            'message' => 'Magic link sent successfully.',
         ]);
+
+    $this->assertDatabaseHas('login_tokens', [
+        'email' => 'user@example.com',
+    ]);
 });
 
-// 2. Magic Link Flow: Test expired login link
+// 2.5. Magic Link Flow: Test expired login link
 it('returns link_expired error when trying to verify an expired magic link', function () {
     $token = 'expired-token-123';
     LoginToken::create([
         'email' => 'test@example.com',
         'token_hash' => hash('sha256', $token),
-        'expires_at' => now()->subMinutes(5), // Expired link
+        'expires_at' => now()->subMinutes(5),
         'used_at' => null,
     ]);
 
@@ -64,7 +103,7 @@ it('returns link_used error when trying to reuse an already used magic link', fu
         'email' => 'test@example.com',
         'token_hash' => hash('sha256', $token),
         'expires_at' => now()->addMinutes(15),
-        'used_at' => now()->subMinutes(2), // Already used link
+        'used_at' => now()->subMinutes(2),
     ]);
 
     $response = $this->postJson('/api/v1/auth/magic-link/verify', [
@@ -97,12 +136,10 @@ it('returns link_invalid error for unknown or malformed magic link tokens', func
 it('returns magic_link_limit_reached error when too many magic link requests are sent', function () {
     $email = 'rate@example.com';
 
-    // Send requests up to the limit (max 5 attempts per minute)
     for ($i = 0; $i < 5; $i++) {
         $this->postJson('/api/v1/auth/magic-link', ['email' => $email])->assertOk();
     }
 
-    // The 6th request should trigger rate limiting (429)
     $response = $this->postJson('/api/v1/auth/magic-link', ['email' => $email]);
 
     $response->assertStatus(429)
@@ -124,7 +161,6 @@ it('allows authenticated user to retrieve and update their profile preferences',
 
     Sanctum::actingAs($user);
 
-    // Test GET /api/v1/me
     $this->getJson('/api/v1/me')
         ->assertOk()
         ->assertJson([
@@ -133,7 +169,6 @@ it('allows authenticated user to retrieve and update their profile preferences',
             'keep_documents' => false,
         ]);
 
-    // Test PATCH /api/v1/me
     $this->patchJson('/api/v1/me', [
         'locale' => 'ar',
         'keep_documents' => true,
@@ -162,7 +197,7 @@ it('allows authenticated user to securely logout and invalidate session', functi
         ]);
 });
 
-// 6. Account Deletion Flow: Test full account deletion, S3 cleanup, and audit logs
+// 6. Account Deletion Flow: Test account deletion with personal access tokens
 it('removes user documents from S3 storage first, deletes database records, and logs account_deleted reason', function () {
     Storage::fake('s3');
 
@@ -190,42 +225,94 @@ it('removes user documents from S3 storage first, deletes database records, and 
 
     $response->assertNoContent(); // 204
 
-    // Ensure file was deleted from S3 storage
     Storage::disk('s3')->assertMissing($storageKey);
 
-    // Ensure deletion log was written with reason account_deleted
     $this->assertDatabaseHas('deletion_logs', [
         'document_id' => $document->id,
         'reason' => DeletionReason::ACCOUNT_DELETED->value,
         'file_deleted' => true,
     ]);
 
-    // Ensure user record was deleted from database
     $this->assertDatabaseMissing('users', [
         'id' => $user->id,
     ]);
-
 });
 
-// 6.5. Google Sign-in Flow: Test Google redirect URL generation and state/guest token caching
-it('generates Google redirect URL and stores guest token against state in cache', function () {
-    $guestToken = 'guest-token-xyz';
+// 6.2. Account Deletion Flow: Test account deletion under SPA Cookie Session (Web Guard)
+it('successfully deletes user account and terminates session for SPA cookie users without currentAccessToken error', function () {
+    Storage::fake('s3');
 
-    $response = $this->withHeader('X-Guest-Token', $guestToken)
-        ->postJson('/api/v1/auth/google/redirect');
+    $user = User::factory()->create([
+        'terms_version' => '1.0',
+        'terms_accepted_at' => now(),
+    ]);
+
+    Sanctum::actingAs($user);
+    // Simulate SPA where currentAccessToken is null to verify null-safety
+    $user->withAccessToken(null);
+
+    $response = $this->deleteJson('/api/v1/me');
+
+    $response->assertNoContent();
+
+    $this->assertDatabaseMissing('users', [
+        'id' => $user->id,
+    ]);
+});
+
+// 6.5. Google Sign-in Flow: Test Google redirect URL generation and state caching WITHOUT guest token
+it('generates Google redirect URL and stores state in cache even when user has no guest token', function () {
+    $response = $this->postJson('/api/v1/auth/google/redirect');
 
     $response->assertOk()
-        ->assertJsonStructure([
-            'url',
-        ]);
+        ->assertJsonStructure(['url']);
+
+    $parsedUrl = parse_url($response->json('url'));
+    parse_str($parsedUrl['query'] ?? '', $queryParams);
+
+    expect(isset($queryParams['state']))->toBeTrue();
+    expect(Cache::has('google_state_'.$queryParams['state']))->toBeTrue();
+});
+
+// 6.6. Google Sign-in Flow: Test successful callback when user had NO guest token
+it('successfully authenticates user via Google callback when no guest token was provided', function () {
+    $state = 'test-state-without-guest-token';
+    Cache::put('google_state_'.$state, '', now()->addMinutes(10));
+
+    $socialiteUser = Mockery::mock(SocialiteUser::class);
+    $socialiteUser->shouldReceive('getEmail')->andReturn('googleuser@example.com');
+    $socialiteUser->shouldReceive('getName')->andReturn('Google User');
+
+    $provider = Mockery::mock(GoogleProvider::class);
+    $provider->shouldReceive('stateless')->andReturnSelf();
+    $provider->shouldReceive('user')->andReturn($socialiteUser);
+
+    Socialite::shouldReceive('driver')->with('google')->andReturn($provider);
+
+    $response = $this->get('/api/v1/auth/google/callback?state='.$state);
+
+    $frontendUrl = config('app.frontend_url', 'http://localhost:5173');
+    $response->assertRedirect($frontendUrl.'/auth/callback');
+
+    $this->assertDatabaseHas('users', [
+        'email' => 'googleuser@example.com',
+    ]);
+});
+
+// 6.7. Google Sign-in Flow: Test invalid state redirects with error
+it('redirects with google_invalid_state when state is missing or not in cache', function () {
+    $frontendUrl = config('app.frontend_url', 'http://localhost:5173');
+
+    $response = $this->get('/api/v1/auth/google/callback?state=invalid-state');
+
+    $response->assertRedirect($frontendUrl.'/auth/callback?error=google_invalid_state');
 });
 
 // 7. Guest Claiming Flow: Test claiming guest documents upon successful magic link sign-in
 it('claims guest documents and assigns them to the user upon magic link verification', function () {
-    $guestToken = 'my-guest-token-123';
+    $guestToken = str_repeat('a', 64);
     $guestTokenHash = hash('sha256', $guestToken);
 
-    // Create an unassigned guest document associated with the guest token hash
     $document = Document::create([
         'guest_token_hash' => $guestTokenHash,
         'user_id' => null,
@@ -246,7 +333,6 @@ it('claims guest documents and assigns them to the user upon magic link verifica
         'used_at' => null,
     ]);
 
-    // Verify magic link while passing the guest token header
     $response = $this->withHeader('X-Guest-Token', $guestToken)
         ->postJson('/api/v1/auth/magic-link/verify', [
             'token' => $rawToken,
@@ -254,7 +340,6 @@ it('claims guest documents and assigns them to the user upon magic link verifica
 
     $response->assertOk();
 
-    // Assert that the document now belongs to the newly created user and guest_token_hash is cleared
     $user = User::where('email', 'guestuser@example.com')->first();
 
     $this->assertDatabaseHas('documents', [
@@ -262,4 +347,31 @@ it('claims guest documents and assigns them to the user upon magic link verifica
         'user_id' => $user->id,
         'guest_token_hash' => null,
     ]);
+});
+
+// 8. Localization Flow: Test error message response language based on Accept-Language header
+it('returns localized error messages matching Accept-Language header', function () {
+    // Test Arabic localization
+    $arResponse = $this->withHeader('Accept-Language', 'ar')
+        ->postJson('/api/v1/auth/magic-link/verify', ['token' => 'invalid-tok']);
+
+    $arResponse->assertStatus(400)
+        ->assertJson([
+            'error' => [
+                'code' => 'link_invalid',
+                'message' => 'رابط تسجيل الدخول غير صالح.',
+            ],
+        ]);
+
+    // Test English localization
+    $enResponse = $this->withHeader('Accept-Language', 'en')
+        ->postJson('/api/v1/auth/magic-link/verify', ['token' => 'invalid-tok']);
+
+    $enResponse->assertStatus(400)
+        ->assertJson([
+            'error' => [
+                'code' => 'link_invalid',
+                'message' => 'Sign-in link token unknown or changed.',
+            ],
+        ]);
 });

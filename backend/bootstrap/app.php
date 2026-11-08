@@ -1,9 +1,16 @@
 <?php
 
+use App\Exceptions\ApiException;
+use App\Http\Middleware\SetLocale;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Session\TokenMismatchException;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -14,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
+        $middleware->append(SetLocale::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
@@ -22,43 +30,84 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $exceptions->render(function (Throwable $e, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
-                $status = method_exists($e, 'getStatusCode') ? $e->getStatusCode() : 500;
+                // 1. Explicit contract ApiException
+                if ($e instanceof ApiException) {
+                    $response = [
+                        'error' => [
+                            'code' => $e->errorCode,
+                            'message' => $e->getMessage(),
+                        ],
+                    ];
+                    if (! empty($e->details)) {
+                        $response['error']['details'] = $e->details;
+                    }
 
-                $code = match ($status) {
-                    401 => 'unauthorized',
-                    419 => 'csrf_token_mismatch',
-                    422 => 'validation_error',
-                    400 => 'invalid_guest_token',
-                    410 => 'link_expired',
-                    429 => 'magic_link_limit_reached',
-                    default => 'server_error',
-                };
-
-                $rawLocale = $request->header('Accept-Language', 'en');
-                $locale = strtolower(substr(trim(explode(',', $rawLocale)[0]), 0, 2));
-                app()->setLocale(in_array($locale, ['ar', 'en']) ? $locale : 'en');
-
-                $errorCode = $code;
-                if ($status === 410 && str_contains(strtolower($e->getMessage()), 'used')) {
-                    $errorCode = 'link_used';
+                    return response()->json($response, $e->statusCode);
                 }
 
-                $message = __("messages.{$errorCode}") !== "messages.{$errorCode}"
-                    ? __("messages.{$errorCode}")
-                    : ($e->getMessage() ?: __('messages.server_error'));
+                // 2. Validation Exception (422)
+                if ($e instanceof ValidationException) {
+                    return response()->json([
+                        'error' => [
+                            'code' => 'validation_error',
+                            'message' => __('messages.validation_error'),
+                            'details' => $e->errors(),
+                        ],
+                    ], 422);
+                }
 
-                $response = [
+                // 3. Authentication Exception (401)
+                if ($e instanceof AuthenticationException) {
+                    return response()->json([
+                        'error' => [
+                            'code' => 'unauthorized',
+                            'message' => __('messages.unauthorized'),
+                        ],
+                    ], 401);
+                }
+
+                // 4. CSRF Token Mismatch (419)
+                if ($e instanceof TokenMismatchException) {
+                    return response()->json([
+                        'error' => [
+                            'code' => 'csrf_token_mismatch',
+                            'message' => __('messages.csrf_token_mismatch'),
+                        ],
+                    ], 419);
+                }
+
+                // 5. Model Not Found / Route Not Found (404)
+                if ($e instanceof NotFoundHttpException) {
+                    return response()->json([
+                        'error' => [
+                            'code' => 'document_not_found',
+                            'message' => __('messages.document_not_found'),
+                        ],
+                    ], 404);
+                }
+
+                $status = $e instanceof HttpExceptionInterface ? $e->getStatusCode() : 500;
+
+                // 6. Rate Limiting (429)
+                if ($status === 429) {
+                    return response()->json([
+                        'error' => [
+                            'code' => 'too_many_requests',
+                            'message' => __('messages.too_many_requests'),
+                        ],
+                    ], 429);
+                }
+
+                // 7. Generic fallback for other 4xx/5xx exceptions
+                $code = $status === 500 ? 'server_error' : 'server_error';
+                $message = $status === 500 ? __('messages.server_error') : ($e->getMessage() ?: __('messages.server_error'));
+
+                return response()->json([
                     'error' => [
-                        'code' => $errorCode,
+                        'code' => $code,
                         'message' => $message,
                     ],
-                ];
-
-                if ($status === 422 && method_exists($e, 'errors')) {
-                    $response['error']['details'] = $e->errors();
-                }
-
-                return response()->json($response, $status);
+                ], $status >= 400 && $status < 600 ? $status : 500);
             }
         });
 
