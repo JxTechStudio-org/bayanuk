@@ -1,6 +1,9 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\GuestTokenController;
+use App\Http\Controllers\Api\V1\MagicLinkController;
+use App\Http\Controllers\Api\V1\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -17,9 +20,28 @@ Route::prefix('v1')->group(function () {
         ]);
     });
 
+    // Guest Token Endpoint (Integration Contract Section 5)
+    Route::post('/guest-token', [GuestTokenController::class, 'store']);
+
     // Authentication Routes
     Route::prefix('auth')->group(function () {
-        Route::post('/google/redirect', [AuthController::class, 'googleRedirect']);
+        Route::post('/google/redirect', [AuthController::class, 'googleRedirect'])->middleware('web');
+        // Google sends the browser here, not the frontend, so Sanctum does not treat the request as
+        // stateful. The `web` group makes sure the session starts and the session cookie is sent.
+        Route::get('/google/callback', [AuthController::class, 'googleCallback'])->middleware('web');
+
+        Route::post('/magic-link', [MagicLinkController::class, 'send']);
+        Route::post('/magic-link/verify', [MagicLinkController::class, 'verify']);
+
+        // Logout Endpoint (Protected by Sanctum)
+        Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logout']);
+    });
+
+    // Authenticated User (/me) Routes (Protected by Sanctum)
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/me', [UserController::class, 'show']);
+        Route::patch('/me', [UserController::class, 'update']);
+        Route::delete('/me', [UserController::class, 'destroy']);
     });
 
 });
