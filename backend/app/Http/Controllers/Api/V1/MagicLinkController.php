@@ -2,157 +2,137 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exceptions\ApiException;
 use App\Http\Controllers\Controller;
-use App\Models\Document;
 use App\Models\LoginToken;
 use App\Models\User;
+use App\Services\Auth\GuestDocumentClaimer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Resend\Laravel\Facades\Resend;
 
 class MagicLinkController extends Controller
 {
-    // Send a magic link to the user's email with rate limiting.
+    /** Link requests allowed per minute, for one IP and for one email address. */
+    private const MAX_REQUESTS_PER_MINUTE = 5;
+
+    public function __construct(private readonly GuestDocumentClaimer $guests) {}
+
+    // POST /api/v1/auth/magic-link: email a single-use sign-in link.
     public function send(Request $request): JsonResponse
     {
-        // 1. Validate the incoming email input
-        $request->validate([
-            'email' => 'required|email',
+        $validated = $request->validate([
+            'email' => ['required', 'email:rfc', 'max:255'],
         ]);
 
-        // 2. Apply Rate Limiting (Max 5 attempts per minute per IP)
-        $rateKey = 'magic-link-'.$request->ip();
+        $email = mb_strtolower($validated['email']);
 
-        if (RateLimiter::tooManyAttempts($rateKey, 5)) {
-            return response()->json([
-                'error' => [
-                    'code' => 'magic_link_limit_reached',
-                    'message' => __('messages.magic_link_limit_reached'),
-                ],
-            ], 429);
-        }
+        $limiterKeys = [
+            'magic-link:ip:'.sha1((string) $request->ip()),
+            'magic-link:email:'.sha1($email),
+        ];
 
-        RateLimiter::hit($rateKey, 60);
-
-        // 3. Generate a raw token and store its SHA-256 hash in the database
-        $rawToken = Str::random(64);
-
-        LoginToken::create([
-            'email' => strtolower($request->email),
-            'token_hash' => hash('sha256', $rawToken),
-            'expires_at' => now()->addMinutes(15),
-            'ip_hash' => hash('sha256', $request->ip()),
-        ]);
-
-        // 4. Send the actual email via Resend SDK
-        $frontendUrl = config('app.frontend_url', 'http://localhost:5173');
-        $verificationUrl = $frontendUrl.'/auth/verify?token='.$rawToken;
-
-        try {
-            Resend::emails()->send([
-                'from' => config('mail.from.name', 'Bayanuk').' <'.config('mail.from.address', 'no-reply@bayanuk.test').'>',
-                'to' => [$request->email],
-                'subject' => __('messages.magic_link_subject') ?: 'تسجيل الدخول إلى بيانك | Login to Bayanuk',
-                'html' => view('emails.magic-link', ['url' => $verificationUrl])->render(),
-            ]);
-        } catch (\Throwable $e) {
-            // Graceful fallback for local development & testing when RESEND_API_KEY is not set
-            if (app()->environment(['local', 'testing']) && empty(config('services.resend.key'))) {
-                Log::info("Magic link generated for {$request->email}: {$verificationUrl}");
-            } else {
-                throw $e;
+        foreach ($limiterKeys as $key) {
+            if (RateLimiter::tooManyAttempts($key, self::MAX_REQUESTS_PER_MINUTE)) {
+                throw new ApiException('magic_link_limit_reached', 429);
             }
         }
 
-        return response()->json([
-            'message' => 'Magic link sent successfully.',
+        foreach ($limiterKeys as $key) {
+            RateLimiter::hit($key, 60);
+        }
+
+        // Only the SHA-256 hash is stored; the raw token only exists inside the email.
+        $rawToken = Str::random(64);
+
+        $loginToken = LoginToken::create([
+            'email' => $email,
+            'token_hash' => hash('sha256', $rawToken),
+            'expires_at' => now()->addMinutes(15),
+            'ip_hash' => hash_hmac('sha256', (string) $request->ip(), (string) config('app.key')),
         ]);
 
+        $verificationUrl = rtrim((string) config('app.frontend_url', 'http://localhost:5173'), '/').'/auth/verify?token='.$rawToken;
+
+        try {
+            Resend::emails()->send([
+                'from' => config('mail.from.name').' <'.config('mail.from.address').'>',
+                'to' => [$email],
+                'subject' => __('messages.magic_link_subject'),
+                'html' => view('emails.magic-link', ['url' => $verificationUrl])->render(),
+            ]);
+        } catch (\Throwable $e) {
+            // A link nobody received must not stay usable, and the caller must not think it was sent.
+            $loginToken->delete();
+            report($e);
+
+            throw new ApiException('server_error', 500);
+        }
+
+        return response()->json([
+            'message' => __('messages.magic_link_sent'),
+        ]);
     }
 
-    // Verify the magic link token and authenticate the user.
+    // POST /api/v1/auth/magic-link/verify: exchange the link token for a session and claim guest documents.
     public function verify(Request $request): JsonResponse
     {
-        // 1. Validate that the token is present in the request
         $request->validate([
-            'token' => 'required|string',
+            'token' => ['required', 'string'],
         ]);
 
-        // 2. Hash the provided token to match it against database records
-        $tokenHash = hash('sha256', $request->token);
+        // Checked first, so a bad guest token never uses up the link.
+        $guestToken = $this->guests->tokenFromRequest($request);
 
-        $loginToken = LoginToken::where('token_hash', $tokenHash)->first();
+        $tokenHash = hash('sha256', $request->string('token')->toString());
 
-        // Error: Token does not exist (Invalid Link - 400)
-        if (! $loginToken) {
-            return response()->json([
-                'error' => [
-                    'code' => 'link_invalid',
-                    'message' => __('messages.link_invalid'),
-                ],
-            ], 400);
-        }
+        $user = DB::transaction(function () use ($tokenHash, $guestToken): User {
+            // The row lock makes the link single-use even when two requests arrive together.
+            $loginToken = LoginToken::where('token_hash', $tokenHash)->lockForUpdate()->first();
 
-        // Error: Token has already been used (Used Link - 410)
-        if ($loginToken->used_at) {
-            return response()->json([
-                'error' => [
-                    'code' => 'link_used',
-                    'message' => __('messages.link_used'),
-                ],
-            ], 410);
-        }
+            if (! $loginToken) {
+                throw new ApiException('link_invalid', 400);
+            }
 
-        // Error: Token expiration time has passed (Expired Link - 410)
-        if ($loginToken->expires_at->isPast()) {
-            return response()->json([
-                'error' => [
-                    'code' => 'link_expired',
-                    'message' => __('messages.link_expired'),
-                ],
-            ], 410);
-        }
+            if ($loginToken->used_at) {
+                throw new ApiException('link_used', 410);
+            }
 
-        // 3. Mark the token as used
-        $loginToken->update(['used_at' => now()]);
+            if ($loginToken->expires_at->isPast()) {
+                throw new ApiException('link_expired', 410);
+            }
 
-        // 4. Find or create the user account based on the token's email
-        $user = User::firstOrCreate(
-            ['email' => $loginToken->email],
-            [
-                'email_verified_at' => now(),
-                'terms_version' => '1.0',
-                'terms_accepted_at' => now(),
-            ]
-        );
+            $loginToken->update(['used_at' => now()]);
 
-        if (! $user->email_verified_at) {
-            $user->update(['email_verified_at' => now()]);
-        }
+            $user = User::firstOrCreate(
+                ['email' => $loginToken->email],
+                [
+                    'terms_version' => '1.0',
+                    'terms_accepted_at' => now(),
+                ]
+            );
 
-        // Authenticate the user session
-        auth()->login($user);
+            if (! $user->email_verified_at) {
+                $user->update(['email_verified_at' => now()]);
+            }
+
+            $this->guests->claim($user, $guestToken);
+
+            return $user;
+        });
+
+        Auth::guard('web')->login($user);
+
         if ($request->hasSession()) {
             $request->session()->regenerate();
         }
 
-        // 5. Claim guest documents if an X-Guest-Token header is provided
-        $guestToken = $request->header('X-Guest-Token');
-        if ($guestToken) {
-            $guestTokenHash = hash('sha256', $guestToken);
-            Document::where('guest_token_hash', $guestTokenHash)
-                ->whereNull('user_id')
-                ->update([
-                    'user_id' => $user->id,
-                    'guest_token_hash' => null,
-                ]);
-        }
-
         return response()->json([
-            'message' => 'Successfully authenticated.',
+            'message' => __('messages.signed_in'),
         ]);
     }
 }

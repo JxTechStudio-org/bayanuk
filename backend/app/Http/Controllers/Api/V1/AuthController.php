@@ -3,115 +3,143 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Models\Document;
 use App\Models\User;
+use App\Services\Auth\GuestDocumentClaimer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\GoogleProvider;
 
 class AuthController extends Controller
 {
-    // Start Google Sign-in flow: saves the guest token with state and returns the Google URL.
+    private const STATE_CACHE_PREFIX = 'google_state_';
+
+    private const BINDING_COOKIE = 'google_oauth_binding';
+
+    private const STATE_MINUTES = 10;
+
+    public function __construct(private readonly GuestDocumentClaimer $guests) {}
+
+    // POST /api/v1/auth/google/redirect: save the guest token with a random state and return the Google URL.
     public function googleRedirect(Request $request): JsonResponse
     {
-        $guestToken = $request->header('X-Guest-Token');
+        // A malformed guest token is refused here; a missing one is fine (signing in without a guest token).
+        $guestToken = $this->guests->tokenFromRequest($request);
 
         $state = Str::random(40);
+        $binding = Str::random(40);
 
-        // Always store state against the guest token (or empty string) in cache for 10 minutes
-        Cache::put('google_state_'.$state, $guestToken ?? '', now()->addMinutes(10));
+        // The state is only good for one callback, and only for the browser that started the sign-in.
+        Cache::put(self::STATE_CACHE_PREFIX.$state, [
+            'guest_token' => $guestToken,
+            'binding' => hash('sha256', $binding),
+        ], now()->addMinutes(self::STATE_MINUTES));
 
         /** @var GoogleProvider $driver */
         $driver = Socialite::driver('google');
         $url = $driver->stateless()->with(['state' => $state])->redirect()->getTargetUrl();
 
-        return response()->json(['url' => $url]);
+        return response()->json(['url' => $url])->cookie(
+            self::BINDING_COOKIE, $binding, self::STATE_MINUTES, '/', null, $request->isSecure(), true, false, 'lax'
+        );
     }
 
-    // Handle Google Sign-in callback, validate state, and authenticate user.
-
+    // GET /api/v1/auth/google/callback: check the state, sign the user in, claim guest documents,
+    // and redirect to the frontend with success or an error code.
     public function googleCallback(Request $request): RedirectResponse
     {
-        $frontendUrl = config('app.frontend_url', 'http://localhost:5173');
+        $frontendUrl = rtrim((string) config('app.frontend_url', 'http://localhost:5173'), '/');
+        $callbackUrl = $frontendUrl.'/auth/callback';
 
-        // 1. Check if the user cancelled the login on Google's side
-        if ($request->has('error') && $request->error === 'access_denied') {
-            return redirect()->to($frontendUrl.'/auth/callback?error=google_cancelled');
+        // The binding cookie is single-use too: whatever happens next, the browser drops it.
+        $redirect = fn (string $error = '') => redirect()->to($error === '' ? $callbackUrl : $callbackUrl.'?error='.$error)
+            ->withCookie(cookie()->forget(self::BINDING_COOKIE));
+
+        // 1. The state is consumed first, so it can never be used twice.
+        $state = $request->query('state');
+        $saved = is_string($state) && $state !== ''
+            ? Cache::pull(self::STATE_CACHE_PREFIX.$state)
+            : null;
+
+        $binding = $request->cookie(self::BINDING_COOKIE);
+
+        if (! is_array($saved)
+            || ! is_string($binding)
+            || ! hash_equals((string) $saved['binding'], hash('sha256', $binding))) {
+            return $redirect('google_invalid_state');
         }
 
-        $state = $request->input('state');
-
-        // 2. Validate state presence and validity
-        if (! $state || ! Cache::has('google_state_'.$state)) {
-            return redirect()->to($frontendUrl.'/auth/callback?error=google_invalid_state');
+        // 2. The user cancelled, or Google refused.
+        if ($request->query->has('error')) {
+            return $redirect($request->query('error') === 'access_denied' ? 'google_cancelled' : 'google_sign_in_failed');
         }
 
+        // 3. Ask Google who signed in.
         try {
             /** @var GoogleProvider $driver */
             $driver = Socialite::driver('google');
             $googleUser = $driver->stateless()->user();
-        } catch (\Exception $e) {
-            return redirect()->to($frontendUrl.'/auth/callback?error=google_sign_in_failed');
+        } catch (\Throwable) {
+            return $redirect('google_sign_in_failed');
         }
 
-        if (! $googleUser->getEmail()) {
-            return redirect()->to($frontendUrl.'/auth/callback?error=google_sign_in_failed');
+        $email = $googleUser->getEmail();
+        $googleId = $googleUser->getId();
+
+        if (! $email || ! $googleId) {
+            return $redirect('google_sign_in_failed');
         }
 
-        // 3. Find or create the user account based on Google's email
-        $user = User::firstOrCreate(
-            ['email' => $googleUser->getEmail()],
-            [
-                'name' => $googleUser->getName(),
-                'email_verified_at' => now(),
-                'terms_version' => '1.0',
-                'terms_accepted_at' => now(),
-            ]
-        );
+        // 4. Find or create the account, and claim the guest documents.
+        $guestToken = is_string($saved['guest_token'] ?? null) ? $saved['guest_token'] : null;
 
-        if (! $user->email_verified_at) {
-            $user->update(['email_verified_at' => now()]);
-        }
+        $user = DB::transaction(function () use ($googleUser, $email, $googleId, $guestToken): User {
+            $user = User::where('google_id', (string) $googleId)->first()
+                ?? User::firstOrCreate(
+                    ['email' => $email],
+                    [
+                        'name' => $googleUser->getName(),
+                        'terms_version' => '1.0',
+                        'terms_accepted_at' => now(),
+                    ]
+                );
 
-        // 4. Authenticate the user session
-        Auth::login($user);
+            $user->forceFill([
+                'google_id' => $user->google_id ?: (string) $googleId,
+                'email_verified_at' => $user->email_verified_at ?: now(),
+            ])->save();
+
+            $this->guests->claim($user, $guestToken);
+
+            return $user;
+        });
+
+        Auth::guard('web')->login($user);
+
         if ($request->hasSession()) {
             $request->session()->regenerate();
         }
 
-        // 5. Retrieve and claim guest documents using the saved guest token from cache
-        $guestToken = Cache::pull('google_state_'.$state);
-        if (! empty($guestToken)) {
-            $guestTokenHash = hash('sha256', $guestToken);
-            Document::where('guest_token_hash', $guestTokenHash)
-                ->whereNull('user_id')
-                ->update([
-                    'user_id' => $user->id,
-                    'guest_token_hash' => null,
-                ]);
-        }
-
-        // 6. Redirect to frontend callback page on success
-        return redirect()->to($frontendUrl.'/auth/callback');
+        return $redirect();
     }
 
     // POST /api/v1/auth/logout
     public function logout(Request $request): JsonResponse
     {
-        // Invalidate session and clear token for Sanctum SPA
+        Auth::guard('web')->logout();
+
         if ($request->hasSession()) {
-            Auth::guard('web')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
         }
 
         return response()->json([
-            'message' => 'Successfully logged out.',
-        ], 200);
+            'message' => __('messages.signed_out'),
+        ]);
     }
 }

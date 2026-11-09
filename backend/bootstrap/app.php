@@ -1,6 +1,7 @@
 <?php
 
 use App\Exceptions\ApiException;
+use App\Http\Middleware\EnsureValidGuestToken;
 use App\Http\Middleware\SetLocale;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
@@ -10,7 +11,9 @@ use Illuminate\Http\Request;
 use Illuminate\Session\TokenMismatchException;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
+use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -21,7 +24,11 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
+        $middleware->throttleApi();
         $middleware->append(SetLocale::class);
+        $middleware->alias([
+            'guest.token' => EnsureValidGuestToken::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
@@ -29,86 +36,59 @@ return Application::configure(basePath: dirname(__DIR__))
         );
 
         $exceptions->render(function (Throwable $e, Request $request) {
-            if ($request->is('api/*') || $request->expectsJson()) {
-                // 1. Explicit contract ApiException
-                if ($e instanceof ApiException) {
-                    $response = [
-                        'error' => [
-                            'code' => $e->errorCode,
-                            'message' => $e->getMessage(),
-                        ],
-                    ];
-                    if (! empty($e->details)) {
-                        $response['error']['details'] = $e->details;
-                    }
+            if (! ($request->is('api/*') || $request->expectsJson())) {
+                return null;
+            }
 
-                    return response()->json($response, $e->statusCode);
-                }
+            // Every general error has code and message only (Integration Contract section 4).
+            $error = fn (string $code, int $status, ?string $message = null) => response()->json([
+                'error' => [
+                    'code' => $code,
+                    'message' => $message ?? __("messages.{$code}"),
+                ],
+            ], $status);
 
-                // 2. Validation Exception (422)
-                if ($e instanceof ValidationException) {
-                    return response()->json([
-                        'error' => [
-                            'code' => 'validation_error',
-                            'message' => __('messages.validation_error'),
-                            'details' => $e->errors(),
-                        ],
-                    ], 422);
-                }
+            // 1. Errors raised on purpose by the application carry their own code and status.
+            if ($e instanceof ApiException) {
+                return $error($e->errorCode, $e->statusCode, $e->getMessage());
+            }
 
-                // 3. Authentication Exception (401)
-                if ($e instanceof AuthenticationException) {
-                    return response()->json([
-                        'error' => [
-                            'code' => 'unauthorized',
-                            'message' => __('messages.unauthorized'),
-                        ],
-                    ], 401);
-                }
-
-                // 4. CSRF Token Mismatch (419)
-                if ($e instanceof TokenMismatchException) {
-                    return response()->json([
-                        'error' => [
-                            'code' => 'csrf_token_mismatch',
-                            'message' => __('messages.csrf_token_mismatch'),
-                        ],
-                    ], 419);
-                }
-
-                // 5. Model Not Found / Route Not Found (404)
-                if ($e instanceof NotFoundHttpException) {
-                    return response()->json([
-                        'error' => [
-                            'code' => 'document_not_found',
-                            'message' => __('messages.document_not_found'),
-                        ],
-                    ], 404);
-                }
-
-                $status = $e instanceof HttpExceptionInterface ? $e->getStatusCode() : 500;
-
-                // 6. Rate Limiting (429)
-                if ($status === 429) {
-                    return response()->json([
-                        'error' => [
-                            'code' => 'too_many_requests',
-                            'message' => __('messages.too_many_requests'),
-                        ],
-                    ], 429);
-                }
-
-                // 7. Generic fallback for other 4xx/5xx exceptions
-                $code = $status === 500 ? 'server_error' : 'server_error';
-                $message = $status === 500 ? __('messages.server_error') : ($e->getMessage() ?: __('messages.server_error'));
-
+            // 2. Errors raised by the framework are mapped by what they are.
+            // details is used strictly and only by validation_error (Integration Contract section 4).
+            if ($e instanceof ValidationException) {
                 return response()->json([
                     'error' => [
-                        'code' => $code,
-                        'message' => $message,
+                        'code' => 'validation_error',
+                        'message' => __('messages.validation_error'),
+                        'details' => $e->errors(),
                     ],
-                ], $status >= 400 && $status < 600 ? $status : 500);
+                ], 422);
             }
-        });
 
+            if ($e instanceof AuthenticationException) {
+                return $error('unauthorized', 401);
+            }
+
+            // Laravel turns TokenMismatchException into a plain HttpException(419) before this point.
+            if ($e instanceof TokenMismatchException || $e->getPrevious() instanceof TokenMismatchException) {
+                return $error('csrf_token_mismatch', 419);
+            }
+
+            if ($e instanceof TooManyRequestsHttpException || ($e instanceof HttpExceptionInterface && $e->getStatusCode() === 429)) {
+                return $error('too_many_requests', 429);
+            }
+
+            if ($e instanceof MethodNotAllowedHttpException) {
+                return $error('method_not_allowed', 405);
+            }
+
+            if ($e instanceof NotFoundHttpException) {
+                return $error('document_not_found', 404);
+            }
+
+            // 3. Anything else never shows internal details.
+            $status = $e instanceof HttpExceptionInterface ? $e->getStatusCode() : 500;
+
+            return $error('server_error', $status >= 400 && $status < 600 ? $status : 500);
+        });
     })->create();

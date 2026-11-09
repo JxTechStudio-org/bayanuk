@@ -25,8 +25,10 @@ Route::prefix('v1')->group(function () {
 
     // Authentication Routes
     Route::prefix('auth')->group(function () {
-        Route::post('/google/redirect', [AuthController::class, 'googleRedirect']);
-        Route::get('/google/callback', [AuthController::class, 'googleCallback']);
+        Route::post('/google/redirect', [AuthController::class, 'googleRedirect'])->middleware('web');
+        // Google sends the browser here, not the frontend, so Sanctum does not treat the request as
+        // stateful. The `web` group makes sure the session starts and the session cookie is sent.
+        Route::get('/google/callback', [AuthController::class, 'googleCallback'])->middleware('web');
 
         Route::post('/magic-link', [MagicLinkController::class, 'send']);
         Route::post('/magic-link/verify', [MagicLinkController::class, 'verify']);
