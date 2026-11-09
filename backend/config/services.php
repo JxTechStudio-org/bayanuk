@@ -50,8 +50,4 @@ return [
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
         'redirect' => env('GOOGLE_REDIRECT_URI'),
     ],
-
-    'resend' => [
-        'key' => env('RESEND_API_KEY'),
-    ],
 ];
