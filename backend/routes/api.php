@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\DocumentController;
 use App\Http\Controllers\Api\V1\GuestTokenController;
 use App\Http\Controllers\Api\V1\MagicLinkController;
 use App\Http\Controllers\Api\V1\UserController;
@@ -22,6 +23,11 @@ Route::prefix('v1')->group(function () {
 
     // Guest Token Endpoint (Integration Contract Section 5)
     Route::post('/guest-token', [GuestTokenController::class, 'store']);
+
+    // Document Routes (Integration Contract Section 6)
+    Route::middleware('guest.token')->group(function () {
+        Route::post('/documents', [DocumentController::class, 'store']);
+    });
 
     // Authentication Routes
     Route::prefix('auth')->group(function () {
