@@ -10,9 +10,12 @@ use App\Http\Requests\UploadDocumentRequest;
 use App\Http\Resources\DocumentResource;
 use App\Jobs\Pipeline\ScanFile;
 use App\Models\Document;
+use App\Models\UsageEvent;
 use App\Policies\DocumentPolicy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -60,31 +63,109 @@ class DocumentController extends Controller
      * POST /api/v1/documents
      *
      * Accept a document upload (PDF/DOCX up to 10MB) for guests or authenticated users.
+     * Enforces daily AI budget ($2), duplicate file handling, and daily upload limits (guest 2, user 10).
      */
     public function store(UploadDocumentRequest $request): JsonResponse
     {
         $user = $request->user();
         $guestToken = $request->header('X-Guest-Token');
-        $guestTokenHash = $user ? null : hash('sha256', $guestToken);
+        $guestTokenHash = $user ? null : hash('sha256', (string) $guestToken);
 
         $file = $request->file('file');
         $originalFilename = $file->getClientOriginalName();
         $fileSize = $file->getSize();
         $sha256 = hash_file('sha256', $file->getRealPath());
 
-        // Detect real mime type
+        // 1. Daily AI Budget Check (Item 10)
+        // Hard daily limit ($2), resets at 00:00 Asia/Riyadh (UTC+3).
+        // Refused with 429 ai_budget_reached; no document is created and no upload is used.
+        $startOfDayRiyadh = Carbon::now('Asia/Riyadh')->startOfDay()->setTimezone('UTC');
+        $dailyBudget = (float) config('bayanuk.ai_budget.daily_usd', 2.00);
+        $spentToday = (float) UsageEvent::query()
+            ->where('created_at', '>=', $startOfDayRiyadh)
+            ->sum('cost_usd');
+
+        if ($spentToday >= $dailyBudget) {
+            throw new ApiException('ai_budget_reached', 429);
+        }
+
+        // 2. Duplicate Upload Check (Item 9)
+        // Same file (sha256) by the same owner (user or guest).
+        $existing = Document::query()
+            ->when($user, fn ($q) => $q->where('user_id', $user->id))
+            ->when(! $user, fn ($q) => $q->where('guest_token_hash', $guestTokenHash))
+            ->where('sha256', $sha256)
+            ->latest('created_at')
+            ->first();
+
+        if ($existing !== null) {
+            if ($existing->status === DocumentStatus::FAILED) {
+                // Retry limit: 2 per document
+                $retryKey = "document_retry:{$existing->id}";
+                $retries = (int) Cache::get($retryKey, 0);
+
+                if ($retries < 2) {
+                    Cache::put($retryKey, $retries + 1, now()->addDays(30));
+                    $existing->update([
+                        'status' => DocumentStatus::UPLOADED,
+                        'status_detail' => null,
+                    ]);
+
+                    ScanFile::dispatch($existing);
+
+                    return response()->json([
+                        'id' => $existing->id,
+                        'status' => DocumentStatus::UPLOADED->value,
+                    ], 202);
+                }
+
+                return response()->json([
+                    'id' => $existing->id,
+                    'status' => DocumentStatus::FAILED->value,
+                ], 202);
+            }
+
+            // For ready, rejected, or still processing: return existing document
+            return response()->json([
+                'id' => $existing->id,
+                'status' => $existing->status->value,
+            ], 202);
+        }
+
+        // 3. Daily Upload Limits Check (Item 8)
+        // Guests: 2 uploads a day (per device/guest_token and IP). Signed-in: 10 uploads a day.
+        // Resets at 00:00 Asia/Riyadh. Only new, distinct documents count.
+        $dailyLimit = $user
+            ? (int) config('bayanuk.upload_limits.user_daily_uploads', 10)
+            : (int) config('bayanuk.upload_limits.guest_daily_uploads', 2);
+
+        $ipHash = hash('sha256', (string) $request->ip());
+
+        $uploadsTodayCount = UsageEvent::query()
+            ->where('event', 'upload')
+            ->where('created_at', '>=', $startOfDayRiyadh)
+            ->when($user, fn ($q) => $q->where('user_id', $user->id))
+            ->when(! $user, fn ($q) => $q->where(function ($sub) use ($guestTokenHash, $ipHash) {
+                $sub->where('guest_token_hash', $guestTokenHash)
+                    ->orWhere('ip_hash', $ipHash);
+            }))
+            ->count();
+
+        if ($uploadsTodayCount >= $dailyLimit) {
+            throw new ApiException('upload_limit_reached', 429);
+        }
+
+        // 4. Store file in RustFS (S3) and create document
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
         $mimeType = $finfo ? finfo_file($finfo, $file->getRealPath()) : $file->getMimeType();
         if ($finfo) {
             finfo_close($finfo);
         }
 
-        // Determine expiration: 24h for guests, 30 days for users
         $expiresAt = $user
             ? now()->addDays(config('bayanuk.retention.user_days', 30))
             : now()->addHours(config('bayanuk.retention.guest_hours', 24));
 
-        // Generate unique storage key and store in RustFS (S3 disk)
         $uuid = (string) Str::uuid();
         $ext = strtolower($file->getClientOriginalExtension());
         if (! in_array($ext, ['pdf', 'docx'], true)) {
@@ -96,6 +177,7 @@ class DocumentController extends Controller
         Storage::disk('s3')->putFileAs('documents', $file, $filename);
 
         $document = Document::create([
+            'id' => $uuid,
             'user_id' => $user?->id,
             'guest_token_hash' => $guestTokenHash,
             'original_filename' => $originalFilename,
@@ -106,6 +188,16 @@ class DocumentController extends Controller
             'status' => DocumentStatus::UPLOADED,
             'status_detail' => null,
             'expires_at' => $expiresAt,
+        ]);
+
+        // Record upload usage event
+        UsageEvent::create([
+            'user_id' => $user?->id,
+            'guest_token_hash' => $guestTokenHash,
+            'ip_hash' => $ipHash,
+            'event' => 'upload',
+            'cost_usd' => 0,
+            'created_at' => now(),
         ]);
 
         // Dispatch pipeline Step 1 (ScanFile)
