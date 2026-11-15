@@ -7,7 +7,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\UploadDocumentRequest;
 use App\Jobs\Pipeline\ScanFile;
 use App\Models\Document;
+use App\Policies\DocumentPolicy;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -72,5 +74,24 @@ class DocumentController extends Controller
             'id' => $document->id,
             'status' => $document->status->value,
         ], 202);
+    }
+
+    /**
+     * GET /api/v1/documents/{id}/file
+     *
+     * Returns a signed URL valid for 5 minutes to view the original file.
+     */
+    public function file(Request $request, string $id, DocumentPolicy $policy): JsonResponse
+    {
+        $document = Document::findOrFail($id);
+        $policy->authorize($request, $document);
+
+        $expiresAt = now()->addMinutes(5);
+        $url = Storage::disk('s3')->temporaryUrl($document->storage_key, $expiresAt);
+
+        return response()->json([
+            'url' => $url,
+            'expires_at' => $expiresAt->toIso8601String(),
+        ]);
     }
 }

@@ -27,6 +27,7 @@ Route::prefix('v1')->group(function () {
     // Document Routes (Integration Contract Section 6)
     Route::middleware('guest.token')->group(function () {
         Route::post('/documents', [DocumentController::class, 'store']);
+        Route::get('/documents/{id}/file', [DocumentController::class, 'file']);
     });
 
     // Authentication Routes
