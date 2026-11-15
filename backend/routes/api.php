@@ -24,10 +24,14 @@ Route::prefix('v1')->group(function () {
     // Guest Token Endpoint (Integration Contract Section 5)
     Route::post('/guest-token', [GuestTokenController::class, 'store']);
 
-    // Document Routes (Integration Contract Section 6)
+    // Document Routes (Integration Contract Sections 6, 7, 9, 13)
     Route::middleware('guest.token')->group(function () {
+        Route::get('/documents', [DocumentController::class, 'index'])->middleware('auth:sanctum');
         Route::post('/documents', [DocumentController::class, 'store']);
+        Route::get('/documents/{id}/status', [DocumentController::class, 'status']);
         Route::get('/documents/{id}/file', [DocumentController::class, 'file']);
+        Route::get('/documents/{id}', [DocumentController::class, 'show']);
+        Route::delete('/documents/{id}', [DocumentController::class, 'destroy']);
     });
 
     // Authentication Routes

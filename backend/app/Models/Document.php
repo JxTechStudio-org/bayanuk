@@ -7,7 +7,6 @@ use App\Enums\DocumentLanguage;
 use App\Enums\DocumentStatus;
 use App\Enums\DocumentType;
 use Database\Factories\DocumentFactory;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -88,10 +87,9 @@ class Document extends Model
      */
     public function latestAnalysis(): HasOne
     {
-        return $this->hasOne(Analysis::class)->ofMany(
-            ['created_at' => 'max', 'id' => 'max'],
-            fn (Builder $q) => $q->where('status', AnalysisStatus::SUCCEEDED->value),
-        );
+        return $this->hasOne(Analysis::class)
+            ->where('status', AnalysisStatus::SUCCEEDED->value)
+            ->latest('created_at');
     }
 
     /**
