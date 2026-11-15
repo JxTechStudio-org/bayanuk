@@ -2,6 +2,7 @@
 
 use App\Jobs\Pipeline\ScanFile;
 use App\Models\Document;
+use App\Services\Security\VirusScanner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
@@ -234,5 +235,71 @@ it('sets page_count on document when pages are within limit (<= 30)', function (
         ->and($document->page_count)->toBe(5);
 
     // File must NOT be deleted
+    Storage::disk('s3')->assertExists($storageKey);
+});
+
+// ---------------------------------------------------------------------------------------------
+// Item 3: ClamAV scan as the first pipeline job (unsafe file marked rejected with unsafe_file)
+// ---------------------------------------------------------------------------------------------
+
+it('marks document rejected with unsafe_file and removes file from storage when ClamAV detects malware', function () {
+    // Mock VirusScanner to report infected file
+    $mockScanner = Mockery::mock(VirusScanner::class);
+    $mockScanner->shouldReceive('isSafe')->once()->andReturn(false);
+    app()->instance(VirusScanner::class, $mockScanner);
+
+    $pdfContent = createPdfWithPages(2);
+    $storageKey = 'documents/infected.pdf';
+    Storage::disk('s3')->put($storageKey, $pdfContent);
+
+    $document = Document::create([
+        'original_filename' => 'infected.pdf',
+        'mime_type' => 'application/pdf',
+        'file_size' => strlen($pdfContent),
+        'sha256' => hash('sha256', $pdfContent),
+        'storage_key' => $storageKey,
+        'status' => 'uploaded',
+        'expires_at' => now()->addHours(24),
+    ]);
+
+    $job = new ScanFile($document);
+    $job->handle(virusScanner: $mockScanner);
+
+    $document->refresh();
+
+    expect($document->status->value)->toBe('rejected')
+        ->and($document->status_detail)->toBe('unsafe_file');
+
+    // Confirm file was deleted from RustFS/S3 storage
+    Storage::disk('s3')->assertMissing($storageKey);
+});
+
+it('allows safe file to pass ClamAV scan and continue processing', function () {
+    $mockScanner = Mockery::mock(VirusScanner::class);
+    $mockScanner->shouldReceive('isSafe')->once()->andReturn(true);
+    app()->instance(VirusScanner::class, $mockScanner);
+
+    $pdfContent = createPdfWithPages(2);
+    $storageKey = 'documents/clean.pdf';
+    Storage::disk('s3')->put($storageKey, $pdfContent);
+
+    $document = Document::create([
+        'original_filename' => 'clean.pdf',
+        'mime_type' => 'application/pdf',
+        'file_size' => strlen($pdfContent),
+        'sha256' => hash('sha256', $pdfContent),
+        'storage_key' => $storageKey,
+        'status' => 'uploaded',
+        'expires_at' => now()->addHours(24),
+    ]);
+
+    $job = new ScanFile($document);
+    $job->handle(virusScanner: $mockScanner);
+
+    $document->refresh();
+
+    expect($document->status->value)->not->toBe('rejected')
+        ->and($document->status_detail)->toBeNull();
+
     Storage::disk('s3')->assertExists($storageKey);
 });

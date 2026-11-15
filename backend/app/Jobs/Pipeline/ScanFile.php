@@ -5,6 +5,7 @@ namespace App\Jobs\Pipeline;
 use App\Enums\DocumentStatus;
 use App\Models\Document;
 use App\Services\Extraction\PageCounter;
+use App\Services\Security\VirusScanner;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -25,9 +26,11 @@ class ScanFile implements ShouldQueue
 
     public function __construct(public Document $document) {}
 
-    public function handle(?PageCounter $pageCounter = null): void
+    public function handle(?PageCounter $pageCounter = null, ?VirusScanner $virusScanner = null): void
     {
         $pageCounter = $pageCounter ?? app(PageCounter::class);
+        $virusScanner = $virusScanner ?? app(VirusScanner::class);
+
         // 1. Mark scanning status so frontend polling can display Stage 1 "Checking file"
         $this->document->update([
             'status' => DocumentStatus::SCANNING,
@@ -51,7 +54,20 @@ class ScanFile implements ShouldQueue
         file_put_contents($tmpPath, $fileContent);
 
         try {
-            // Count pages
+            // 2. ClamAV malware scan: an unsafe file is marked rejected with unsafe_file
+            if (! $virusScanner->isSafe($tmpPath)) {
+                $this->document->update([
+                    'status' => DocumentStatus::REJECTED,
+                    'status_detail' => 'unsafe_file',
+                    'page_count' => null,
+                ]);
+
+                $disk->delete($this->document->storage_key);
+
+                return;
+            }
+
+            // 3. Count pages
             $pageCount = $pageCounter->count($tmpPath, $this->document->mime_type);
 
             $maxPages = (int) config('bayanuk.limits.max_pages', 30);
