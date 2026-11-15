@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Enums\DocumentStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UploadDocumentRequest;
+use App\Jobs\Pipeline\ScanFile;
 use App\Models\Document;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Storage;
@@ -63,6 +64,9 @@ class DocumentController extends Controller
             'status_detail' => null,
             'expires_at' => $expiresAt,
         ]);
+
+        // Dispatch pipeline Step 1 (ScanFile)
+        ScanFile::dispatch($document);
 
         return response()->json([
             'id' => $document->id,

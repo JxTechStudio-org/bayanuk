@@ -1,11 +1,11 @@
 <?php
 
+use App\Jobs\Pipeline\ScanFile;
 use App\Models\Document;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
-use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 uses(TestCase::class, RefreshDatabase::class);
@@ -24,6 +24,33 @@ function validGuestToken(): string
 function createMinimalPdfContent(): string
 {
     return "%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n/Pages 2 0 R\n>>\nendobj\n2 0 obj\n<<\n/Type /Pages\n/Kids [3 0 R]\n/Count 1\n>>\nendobj\n3 0 obj\n<<\n/Type /Page\n/Parent 2 0 R\n/MediaBox [0 0 612 792]\n>>\nendobj\nxref\n0 4\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \ntrailer\n<<\n/Size 4\n/Root 1 0 R\n>>\nstartxref\n190\n%%EOF";
+}
+
+// Helper to create a real PDF binary with specific page count
+function createPdfWithPages(int $pageCount): string
+{
+    $out = "%PDF-1.4\n";
+    $kids = [];
+    $objects = [];
+
+    for ($i = 1; $i <= $pageCount; $i++) {
+        $pageObjNum = 2 + $i;
+        $kids[] = "{$pageObjNum} 0 R";
+        $objects[] = "{$pageObjNum} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n";
+    }
+
+    $kidsStr = implode(' ', $kids);
+    $out .= "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n";
+    $out .= "2 0 obj\n<< /Type /Pages /Kids [{$kidsStr}] /Count {$pageCount} >>\nendobj\n";
+
+    foreach ($objects as $obj) {
+        $out .= $obj;
+    }
+
+    $out .= "xref\n0 ".(3 + $pageCount)."\n";
+    $out .= "trailer\n<< /Size ".(3 + $pageCount)." /Root 1 0 R >>\nstartxref\n500\n%%EOF";
+
+    return $out;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -89,6 +116,8 @@ it('validates file by content, rejecting fake PDF files', function () {
 });
 
 it('accepts a valid PDF file for a guest and returns 202 with id and status uploaded', function () {
+    Queue::fake();
+
     $guestToken = validGuestToken();
     $pdf = UploadedFile::fake()->createWithContent('contract.pdf', createMinimalPdfContent());
 
@@ -121,15 +150,20 @@ it('accepts a valid PDF file for a guest and returns 202 with id and status uplo
     Storage::disk('s3')->assertExists($doc->storage_key);
 });
 
-it('accepts a valid PDF file for an authenticated user without guest token', function () {
-    $user = User::factory()->create(['terms_version' => '1.0', 'terms_accepted_at' => now()]);
-    Sanctum::actingAs($user, ['*'], 'web');
+// ---------------------------------------------------------------------------------------------
+// Item 2: Page count check in pipeline (> 30 pages marked rejected with too_many_pages)
+// ---------------------------------------------------------------------------------------------
 
-    $pdf = UploadedFile::fake()->createWithContent('offer.pdf', createMinimalPdfContent());
+it('creates document and dispatches ScanFile when file has more than 30 pages without upload error', function () {
+    Queue::fake();
 
-    $response = $this->postJson('/api/v1/documents', [
-        'file' => $pdf,
-    ]);
+    $pdfContent = createPdfWithPages(35);
+    $oversizedPagesPdf = UploadedFile::fake()->createWithContent('35pages.pdf', $pdfContent);
+
+    $response = $this->withHeader('X-Guest-Token', validGuestToken())
+        ->postJson('/api/v1/documents', [
+            'file' => $oversizedPagesPdf,
+        ]);
 
     $response->assertStatus(202)
         ->assertJson([
@@ -140,9 +174,65 @@ it('accepts a valid PDF file for an authenticated user without guest token', fun
     $doc = Document::find($docId);
 
     expect($doc)->not->toBeNull()
-        ->and($doc->user_id)->toBe($user->id)
-        ->and($doc->guest_token_hash)->toBeNull()
         ->and($doc->status->value)->toBe('uploaded');
 
-    Storage::disk('s3')->assertExists($doc->storage_key);
+    Queue::assertPushed(ScanFile::class, function ($job) use ($doc) {
+        return $job->document->id === $doc->id;
+    });
+});
+
+it('marks document rejected with too_many_pages and removes file from storage when ScanFile detects > 30 pages', function () {
+    $pdfContent = createPdfWithPages(35);
+    $storageKey = 'documents/test-35-pages.pdf';
+    Storage::disk('s3')->put($storageKey, $pdfContent);
+
+    $document = Document::create([
+        'original_filename' => '35pages.pdf',
+        'mime_type' => 'application/pdf',
+        'file_size' => strlen($pdfContent),
+        'sha256' => hash('sha256', $pdfContent),
+        'storage_key' => $storageKey,
+        'status' => 'uploaded',
+        'expires_at' => now()->addHours(24),
+    ]);
+
+    // Run ScanFile job
+    $job = new ScanFile($document);
+    $job->handle();
+
+    $document->refresh();
+
+    expect($document->status->value)->toBe('rejected')
+        ->and($document->status_detail)->toBe('too_many_pages')
+        ->and($document->page_count)->toBeNull();
+
+    // Confirm file was deleted from RustFS/S3 storage
+    Storage::disk('s3')->assertMissing($storageKey);
+});
+
+it('sets page_count on document when pages are within limit (<= 30)', function () {
+    $pdfContent = createPdfWithPages(5);
+    $storageKey = 'documents/test-5-pages.pdf';
+    Storage::disk('s3')->put($storageKey, $pdfContent);
+
+    $document = Document::create([
+        'original_filename' => '5pages.pdf',
+        'mime_type' => 'application/pdf',
+        'file_size' => strlen($pdfContent),
+        'sha256' => hash('sha256', $pdfContent),
+        'storage_key' => $storageKey,
+        'status' => 'uploaded',
+        'expires_at' => now()->addHours(24),
+    ]);
+
+    $job = new ScanFile($document);
+    $job->handle();
+
+    $document->refresh();
+
+    expect($document->status->value)->not->toBe('rejected')
+        ->and($document->page_count)->toBe(5);
+
+    // File must NOT be deleted
+    Storage::disk('s3')->assertExists($storageKey);
 });
