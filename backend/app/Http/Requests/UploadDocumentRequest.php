@@ -5,7 +5,6 @@ namespace App\Http\Requests;
 use App\Exceptions\ApiException;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\UploadedFile;
-use ZipArchive;
 
 class UploadDocumentRequest extends FormRequest
 {
@@ -51,10 +50,12 @@ class UploadDocumentRequest extends FormRequest
     }
 
     /**
-     * Inspect file content to ensure it is a genuine PDF or DOCX file.
+     * Inspect file content to ensure it is a genuine PDF file matching allowed_mimes.
      */
     private function isValidDocumentContent(string $filePath, UploadedFile $file): bool
     {
+        $allowedMimes = config('bayanuk.limits.allowed_mimes', ['pdf']);
+
         // Check magic bytes / mime type using finfo
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
         $mime = $finfo ? finfo_file($finfo, $filePath) : $file->getMimeType();
@@ -62,8 +63,8 @@ class UploadDocumentRequest extends FormRequest
             finfo_close($finfo);
         }
 
-        // PDF check: MIME must be application/pdf and start with %PDF-
-        if ($mime === 'application/pdf') {
+        // PDF check: MIME must be application/pdf and content must start with %PDF- header
+        if (in_array('pdf', $allowedMimes, true) && $mime === 'application/pdf') {
             $handle = fopen($filePath, 'rb');
             if ($handle) {
                 $header = fread($handle, 5);
@@ -73,25 +74,6 @@ class UploadDocumentRequest extends FormRequest
             }
 
             return false;
-        }
-
-        // DOCX check
-        $docxMimes = [
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'application/zip',
-            'application/x-zip',
-        ];
-
-        if (in_array($mime, $docxMimes, true)) {
-            // Verify it is a valid zip archive containing word/document.xml or [Content_Types].xml
-            $zip = new ZipArchive;
-            if ($zip->open($filePath) === true) {
-                $hasWordDoc = $zip->locateName('word/document.xml') !== false;
-                $hasContentTypes = $zip->locateName('[Content_Types].xml') !== false;
-                $zip->close();
-
-                return $hasWordDoc || $hasContentTypes;
-            }
         }
 
         return false;

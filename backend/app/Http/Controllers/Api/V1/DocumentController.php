@@ -62,7 +62,7 @@ class DocumentController extends Controller
     /**
      * POST /api/v1/documents
      *
-     * Accept a document upload (PDF/DOCX up to 10MB) for guests or authenticated users.
+     * Accept a document upload (PDF up to 10MB) for guests or authenticated users.
      * Enforces daily AI budget ($2), duplicate file handling, and daily upload limits (guest 2, user 10).
      */
     public function store(UploadDocumentRequest $request): JsonResponse
@@ -168,8 +168,9 @@ class DocumentController extends Controller
 
         $uuid = (string) Str::uuid();
         $ext = strtolower($file->getClientOriginalExtension());
-        if (! in_array($ext, ['pdf', 'docx'], true)) {
-            $ext = ($mimeType === 'application/pdf') ? 'pdf' : 'docx';
+        $allowedMimes = config('bayanuk.limits.allowed_mimes', ['pdf']);
+        if (! in_array($ext, $allowedMimes, true)) {
+            $ext = in_array('pdf', $allowedMimes, true) ? 'pdf' : $allowedMimes[0];
         }
         $filename = "{$uuid}.{$ext}";
         $storageKey = "documents/{$filename}";
@@ -216,7 +217,7 @@ class DocumentController extends Controller
      */
     public function status(Request $request, string $id, DocumentPolicy $policy): JsonResponse
     {
-        $document = Document::findOrFail($id);
+        $document = $this->findDocument($id);
         $policy->authorize($request, $document);
 
         return response()->json([
@@ -233,7 +234,7 @@ class DocumentController extends Controller
      */
     public function show(Request $request, string $id, DocumentPolicy $policy): JsonResponse
     {
-        $document = Document::with(['latestAnalysis.extractedTerms', 'latestAnalysis.findings'])->findOrFail($id);
+        $document = $this->findDocumentWithAnalysis($id);
         $policy->authorize($request, $document);
 
         return response()->json((new DocumentResource($document))->resolve($request));
@@ -246,7 +247,7 @@ class DocumentController extends Controller
      */
     public function file(Request $request, string $id, DocumentPolicy $policy): JsonResponse
     {
-        $document = Document::findOrFail($id);
+        $document = $this->findDocument($id);
         $policy->authorize($request, $document);
 
         $expiresAt = now()->addMinutes(5);
@@ -265,7 +266,7 @@ class DocumentController extends Controller
      */
     public function destroy(Request $request, string $id, DocumentPolicy $policy): JsonResponse
     {
-        $document = Document::findOrFail($id);
+        $document = $this->findDocument($id);
         $policy->authorize($request, $document);
 
         $disk = Storage::disk('s3');
@@ -293,5 +294,39 @@ class DocumentController extends Controller
         });
 
         return response()->json(null, 204);
+    }
+
+    /**
+     * Resolve document by UUID safely, preventing invalid UUID syntax exceptions in PostgreSQL.
+     */
+    private function findDocument(string $id): Document
+    {
+        if (! Str::isUuid($id)) {
+            throw new ApiException('document_not_found', 404);
+        }
+
+        $document = Document::find($id);
+        if ($document === null) {
+            throw new ApiException('document_not_found', 404);
+        }
+
+        return $document;
+    }
+
+    /**
+     * Resolve document with its latest analysis by UUID safely.
+     */
+    private function findDocumentWithAnalysis(string $id): Document
+    {
+        if (! Str::isUuid($id)) {
+            throw new ApiException('document_not_found', 404);
+        }
+
+        $document = Document::with(['latestAnalysis.extractedTerms', 'latestAnalysis.findings'])->find($id);
+        if ($document === null) {
+            throw new ApiException('document_not_found', 404);
+        }
+
+        return $document;
     }
 }

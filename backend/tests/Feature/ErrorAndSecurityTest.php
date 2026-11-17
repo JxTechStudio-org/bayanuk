@@ -1,7 +1,6 @@
 <?php
 
 use App\Exceptions\ApiException;
-use Exception;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Session\TokenMismatchException;
 use Illuminate\Support\Facades\Route;

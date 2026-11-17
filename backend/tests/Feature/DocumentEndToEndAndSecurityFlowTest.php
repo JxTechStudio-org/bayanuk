@@ -26,22 +26,6 @@ function makePdf(string $unique = 'content'): string
     return "%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n/Pages 2 0 R\n>>\nendobj\n2 0 obj\n<<\n/Type /Pages\n/Kids [3 0 R]\n/Count 1\n>>\nendobj\n3 0 obj\n<<\n/Type /Page\n/Parent 2 0 R\n/MediaBox [0 0 612 792]\n>>\nendobj\n% {$unique}\nxref\n0 4\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \ntrailer\n<<\n/Size 4\n/Root 1 0 R\n>>\nstartxref\n190\n%%EOF";
 }
 
-// Helper for genuine DOCX binary
-function makeDocx(string $unique = 'content'): string
-{
-    $tempFile = tempnam(sys_get_temp_dir(), 'docx_test_');
-    $zip = new ZipArchive;
-    $zip->open($tempFile, ZipArchive::CREATE | ZipArchive::OVERWRITE);
-    $zip->addFromString('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"></Types>');
-    $zip->addFromString('word/document.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Employment Agreement: '.$unique.'</w:t></w:r></w:p></w:body></w:document>');
-    $zip->close();
-
-    $content = (string) file_get_contents($tempFile);
-    @unlink($tempFile);
-
-    return $content;
-}
-
 // -------------------------------------------------------------------------------------------------
 // Scenario 1: Complete End-to-End Lifecycle for Guest
 // -------------------------------------------------------------------------------------------------
@@ -300,31 +284,22 @@ test('scenario 5: duplicate upload while document is in analyzing status returns
 });
 
 // -------------------------------------------------------------------------------------------------
-// Scenario 6: Genuine DOCX Upload & Pipeline Acceptance
+// Scenario 6: PDF-Only Restriction: DOCX Rejected with 422 file_type_not_supported
 // -------------------------------------------------------------------------------------------------
 
-test('scenario 6: accepts genuine DOCX file and stores it with docx extension', function () {
+test('scenario 6: refuses DOCX file with 422 file_type_not_supported when allowed_mimes is pdf only', function () {
     Queue::fake();
 
     $guestToken = str_repeat('f', 64);
-    $docxContent = makeDocx('sample-job-offer');
-
-    $docxFile = UploadedFile::fake()->createWithContent(
-        'job_offer.docx',
-        $docxContent
-    );
+    $docxFile = UploadedFile::fake()->create('job_offer.docx', 50, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
 
     $response = $this->withHeader('X-Guest-Token', $guestToken)
         ->postJson('/api/v1/documents', ['file' => $docxFile]);
 
-    $response->assertStatus(202)
-        ->assertJson(['status' => 'uploaded']);
+    $response->assertStatus(422)
+        ->assertJsonPath('error.code', 'file_type_not_supported')
+        ->assertJsonPath('error.message', 'The file type is not supported. Please upload a PDF file.');
 
-    $docId = $response->json('id');
-    $document = Document::findOrFail($docId);
-
-    expect($document->original_filename)->toBe('job_offer.docx')
-        ->and($document->storage_key)->toEndWith('.docx');
-
-    Storage::disk('s3')->assertExists($document->storage_key);
+    expect(Document::count())->toBe(0);
+    Queue::assertNothingPushed();
 });

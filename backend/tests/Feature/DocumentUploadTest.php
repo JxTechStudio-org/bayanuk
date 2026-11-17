@@ -91,7 +91,7 @@ it('returns 422 file_too_large when file exceeds 10 MB', function () {
         ->assertJsonPath('error.code', 'file_too_large');
 });
 
-it('returns 422 file_type_not_supported when file content is not PDF or DOCX', function () {
+it('returns 422 file_type_not_supported when file content is not PDF (e.g. text file)', function () {
     $txtFile = UploadedFile::fake()->createWithContent('notes.txt', 'This is plain text');
 
     $response = $this->withHeader('X-Guest-Token', validGuestToken())
@@ -100,7 +100,22 @@ it('returns 422 file_type_not_supported when file content is not PDF or DOCX', f
         ]);
 
     $response->assertStatus(422)
-        ->assertJsonPath('error.code', 'file_type_not_supported');
+        ->assertJsonPath('error.code', 'file_type_not_supported')
+        ->assertJsonPath('error.message', 'The file type is not supported. Please upload a PDF file.');
+});
+
+it('returns 422 file_type_not_supported when uploading DOCX file (PDF only enforced)', function () {
+    $docxFile = UploadedFile::fake()->create('contract.docx', 50, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+
+    $response = $this->withHeader('X-Guest-Token', validGuestToken())
+        ->withHeader('Accept-Language', 'ar')
+        ->postJson('/api/v1/documents', [
+            'file' => $docxFile,
+        ]);
+
+    $response->assertStatus(422)
+        ->assertJsonPath('error.code', 'file_type_not_supported')
+        ->assertJsonPath('error.message', 'نوع الملف غير مدعوم، يرجى رفع ملف PDF.');
 });
 
 it('validates file by content, rejecting fake PDF files', function () {

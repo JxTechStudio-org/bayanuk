@@ -28,10 +28,10 @@ Route::prefix('v1')->group(function () {
     Route::middleware('guest.token')->group(function () {
         Route::get('/documents', [DocumentController::class, 'index'])->middleware('auth:sanctum');
         Route::post('/documents', [DocumentController::class, 'store']);
-        Route::get('/documents/{id}/status', [DocumentController::class, 'status']);
-        Route::get('/documents/{id}/file', [DocumentController::class, 'file']);
-        Route::get('/documents/{id}', [DocumentController::class, 'show']);
-        Route::delete('/documents/{id}', [DocumentController::class, 'destroy']);
+        Route::get('/documents/{id}/status', [DocumentController::class, 'status'])->whereUuid('id');
+        Route::get('/documents/{id}/file', [DocumentController::class, 'file'])->whereUuid('id');
+        Route::get('/documents/{id}', [DocumentController::class, 'show'])->whereUuid('id');
+        Route::delete('/documents/{id}', [DocumentController::class, 'destroy'])->whereUuid('id');
     });
 
     // Authentication Routes

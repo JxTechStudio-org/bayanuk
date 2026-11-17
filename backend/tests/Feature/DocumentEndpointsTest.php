@@ -387,3 +387,97 @@ it('aborts deletion and keeps document intact if storage deletion fails', functi
     $this->assertDatabaseHas('documents', ['id' => $doc->id]);
     $this->assertDatabaseMissing('deletion_logs', ['document_id' => $doc->id]);
 });
+
+// ---------------------------------------------------------------------------------------------
+// Security & Edge Cases: Malformed IDs and Expired Documents by Wrong Owner (Technical Plan Section 8)
+// ---------------------------------------------------------------------------------------------
+
+it('returns 404 document_not_found for expired document belonging to another guest (never leaks existence)', function () {
+    $ownerToken = str_repeat('1', 64);
+    $intruderToken = str_repeat('2', 64);
+
+    $doc = Document::create([
+        'guest_token_hash' => hash('sha256', $ownerToken),
+        'original_filename' => 'expired_other.pdf',
+        'mime_type' => 'application/pdf',
+        'file_size' => 1024,
+        'sha256' => hash('sha256', 'expired_other'),
+        'storage_key' => 'documents/expired_other.pdf',
+        'status' => DocumentStatus::READY,
+        'expires_at' => now()->subDay(),
+    ]);
+
+    // An intruder querying an expired document belonging to someone else must receive 404, NEVER 410
+    $response = $this->withHeader('X-Guest-Token', $intruderToken)
+        ->getJson("/api/v1/documents/{$doc->id}/status");
+
+    $response->assertStatus(404)
+        ->assertJsonPath('error.code', 'document_not_found');
+
+    $showResponse = $this->withHeader('X-Guest-Token', $intruderToken)
+        ->getJson("/api/v1/documents/{$doc->id}");
+
+    $showResponse->assertStatus(404)
+        ->assertJsonPath('error.code', 'document_not_found');
+});
+
+it('returns 404 document_not_found for expired document belonging to another signed-in user', function () {
+    $owner = User::factory()->create(['terms_version' => '1.0', 'terms_accepted_at' => now()]);
+    $intruder = User::factory()->create(['terms_version' => '1.0', 'terms_accepted_at' => now()]);
+
+    $doc = Document::create([
+        'user_id' => $owner->id,
+        'original_filename' => 'user_expired.pdf',
+        'mime_type' => 'application/pdf',
+        'file_size' => 1024,
+        'sha256' => hash('sha256', 'user_expired'),
+        'storage_key' => 'documents/user_expired.pdf',
+        'status' => DocumentStatus::READY,
+        'expires_at' => now()->subDay(),
+    ]);
+
+    Sanctum::actingAs($intruder, ['*'], 'web');
+
+    $response = $this->getJson("/api/v1/documents/{$doc->id}");
+
+    $response->assertStatus(404)
+        ->assertJsonPath('error.code', 'document_not_found');
+});
+
+it('returns 404 document_not_found when requesting an invalid non-uuid id like documents/abc', function () {
+    $guestToken = validGuestTokenForEndpoints();
+
+    $response = $this->withHeader('X-Guest-Token', $guestToken)
+        ->getJson('/api/v1/documents/abc');
+
+    $response->assertStatus(404)
+        ->assertJsonPath('error.code', 'document_not_found');
+
+    $statusResponse = $this->withHeader('X-Guest-Token', $guestToken)
+        ->getJson('/api/v1/documents/abc/status');
+
+    $statusResponse->assertStatus(404)
+        ->assertJsonPath('error.code', 'document_not_found');
+
+    $fileResponse = $this->withHeader('X-Guest-Token', $guestToken)
+        ->getJson('/api/v1/documents/abc/file');
+
+    $fileResponse->assertStatus(404)
+        ->assertJsonPath('error.code', 'document_not_found');
+
+    $deleteResponse = $this->withHeader('X-Guest-Token', $guestToken)
+        ->deleteJson('/api/v1/documents/abc');
+
+    $deleteResponse->assertStatus(404)
+        ->assertJsonPath('error.code', 'document_not_found');
+});
+
+it('returns 404 document_not_found when requesting with a trailing slash like documents/abc/', function () {
+    $guestToken = validGuestTokenForEndpoints();
+
+    $response = $this->withHeader('X-Guest-Token', $guestToken)
+        ->getJson('/api/v1/documents/abc/');
+
+    $response->assertStatus(404)
+        ->assertJsonPath('error.code', 'document_not_found');
+});
