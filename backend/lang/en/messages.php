@@ -2,7 +2,7 @@
 
 return [
     'file_too_large' => 'The file is larger than the allowed limit (10 MB).',
-    'file_type_not_supported' => 'The file type is not supported. Please upload a PDF or DOCX file.',
+    'file_type_not_supported' => 'The file type is not supported. Please upload a PDF file.',
     'validation_error' => 'Please check the highlighted fields.',
     'unauthorized' => 'Please sign in to continue.',
     'csrf_token_mismatch' => 'Your security token expired. Please try again.',

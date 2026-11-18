@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Services\Auth\GuestDocumentClaimer;
+use App\Services\Security\ClamAvScanner;
+use App\Services\Security\VirusScanner;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -15,7 +17,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(VirusScanner::class, function () {
+            return new ClamAvScanner(
+                (string) config('services.clamav.host', 'clamav'),
+                (int) config('services.clamav.port', 3310),
+            );
+        });
     }
 
     /**

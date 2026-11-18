@@ -16,6 +16,7 @@ class UsageEvent extends Model
         'input_tokens',
         'output_tokens',
         'cost_usd',
+        'created_at',
     ];
 
     protected $casts = [

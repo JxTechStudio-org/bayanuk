@@ -2,7 +2,7 @@
 
 return [
     'file_too_large' => 'حجم الملف يتجاوز الحد المسموح به (10 ميجابايت).',
-    'file_type_not_supported' => 'نوع الملف غير مدعوم، يرجى رفع ملف PDF أو DOCX.',
+    'file_type_not_supported' => 'نوع الملف غير مدعوم، يرجى رفع ملف PDF.',
     'validation_error' => 'يرجى التحقق من الحقول المحددة.',
     'unauthorized' => 'يرجى تسجيل الدخول للمتابعة.',
     'csrf_token_mismatch' => 'انتهت صلاحية رمز الأمان، يرجى إعادة المحاولة.',

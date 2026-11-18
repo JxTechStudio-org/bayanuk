@@ -50,4 +50,9 @@ return [
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
         'redirect' => env('GOOGLE_REDIRECT_URI'),
     ],
+
+    'clamav' => [
+        'host' => env('CLAMAV_HOST', 'clamav'),
+        'port' => (int) env('CLAMAV_PORT', 3310),
+    ],
 ];
