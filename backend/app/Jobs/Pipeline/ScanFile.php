@@ -88,6 +88,9 @@ class ScanFile implements ShouldQueue
             $this->document->update([
                 'page_count' => $pageCount,
             ]);
+
+            // Dispatch Step 2: ExtractText
+            ExtractText::dispatch($this->document);
         } finally {
             if (file_exists($tmpPath)) {
                 @unlink($tmpPath);

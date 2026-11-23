@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\Pipeline\ExtractText;
 use App\Jobs\Pipeline\ScanFile;
 use App\Models\Document;
 use App\Services\Security\VirusScanner;
@@ -290,6 +291,8 @@ it('marks document rejected with unsafe_file and removes file from storage when 
 });
 
 it('allows safe file to pass ClamAV scan and continue processing', function () {
+    Queue::fake([ExtractText::class]);
+
     $mockScanner = Mockery::mock(VirusScanner::class);
     $mockScanner->shouldReceive('isSafe')->once()->andReturn(true);
     app()->instance(VirusScanner::class, $mockScanner);
@@ -315,6 +318,10 @@ it('allows safe file to pass ClamAV scan and continue processing', function () {
 
     expect($document->status->value)->not->toBe('rejected')
         ->and($document->status_detail)->toBeNull();
+
+    Queue::assertPushed(ExtractText::class, function ($job) use ($document) {
+        return $job->document->id === $document->id;
+    });
 
     Storage::disk('s3')->assertExists($storageKey);
 });
