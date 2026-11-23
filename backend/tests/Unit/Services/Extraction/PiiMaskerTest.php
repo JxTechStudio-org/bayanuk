@@ -86,6 +86,23 @@ describe('IBAN masking', function () {
         $text = 'IBAN: 75191016608000008000SA03 or 7519101660800000800003SA.';
         expect($this->masker->mask($text))->toBe('IBAN: [IBAN] or [IBAN].');
     });
+
+    it('masks Saudi IBANs with arbitrary check digits (e.g. SA44) in both forward and reversed OCR order', function () {
+        $forward = 'حساب الراجحي: SA44 8000 0432 6080 1016 7519 للتحويل.';
+        $reversed = 'حساب الراجحي: 7519 1016 6080 0432 8000 SA44 للتحويل.';
+
+        expect($this->masker->mask($forward))->toBe('حساب الراجحي: [IBAN] للتحويل.')
+            ->and($this->masker->mask($reversed))->toBe('حساب الراجحي: [IBAN] للتحويل.');
+    });
+
+    it('validates Saudi IBAN checksums using ISO 7064 MOD-97 algorithm', function () {
+        // Valid canonical Saudi IBAN
+        expect(PiiMasker::validateIbanChecksum('SA0380000000608010167519'))->toBeTrue()
+            // Valid reversed Saudi IBAN
+            ->and(PiiMasker::validateIbanChecksum('75191016608000008000SA03'))->toBeTrue()
+            // Invalid checksum (wrong check digit 04 instead of 03)
+            ->and(PiiMasker::validateIbanChecksum('SA0480000000608010167519'))->toBeFalse();
+    });
 });
 
 describe('Phone number masking', function () {

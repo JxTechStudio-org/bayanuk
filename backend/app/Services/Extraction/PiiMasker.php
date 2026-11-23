@@ -49,21 +49,21 @@ class PiiMasker
     /**
      * Mask International and Saudi IBANs (both standard and OCR-reversed orientations).
      * Saudi IBAN forward: SA + 2 digits + 20 alphanumeric chars (with optional spaces).
-     * Saudi IBAN reversed: 20 alphanumeric chars + SA/03/AS/30 (resulting from RTL OCR reading).
+     * Saudi IBAN reversed: 20 alphanumeric chars + SA/check-digits (resulting from RTL OCR reading).
      * General IBAN: 2 uppercase letters + 2 digits + 11 to 30 alphanumeric characters.
      */
     private function maskIbans(string $text): string
     {
-        // 1. Forward Saudi IBAN (continuous or formatted with spaces)
-        // E.g. SA03 8000 0000 6080 1016 7519 or SA0380000000608010167519
+        // 1. Forward Saudi IBAN with any 2 check digits (continuous or formatted with spaces)
+        // E.g. SA03 8000 0000 6080 1016 7519 or SA44 1234 5678 9012 3456 7890
         $text = preg_replace(
             '/\bSA\s*\d{2}(?:[ ]?[0-9A-Z]{4}){5}\b|\bSA\s*\d{22}\b/i',
             '[IBAN]',
             $text
         ) ?? $text;
 
-        // 2. Reversed Saudi IBAN (common in RTL OCR scanning of Arabic contracts)
-        // E.g. 7519 1016 6080 0000 8000 SA03 or ... 8000 .SA03 or ... 03SA or ... 30AS or ... AS03
+        // 2. Reversed Saudi IBAN with any 2 check digits (common in RTL OCR scanning of Arabic contracts)
+        // E.g. 7519 1016 6080 0000 8000 SA03 or ... 8000 .SA03 or ... 7890 SA44 or ... 44SA
         $text = preg_replace(
             '/\b(?:[0-9A-Z]{4}[ ]?){5}[\s.]*(?:SA\s*\d{2}|\d{2}\s*SA|\d{2}\s*AS|AS\s*\d{2})\b|\b[0-9A-Z]{20}[\s.]*(?:SA\s*\d{2}|\d{2}\s*SA|\d{2}\s*AS|AS\s*\d{2})\b/i',
             '[IBAN]',
@@ -76,6 +76,69 @@ class PiiMasker
             '[IBAN]',
             $text
         ) ?? $text;
+    }
+
+    /**
+     * Validate an IBAN checksum using the ISO 7064 MOD-97-10 algorithm.
+     * Supports both canonical forward IBANs and OCR-reversed Saudi IBANs.
+     */
+    public static function validateIbanChecksum(string $iban): bool
+    {
+        $clean = strtoupper(preg_replace('/[^A-Z0-9]/i', '', $iban) ?? '');
+
+        // Canonical forward IBAN
+        if (preg_match('/^[A-Z]{2}\d{2}/', $clean)) {
+            return self::checkMod97($clean);
+        }
+
+        // Reversed Saudi IBAN
+        if (preg_match('/^([0-9A-Z]{20})(SA\d{2}|\d{2}SA|\d{2}AS|AS\d{2})$/', $clean, $matches)) {
+            $account = $matches[1];
+            $tag = $matches[2];
+
+            if (preg_match('/SA(\d{2})/', $tag, $m) || preg_match('/(\d{2})SA/', $tag, $m) || preg_match('/(\d{2})AS/', $tag, $m) || preg_match('/AS(\d{2})/', $tag, $m)) {
+                // In RTL OCR, chunks of 4 characters are read in reverse order
+                $chunks = str_split($account, 4);
+                $unreversedAccount = implode('', array_reverse($chunks));
+                $canonical = 'SA'.$m[1].$unreversedAccount;
+
+                return self::checkMod97($canonical);
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Helper to compute ISO 7064 MOD 97 on a canonical forward IBAN.
+     */
+    protected static function checkMod97(string $canonical): bool
+    {
+        if (strlen($canonical) < 15 || strlen($canonical) > 34) {
+            return false;
+        }
+
+        $rearranged = substr($canonical, 4).substr($canonical, 0, 4);
+        $numeric = '';
+        $len = strlen($rearranged);
+
+        for ($i = 0; $i < $len; $i++) {
+            $char = $rearranged[$i];
+            if (ctype_alpha($char)) {
+                $numeric .= (string) (ord($char) - ord('A') + 10);
+            } else {
+                $numeric .= $char;
+            }
+        }
+
+        $remainder = 0;
+        $numLen = strlen($numeric);
+        for ($i = 0; $i < $numLen; $i += 7) {
+            $chunk = (string) $remainder.substr($numeric, $i, 7);
+            $remainder = ((int) $chunk) % 97;
+        }
+
+        return $remainder === 1;
     }
 
     /**

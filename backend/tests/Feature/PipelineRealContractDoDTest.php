@@ -66,11 +66,23 @@ describe('Definition of Done (DoD) - Real Contract Fixtures', function () {
         // 3. Verify hidden directional markers are completely stripped (U+202A, U+202B, U+202C, U+200E, etc.)
         expect(preg_match('/[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{FEFF}]/u', $text1))->toBe(0);
 
-        // 4. Verify broken Arabic ligatures are normalized (e.g. األول -> الأول, إال -> إلا)
+        // 4. Verify broken Arabic ligatures are normalized (e.g. األول -> الأول, إال -> إلا, وال يحق -> ولا يحق)
         expect($text1)->not->toContain('األول')
             ->and($text1)->toContain('الأول')
             ->and($text1)->not->toContain('إال بموافقة')
-            ->and($text1)->toContain('إلا بموافقة');
+            ->and($text1)->toContain('إلا بموافقة')
+            ->and($text1)->not->toContain('وال يحق له')
+            ->and($text1)->toContain('ولا يحق له')
+            ->and($text1)->not->toContain('ألي منهما')
+            ->and($text1)->toContain('لأي منهما')
+            ->and($text1)->not->toContain('ألنظمة')
+            ->and($text1)->toContain('لأنظمة')
+            ->and($text1)->not->toContain('االلتزام')
+            ->and($text1)->toContain('الالتزام')
+            ->and($text1)->not->toContain('الإخالل')
+            ->and($text1)->toContain('الإخلال')
+            ->and($text1)->not->toContain('الختبار')
+            ->and($text1)->toContain('لاختبار');
 
         // 5. Verify Arabic numerals are converted to Western numerals
         expect(preg_match('/[٠-٩]/u', $text1))->toBe(0);

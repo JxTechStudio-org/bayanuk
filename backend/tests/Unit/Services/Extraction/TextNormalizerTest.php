@@ -94,3 +94,10 @@ it('normalizes the contract snippet from manager review screenshot', function ()
         ->and($normalized)->toContain('(الطرف الأول)')
         ->and($normalized)->toContain('تمديدها إلا باتفاق');
 });
+
+it('normalizes negation verbs, prepositional prefixes, and double alif without corrupting regular words', function () {
+    $input = 'وال يحق له التصرف، وال يجوز ألي طرف مخالفة ألنظمة العمل، ويستمر هذا االلتزام بعد معالجة الإخالل و الختبار النظام. وفي المقابل قرأ الكتاب مع الأستاذة والسيدة سارة.';
+    $expected = 'ولا يحق له التصرف، ولا يجوز لأي طرف مخالفة لأنظمة العمل، ويستمر هذا الالتزام بعد معالجة الإخلال و لاختبار النظام. وفي المقابل قرأ الكتاب مع الأستاذة والسيدة سارة.';
+
+    expect($this->normalizer->normalize($input))->toBe($expected);
+});
