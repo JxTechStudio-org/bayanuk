@@ -26,9 +26,13 @@ Postgres, Redis, the RustFS S3 API, ClamAV and Horizon have no host ports.
 
 ## ClamAV (off for now)
 
-ClamAV isn't started in production until the upload scanning code exists. No app code calls it
-yet, and it needs about 1.2 GB of RAM on a server with roughly 3.7 GB free. It sits behind the Compose
-profile `clamav` in `compose.production.yaml`. Local development still starts it as before.
+ClamAV isn't started in production by default. It needs about 1.2 GB of RAM on a server with roughly
+3.7 GB free. It sits behind the Compose profile `clamav` in `compose.production.yaml`. Local
+development still starts it as before.
+
+The upload scanning code now exists (PR #35): every upload is scanned by the `ScanFile` job. The
+scanner fails closed, so **while ClamAV is not running in production every upload is rejected as
+`unsafe_file`**. Turn it on before uploads are expected to work.
 
 To turn it on:
 
