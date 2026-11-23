@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\DocumentController;
 use App\Http\Controllers\Api\V1\GuestTokenController;
 use App\Http\Controllers\Api\V1\MagicLinkController;
 use App\Http\Controllers\Api\V1\UserController;
@@ -22,6 +23,16 @@ Route::prefix('v1')->group(function () {
 
     // Guest Token Endpoint (Integration Contract Section 5)
     Route::post('/guest-token', [GuestTokenController::class, 'store']);
+
+    // Document Routes (Integration Contract Sections 6, 7, 9, 13)
+    Route::middleware('guest.token')->group(function () {
+        Route::get('/documents', [DocumentController::class, 'index'])->middleware('auth:sanctum');
+        Route::post('/documents', [DocumentController::class, 'store']);
+        Route::get('/documents/{id}/status', [DocumentController::class, 'status'])->whereUuid('id');
+        Route::get('/documents/{id}/file', [DocumentController::class, 'file'])->whereUuid('id');
+        Route::get('/documents/{id}', [DocumentController::class, 'show'])->whereUuid('id');
+        Route::delete('/documents/{id}', [DocumentController::class, 'destroy'])->whereUuid('id');
+    });
 
     // Authentication Routes
     Route::prefix('auth')->group(function () {
