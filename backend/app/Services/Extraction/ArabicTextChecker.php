@@ -44,7 +44,7 @@ class ArabicTextChecker
      */
     public function hasSufficientText(string $text, int $minChars = 30): bool
     {
-        $stripped = preg_replace('/\s+/u', '', $text) ?? '';
+        $stripped = preg_replace('/[\s\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{FEFF}]+/u', '', $text) ?? '';
 
         return mb_strlen($stripped) >= $minChars;
     }

@@ -109,6 +109,35 @@ test('it does not resume paused documents if the daily AI budget is still reache
     Queue::assertNothingPushed();
 });
 
+test('it does not clear status_detail for paused documents with unhandled non-extracting status', function () {
+    $nonExtractingDoc = Document::create([
+        'guest_token_hash' => str_repeat('z', 64),
+        'original_filename' => 'future.pdf',
+        'mime_type' => 'application/pdf',
+        'file_size' => 1024,
+        'sha256' => hash('sha256', 'future'),
+        'storage_key' => 'documents/future.pdf',
+        'status' => DocumentStatus::ANALYZING,
+        'status_detail' => 'ai_budget_reached',
+        'expires_at' => now()->addHours(24),
+    ]);
+
+    $mockBudget = Mockery::mock(BudgetGuard::class);
+    $mockBudget->shouldReceive('isBudgetReached')->once()->andReturn(false);
+    app()->instance(BudgetGuard::class, $mockBudget);
+
+    $this->artisan('documents:resume-paused')
+        ->assertSuccessful();
+
+    $nonExtractingDoc->refresh();
+
+    // Must remain paused because ANALYZING resume is not handled yet
+    expect($nonExtractingDoc->status_detail)->toBe('ai_budget_reached')
+        ->and($nonExtractingDoc->status)->toBe(DocumentStatus::ANALYZING);
+
+    Queue::assertNothingPushed();
+});
+
 test('the resume job is registered to run daily at 00:00 Asia/Riyadh in the console schedule', function () {
     $schedule = app(Schedule::class);
 

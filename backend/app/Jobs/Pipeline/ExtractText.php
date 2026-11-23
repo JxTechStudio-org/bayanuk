@@ -3,6 +3,7 @@
 namespace App\Jobs\Pipeline;
 
 use App\Enums\DocumentStatus;
+use App\Enums\ExtractionMethod;
 use App\Models\Document;
 use App\Services\Extraction\ExtractedPage;
 use App\Services\Extraction\OcrExtractor;
@@ -116,6 +117,19 @@ class ExtractText implements ShouldQueue
 
             // Persist all extracted pages to document_pages table
             $pdfExtractor->saveAllPages($this->document, $extractedPages);
+
+            // Mark document as scanned if any page required OCR / Vision
+            $isScanned = false;
+            foreach ($extractedPages as $extractedPage) {
+                if ($extractedPage->extractionMethod !== ExtractionMethod::TEXT_LAYER) {
+                    $isScanned = true;
+                    break;
+                }
+            }
+
+            if ($isScanned && ! $this->document->is_scanned) {
+                $this->document->update(['is_scanned' => true]);
+            }
 
         } catch (Throwable $e) {
             Log::error('ExtractText failed: '.$e->getMessage(), [

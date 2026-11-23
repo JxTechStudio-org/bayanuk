@@ -66,6 +66,26 @@ describe('IBAN masking', function () {
         $text = 'UAE Account: AE070331234567890123456 and UK: GB29NWBK60161331926819.';
         expect($this->masker->mask($text))->toBe('UAE Account: [IBAN] and UK: [IBAN].');
     });
+
+    it('masks reversed Saudi IBAN with SA03 at the end resulting from RTL OCR reading', function () {
+        $text = 'رقم الآيبان: 7519 1016 6080 0000 8000 SA03 لدى البنك الأهلي.';
+        expect($this->masker->mask($text))->toBe('رقم الآيبان: [IBAN] لدى البنك الأهلي.');
+    });
+
+    it('masks reversed Saudi IBAN with leading dot before SA03 as seen in RTL OCR sentence end', function () {
+        $text = 'ويحول الراتب إلى الحساب البنكي رقم الآيبان 7519 1016 6080 0000 8000 .SA03';
+        expect($this->masker->mask($text))->toBe('ويحول الراتب إلى الحساب البنكي رقم الآيبان [IBAN]');
+    });
+
+    it('masks reversed Saudi IBAN with 03SA or 30AS at the end', function () {
+        $text = 'رقم الآيبان: 7519 1016 6080 0000 8000 03SA والآخر 7519 1016 6080 0000 8000 30AS.';
+        expect($this->masker->mask($text))->toBe('رقم الآيبان: [IBAN] والآخر [IBAN].');
+    });
+
+    it('masks continuous reversed Saudi IBAN', function () {
+        $text = 'IBAN: 75191016608000008000SA03 or 7519101660800000800003SA.';
+        expect($this->masker->mask($text))->toBe('IBAN: [IBAN] or [IBAN].');
+    });
 });
 
 describe('Phone number masking', function () {

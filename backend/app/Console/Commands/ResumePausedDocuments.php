@@ -60,21 +60,26 @@ class ResumePausedDocuments extends Command
         $resumedCount = 0;
 
         foreach ($pausedDocuments as $document) {
-            // Clear the paused reason
-            $document->update([
-                'status_detail' => null,
-            ]);
-
             // Re-dispatch the appropriate pipeline job based on current document status
             if ($document->status === DocumentStatus::EXTRACTING) {
+                // Clear the paused reason only when re-dispatching
+                $document->update([
+                    'status_detail' => null,
+                ]);
+
                 ExtractText::dispatch($document);
                 $resumedCount++;
-            }
 
-            Log::info("Resumed document {$document->id} from ai_budget_reached pause", [
-                'document_id' => $document->id,
-                'status' => $document->status->value,
-            ]);
+                Log::info("Resumed document {$document->id} from ai_budget_reached pause", [
+                    'document_id' => $document->id,
+                    'status' => $document->status->value,
+                ]);
+            } else {
+                Log::warning("Skipping resume for paused document {$document->id} with unhandled status {$document->status->value}", [
+                    'document_id' => $document->id,
+                    'status' => $document->status->value,
+                ]);
+            }
         }
 
         $this->info("Resumed {$resumedCount} paused document(s).");

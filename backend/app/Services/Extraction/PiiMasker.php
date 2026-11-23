@@ -47,21 +47,30 @@ class PiiMasker
     }
 
     /**
-     * Mask International and Saudi IBANs.
-     * Saudi IBAN: SA + 2 digits + 20 alphanumeric chars (with optional spaces every 4 characters).
+     * Mask International and Saudi IBANs (both standard and OCR-reversed orientations).
+     * Saudi IBAN forward: SA + 2 digits + 20 alphanumeric chars (with optional spaces).
+     * Saudi IBAN reversed: 20 alphanumeric chars + SA/03/AS/30 (resulting from RTL OCR reading).
      * General IBAN: 2 uppercase letters + 2 digits + 11 to 30 alphanumeric characters.
      */
     private function maskIbans(string $text): string
     {
-        // Saudi IBAN (continuous or formatted with spaces every 4 characters)
-        // E.g. SA0380000000608010167519 or SA03 8000 0000 6080 1016 7519
+        // 1. Forward Saudi IBAN (continuous or formatted with spaces)
+        // E.g. SA03 8000 0000 6080 1016 7519 or SA0380000000608010167519
         $text = preg_replace(
-            '/\bSA\d{2}(?:[ ]?[0-9A-Z]{4}){5}\b|\bSA\d{22}\b/i',
+            '/\bSA\s*\d{2}(?:[ ]?[0-9A-Z]{4}){5}\b|\bSA\s*\d{22}\b/i',
             '[IBAN]',
             $text
         ) ?? $text;
 
-        // General International IBANs without absorbing arbitrary words/spaces
+        // 2. Reversed Saudi IBAN (common in RTL OCR scanning of Arabic contracts)
+        // E.g. 7519 1016 6080 0000 8000 SA03 or ... 8000 .SA03 or ... 03SA or ... 30AS or ... AS03
+        $text = preg_replace(
+            '/\b(?:[0-9A-Z]{4}[ ]?){5}[\s.]*(?:SA\s*\d{2}|\d{2}\s*SA|\d{2}\s*AS|AS\s*\d{2})\b|\b[0-9A-Z]{20}[\s.]*(?:SA\s*\d{2}|\d{2}\s*SA|\d{2}\s*AS|AS\s*\d{2})\b/i',
+            '[IBAN]',
+            $text
+        ) ?? $text;
+
+        // 3. General International IBANs without absorbing arbitrary words/spaces
         return preg_replace(
             '/\b[A-Z]{2}\d{2}(?:[ ]?[0-9A-Z]{4}){2,7}(?:[ ]?[0-9A-Z]{1,4})?\b|\b[A-Z]{2}\d{2}[0-9A-Z]{11,30}\b/',
             '[IBAN]',

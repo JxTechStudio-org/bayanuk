@@ -35,13 +35,69 @@ class TextNormalizer
     ];
 
     /**
-     * Normalize all numerals and whitespace in the given text.
+     * Common broken Arabic words resulting from reversed Lam-Alif ligatures in PDF fonts.
+     *
+     * @var array<string, string>
+     */
+    private const BROKEN_LIGATURE_WORDS = [
+        '/\bإال\b/u' => 'إلا',
+        '/\bخالل\b/u' => 'خلال',
+        '/\bثالثين\b/u' => 'ثلاثين',
+        '/\bثالث\s+(دفعات|شهور|أشهر|سنوات|أيام|ساعات|مرات|أجزاء|عقود|أقساط)\b/u' => 'ثلاث $1',
+        '/\bاستالم\b/u' => 'استلام',
+        '/\bعبدهللا\b/u' => 'عبدالله',
+        '/\bألنظمة\b/u' => 'لأنظمة',
+        '/\bااللتزامات\b/u' => 'الالتزامات',
+        '/\bاالتفاق\b/u' => 'الاتفاق',
+        '/\bاإلخالل\b/u' => 'الإخلال',
+    ];
+
+    /**
+     * Normalize all numerals, hidden directional characters, broken ligatures, and whitespace in the given text.
      */
     public function normalize(string $text): string
     {
+        $text = $this->stripInvisibleFormatting($text);
+        $text = $this->normalizeArabicLigatures($text);
         $text = $this->normalizeNumerals($text);
 
         return $this->normalizeWhitespace($text);
+    }
+
+    /**
+     * Remove invisible directional markers and zero-width formatting characters.
+     * Covers:
+     * - U+200B to U+200F (Zero-width spaces/joiners, LTR mark, RTL mark)
+     * - U+202A to U+202E (LRE, RLE, PDF, LRO, RLO)
+     * - U+2066 to U+2069 (LRI, RLI, FSI, PDI)
+     * - U+FEFF (Byte Order Mark / Zero-width no-break space)
+     */
+    public function stripInvisibleFormatting(string $text): string
+    {
+        return preg_replace('/[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{FEFF}]/u', '', $text) ?? $text;
+    }
+
+    /**
+     * Normalize broken Arabic ligatures caused by PDF text layer glyph-order issues.
+     * E.g. 'األول' -> 'الأول', 'إال' -> 'إلا', 'خالل' -> 'خلال', etc.
+     */
+    public function normalizeArabicLigatures(string $text): string
+    {
+        // 1. Definite article followed by Alif with Hamza on top: األ -> الأ (e.g. األول -> الأول, األجر -> الأجر)
+        $text = str_replace('األ', 'الأ', $text);
+
+        // 2. Definite article followed by Alif with Hamza below: اإل -> الإ (e.g. اإلشعار -> الإشعار, اإللغاء -> الإلغاء)
+        $text = str_replace('اإل', 'الإ', $text);
+
+        // 3. Definite article followed by Madda: اآل -> الآ (e.g. اآلخر -> الآخر, اآليبان -> الآيبان)
+        $text = str_replace('اآل', 'الآ', $text);
+
+        // 4. Common inverted Lam-Alif words and particles
+        return preg_replace(
+            array_keys(self::BROKEN_LIGATURE_WORDS),
+            array_values(self::BROKEN_LIGATURE_WORDS),
+            $text
+        ) ?? $text;
     }
 
     /**
@@ -61,20 +117,17 @@ class TextNormalizer
         $text = str_replace(["\r\n", "\r"], "\n", $text);
 
         // 2. Replace non-breaking spaces, thin spaces, and mathematical spaces with regular space
-        $text = preg_replace('/[\x{00A0}\x{1680}\x{2000}-\x{200B}\x{202F}\x{205F}\x{3000}]/u', ' ', $text) ?? $text;
+        $text = preg_replace('/[\x{00A0}\x{1680}\x{2000}-\x{200A}\x{202F}\x{205F}\x{3000}]/u', ' ', $text) ?? $text;
 
-        // 3. Remove zero-width spaces / joiners if they appear in isolation
-        $text = preg_replace('/[\x{200C}\x{200D}\x{FEFF}]/u', '', $text) ?? $text;
-
-        // 4. Collapse multiple horizontal spaces and tabs into a single space (while keeping newlines)
+        // 3. Collapse multiple horizontal spaces and tabs into a single space (while keeping newlines)
         $text = preg_replace('/[^\S\n]+/u', ' ', $text) ?? $text;
 
-        // 5. Trim horizontal spaces around each line
+        // 4. Trim horizontal spaces around each line
         $lines = explode("\n", $text);
         $trimmedLines = array_map(static fn (string $line): string => trim($line, " \t"), $lines);
         $text = implode("\n", $trimmedLines);
 
-        // 6. Collapse 3 or more consecutive newlines into 2 (one blank line)
+        // 5. Collapse 3 or more consecutive newlines into 2 (one blank line)
         $text = preg_replace("/\n{3,}/", "\n\n", $text) ?? $text;
 
         return trim($text);

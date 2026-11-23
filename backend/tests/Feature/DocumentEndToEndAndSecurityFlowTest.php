@@ -2,6 +2,7 @@
 
 use App\Enums\DeletionReason;
 use App\Enums\DocumentStatus;
+use App\Jobs\Pipeline\ExtractText;
 use App\Jobs\Pipeline\ScanFile;
 use App\Models\Document;
 use App\Models\UsageEvent;
@@ -31,6 +32,8 @@ function makePdf(string $unique = 'content'): string
 // -------------------------------------------------------------------------------------------------
 
 test('scenario 1: complete end-to-end lifecycle for guest (upload -> scan -> poll -> view -> delete -> 404)', function () {
+    Queue::fake([ExtractText::class]);
+
     $guestToken = str_repeat('1', 64);
     $pdf = UploadedFile::fake()->createWithContent('contract.pdf', makePdf('guest-lifecycle'));
 
@@ -53,6 +56,8 @@ test('scenario 1: complete end-to-end lifecycle for guest (upload -> scan -> pol
 
     $job = new ScanFile($document);
     $job->handle(virusScanner: $safeScanner);
+
+    Queue::assertPushed(ExtractText::class, fn ($j) => $j->document->id === $document->id);
 
     $document->refresh();
     expect($document->status)->not->toBe(DocumentStatus::REJECTED)

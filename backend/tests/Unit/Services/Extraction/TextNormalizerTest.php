@@ -63,3 +63,34 @@ it('runs full normalization covering both numerals and whitespace', function () 
 
     expect($this->normalizer->normalize($input))->toBe($expected);
 });
+
+it('strips invisible Unicode directional marks and zero-width characters', function () {
+    // \u{202B} is RLE, \u{202C} is PDF, \u{202A} is LRE, \u{200E} is LTR mark, \u{200F} is RTL mark
+    $input = "\u{202B}عقد\u{200E} عمل\u{200F} محدد\u{202C} المدة\u{FEFF}\u{202A}";
+    $expected = 'عقد عمل محدد المدة';
+
+    expect($this->normalizer->stripInvisibleFormatting($input))->toBe($expected)
+        ->and($this->normalizer->normalize($input))->toBe($expected);
+});
+
+it('normalizes broken Arabic ligatures caused by reversed glyphs in PDF extraction', function () {
+    $input = 'الطرف األول يلتزم بعدم التعديل إال بموافقة كتابية من الطرف الثاني خالل ثالثين يوماً من تاريخ اإلشعار ويستحق األجر.';
+    $expected = 'الطرف الأول يلتزم بعدم التعديل إلا بموافقة كتابية من الطرف الثاني خلال ثلاثين يوماً من تاريخ الإشعار ويستحق الأجر.';
+
+    expect($this->normalizer->normalizeArabicLigatures($input))->toBe($expected);
+});
+
+it('normalizes the contract snippet from manager review screenshot', function () {
+    $input = "\u{202B}أبرم هذا العقد بين شركة األفق للتقنية (الطرف األول) والسيدة سارة محمد (الطرف\u{202C}\n"
+        ."\u{202B}يلتزم الطرف األول بدفع راتب أساسي قدره \u{202A}12000\u{202C}ريال شهريا\u{202A}, \u{202C}\u{202A},\u{202C} وبدل سكن \u{202A}3000\u{202C}ريال\u{202A},\u{202C}\n"
+        ."\u{202B}تمديدها إال باتفاق مكتوب بين الطرفين وفقا للمادة \u{202A}53\u{202C}من نظام العمل\u{202A}.\u{202C}\u{202C}";
+
+    $normalized = $this->normalizer->normalize($input);
+
+    expect($normalized)->not->toContain("\u{202B}")
+        ->and($normalized)->not->toContain("\u{202C}")
+        ->and($normalized)->not->toContain("\u{202A}")
+        ->and($normalized)->toContain('شركة الأفق للتقنية')
+        ->and($normalized)->toContain('(الطرف الأول)')
+        ->and($normalized)->toContain('تمديدها إلا باتفاق');
+});
