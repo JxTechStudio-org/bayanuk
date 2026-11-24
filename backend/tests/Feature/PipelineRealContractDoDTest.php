@@ -165,6 +165,13 @@ describe('Definition of Done (DoD) - Real Contract Fixtures', function () {
             ->and($text)->not->toContain('0551234567')
             ->and($text)->not->toContain('sara.m@example.com')
             ->and($text)->not->toContain('8000 0000 6080 1016 7519');
+
+        // 5. Punctuation is properly attached without transposition
+        expect($text)->toContain('الهوية الوطنية،')
+            ->and($text)->toContain('جوال،')
+            ->and($text)->toContain('الثاني)،')
+            ->and($text)->toContain('[EMAIL].')
+            ->and($text)->toContain('[IBAN].');
     });
 
     it('satisfies DoD for a real scanned PDF by falling back to local Tesseract OCR', function () {

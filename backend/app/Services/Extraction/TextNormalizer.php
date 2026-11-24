@@ -56,11 +56,36 @@ class TextNormalizer
      */
     public function normalize(string $text): string
     {
+        $text = $this->fixDirectionalPunctuationTransposition($text);
         $text = $this->stripInvisibleFormatting($text);
+        $text = $this->normalizePunctuation($text);
         $text = $this->normalizeArabicLigatures($text);
         $text = $this->normalizeNumerals($text);
 
         return $this->normalizeWhitespace($text);
+    }
+
+    /**
+     * Fix punctuation transposed by PDF software placing sentence-ending dots inside LTR embedding runs.
+     * E.g. [LRE].sara.m@example.com[PDF] -> sara.m@example.com.
+     * E.g. [LRE].SA03 ...[PDF] -> SA03 ... .
+     */
+    public function fixDirectionalPunctuationTransposition(string $text): string
+    {
+        $marks = '[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{FEFF}]';
+
+        $text = preg_replace('/(?<=[\s]|^)'.$marks.'*([،؛:\.])\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/u', '$2$1', $text) ?? $text;
+
+        return preg_replace('/(?<=[\s]|^)'.$marks.'*([،؛:\.])\s*(SA\s*\d{2}(?:[ ]?[0-9A-Z]{4}){5})/ui', '$2$1', $text) ?? $text;
+    }
+
+    /**
+     * Standard Arabic typography: commas, semicolons, colons, and periods attach to the preceding
+     * word or parenthesis, followed by a single space (e.g. "الوطنية ،1023456789" -> "الوطنية، 1023456789").
+     */
+    public function normalizePunctuation(string $text): string
+    {
+        return preg_replace('/([\p{L}\)])\s+([،؛:\.])\s*(?=[\p{Nd}\p{Latin}\p{L}])/u', '$1$2 ', $text) ?? $text;
     }
 
     /**

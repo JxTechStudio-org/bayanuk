@@ -92,6 +92,21 @@ it('removes directional marks without a gap between two Arabic letters or around
     expect($this->normalizer->stripInvisibleFormatting($input))->toBe($expected);
 });
 
+it('normalizes floating Arabic punctuation and attaches it to the preceding word', function () {
+    $input = "الطرف الثاني) ،رقم الهوية الوطنية ،1023456789 جوال ،0551234567 وتاريخ ،2026/12/01\n"
+        ."البريد\n.sara.m@example.com\n"
+        .'الآيبان .SA03 8000 0000 6080 1016 7519';
+
+    $normalized = $this->normalizer->normalize($input);
+
+    expect($normalized)->toContain('الطرف الثاني)، رقم')
+        ->and($normalized)->toContain('الوطنية، 1023456789')
+        ->and($normalized)->toContain('جوال، 0551234567')
+        ->and($normalized)->toContain('وتاريخ، 2026/12/01')
+        ->and($normalized)->toContain("sara.m@example.com.\n")
+        ->and($normalized)->toContain('SA03 8000 0000 6080 1016 7519.');
+});
+
 it('normalizes broken Arabic ligatures caused by reversed glyphs in PDF extraction', function () {
     $input = 'الطرف األول يلتزم بعدم التعديل إال بموافقة كتابية من الطرف الثاني خالل ثالثين يوماً من تاريخ اإلشعار ويستحق األجر.';
     $expected = 'الطرف الأول يلتزم بعدم التعديل إلا بموافقة كتابية من الطرف الثاني خلال ثلاثين يوماً من تاريخ الإشعار ويستحق الأجر.';
