@@ -18,5 +18,8 @@ abstract class TestCase extends BaseTestCase
         $scanner = Mockery::mock(VirusScanner::class);
         $scanner->shouldReceive('isSafe')->andReturn(true);
         $this->app->instance(VirusScanner::class, $scanner);
+
+        // Use the small hand-written test word list so ligature repair never depends on an installed list.
+        config(['bayanuk.extraction.wordlist_path' => base_path('tests/Fixtures/arabic_wordlist_test.tsv')]);
     }
 }

@@ -35,31 +35,21 @@ class TextNormalizer
     ];
 
     /**
-     * Common broken Arabic words resulting from reversed Lam-Alif ligatures in PDF fonts.
+     * Allah's name is extracted as the whole word reversed (هللا), also when prefixed (عبدهللا, وهللا, بهللا).
+     * No Arabic word ends with "هللا", so this needs no dictionary signal.
      *
      * @var array<string, string>
      */
-    private const BROKEN_LIGATURE_WORDS = [
-        '/\bإال\b/u' => 'إلا',
-        '/\bخالل\b/u' => 'خلال',
-        '/\bثالثين\b/u' => 'ثلاثين',
-        '/\bثالث\s+(دفعات|شهور|أشهر|سنوات|أيام|ساعات|مرات|أجزاء|عقود|أقساط)\b/u' => 'ثلاث $1',
-        '/\bاستالم\b/u' => 'استلام',
-        '/\bعبدهللا\b/u' => 'عبدالله',
-        '/\bألنظمة\b/u' => 'لأنظمة',
-        '/\bألي\b/u' => 'لأي',
-        '/\bألجل\b/u' => 'لأجل',
-        '/\bألنه\b/u' => 'لأنه',
-        '/\bألن\b/u' => 'لأن',
-        '/\bالختبار\b/u' => 'لاختبار',
-        '/\bااللتزام\b/u' => 'الالتزام',
-        '/\bااللتزامات\b/u' => 'الالتزامات',
-        '/\bاالتفاق\b/u' => 'الاتفاق',
-        '/\bاإلخالل\b/u' => 'الإخلال',
-        '/\bالإخالل\b/u' => 'الإخلال',
-        '/\bوال\s+(يحق|يجوز|تعد|تُعد|يمكن|يلتزم|يتحمل|يقل|يزيد|يتجاوز|يعتبر|ينشأ|يترتب|يخل|يؤثر)\b/u' => 'ولا $1',
-        '/\bال\s+(يحق|يجوز|تعد|تُعد|يمكن|يلتزم|يتحمل|يقل|يزيد|يتجاوز|يعتبر|ينشأ|يترتب|يخل|يؤثر)\b/u' => 'لا $1',
+    private const FIXED_BROKEN_WORDS = [
+        '/هللا(?!\p{L})/u' => 'الله',
     ];
+
+    private ?ArabicLigatureRepairer $repairer;
+
+    public function __construct(?ArabicLigatureRepairer $repairer = null)
+    {
+        $this->repairer = $repairer;
+    }
 
     /**
      * Normalize all numerals, hidden directional characters, broken ligatures, and whitespace in the given text.
@@ -103,7 +93,7 @@ class TextNormalizer
 
     /**
      * Normalize broken Arabic ligatures caused by PDF text layer glyph-order issues.
-     * E.g. 'األول' -> 'الأول', 'إال' -> 'إلا', 'خالل' -> 'خلال', etc.
+     * E.g. 'األول' -> 'الأول', 'إال' -> 'إلا', 'خالل' -> 'خلال', 'العالوة' -> 'العلاوة', etc.
      */
     public function normalizeArabicLigatures(string $text): string
     {
@@ -116,10 +106,14 @@ class TextNormalizer
         // 3. Definite article followed by Madda: اآل -> الآ (e.g. اآلخر -> الآخر, اآليبان -> الآيبان)
         $text = str_replace('اآل', 'الآ', $text);
 
-        // 4. Common inverted Lam-Alif words and particles
+        // 4. Every other alif+lam / whole-word inversion (إال, خالل, العالوة, الئحة, لاير...) is repaired by
+        //    trying candidates and keeping the one the Arabic word list says is clearly the real word.
+        $text = ($this->repairer ??= new ArabicLigatureRepairer)->repair($text);
+
+        // 5. Fixed whole-word inversions that need no dictionary signal
         return preg_replace(
-            array_keys(self::BROKEN_LIGATURE_WORDS),
-            array_values(self::BROKEN_LIGATURE_WORDS),
+            array_keys(self::FIXED_BROKEN_WORDS),
+            array_values(self::FIXED_BROKEN_WORDS),
             $text
         ) ?? $text;
     }

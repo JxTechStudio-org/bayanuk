@@ -87,4 +87,21 @@ return [
         'max_weekly_working_hours' => (int) env('BAYANUK_THRESHOLD_WORKING_HOURS', 48),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Text Extraction (Arabic word list)
+    |--------------------------------------------------------------------------
+    |
+    | Word frequency list used to repair Arabic words broken by reversed lam-alif
+    | ligatures in PDF text layers. The list is not stored in the repository;
+    | install it with `php artisan wordlist:install` (licence: see
+    | resources/NOTICE-arabic-wordlist.md). Without it, only the dictionary-free
+    | repairs run and a warning is logged.
+    |
+    */
+    'extraction' => [
+        'wordlist_path' => env('BAYANUK_WORDLIST_PATH', storage_path('app/dictionary/arabic_wordlist.tsv')),
+        'wordlist_min_frequency' => (int) env('BAYANUK_WORDLIST_MIN_FREQUENCY', 50),
+    ],
+
 ];

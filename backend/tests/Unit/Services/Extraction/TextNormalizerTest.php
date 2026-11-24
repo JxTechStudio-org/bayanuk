@@ -1,9 +1,12 @@
 <?php
 
+use App\Services\Extraction\ArabicLigatureRepairer;
+use App\Services\Extraction\ArabicWordList;
 use App\Services\Extraction\TextNormalizer;
 
 beforeEach(function () {
-    $this->normalizer = new TextNormalizer;
+    $wordList = new ArabicWordList(__DIR__.'/../../../Fixtures/arabic_wordlist_test.tsv');
+    $this->normalizer = new TextNormalizer(new ArabicLigatureRepairer($wordList));
 });
 
 it('converts Eastern Arabic-Indic numerals to Western digits', function () {
