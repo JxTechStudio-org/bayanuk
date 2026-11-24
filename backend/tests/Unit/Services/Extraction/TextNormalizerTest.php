@@ -73,6 +73,22 @@ it('strips invisible Unicode directional marks and zero-width characters', funct
         ->and($this->normalizer->normalize($input))->toBe($expected);
 });
 
+it('keeps a space between digits and Arabic words when directional marks are stripped', function () {
+    $input = "راتب أساسي قدره 12000\u{200F}ريال شهريا، وفقا للمادة 53\u{200E}من نظام العمل، "
+        ."و\u{202B}3000\u{202C}ريال، و\u{200F}ريال\u{200F}12000، وSA\u{200F}عقد.";
+    $expected = 'راتب أساسي قدره 12000 ريال شهريا، وفقا للمادة 53 من نظام العمل، '
+        .'و 3000 ريال، وريال 12000، وSA عقد.';
+
+    expect($this->normalizer->stripInvisibleFormatting($input))->toBe($expected);
+});
+
+it('removes directional marks without a gap between two Arabic letters or around punctuation', function () {
+    $input = "عق\u{200C}د المبلغ 12,000\u{200F}، و\u{200F}(5000)\u{200E}.";
+    $expected = 'عقد المبلغ 12,000، و(5000).';
+
+    expect($this->normalizer->stripInvisibleFormatting($input))->toBe($expected);
+});
+
 it('normalizes broken Arabic ligatures caused by reversed glyphs in PDF extraction', function () {
     $input = 'الطرف األول يلتزم بعدم التعديل إال بموافقة كتابية من الطرف الثاني خالل ثالثين يوماً من تاريخ اإلشعار ويستحق األجر.';
     $expected = 'الطرف الأول يلتزم بعدم التعديل إلا بموافقة كتابية من الطرف الثاني خلال ثلاثين يوماً من تاريخ الإشعار ويستحق الأجر.';

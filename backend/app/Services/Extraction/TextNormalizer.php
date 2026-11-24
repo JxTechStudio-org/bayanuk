@@ -83,7 +83,22 @@ class TextNormalizer
      */
     public function stripInvisibleFormatting(string $text): string
     {
-        return preg_replace('/[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{FEFF}]/u', '', $text) ?? $text;
+        $marks = '[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{FEFF}]+';
+
+        // A mark sitting between a digit/Latin run and Arabic letters (either direction) is what visually
+        // separates them (e.g. "12000<RLM>ريال"), so replace it with a space instead of gluing them together.
+        // Only Arabic *letters* count (\p{Arabic} alone also matches punctuation such as "،").
+        $text = preg_replace(
+            [
+                '/(?<=[\p{Nd}\p{Latin}])'.$marks.'(?=\p{L})(?=\p{Arabic})/u',
+                '/(?<=\p{L})(?<=\p{Arabic})'.$marks.'(?=[\p{Nd}\p{Latin}])/u',
+            ],
+            ' ',
+            $text
+        ) ?? $text;
+
+        // Everywhere else (e.g. between two Arabic letters) the marks are removed without leaving a gap.
+        return preg_replace('/'.$marks.'/u', '', $text) ?? $text;
     }
 
     /**
