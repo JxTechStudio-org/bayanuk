@@ -95,13 +95,14 @@ describe('IBAN masking', function () {
             ->and($this->masker->mask($reversed))->toBe('حساب الراجحي: [IBAN] للتحويل.');
     });
 
-    it('validates Saudi IBAN checksums using ISO 7064 MOD-97 algorithm', function () {
-        // Valid canonical Saudi IBAN
-        expect(PiiMasker::validateIbanChecksum('SA0380000000608010167519'))->toBeTrue()
-            // Valid reversed Saudi IBAN
-            ->and(PiiMasker::validateIbanChecksum('75191016608000008000SA03'))->toBeTrue()
-            // Invalid checksum (wrong check digit 04 instead of 03)
-            ->and(PiiMasker::validateIbanChecksum('SA0480000000608010167519'))->toBeFalse();
+    it('masks Saudi IBANs by pattern even when the check digits are invalid or OCR misread a character', function () {
+        $wrongCheckDigits = 'SA99 8000 0000 6080 1016 7519';
+        $ocrMisread = 'SA03 8000 0000 6O80 1016 7519';
+        $reversedWrongCheck = '7519 1016 6080 0000 8000 SA99';
+
+        expect($this->masker->mask("a {$wrongCheckDigits} b"))->toBe('a [IBAN] b')
+            ->and($this->masker->mask("a {$ocrMisread} b"))->toBe('a [IBAN] b')
+            ->and($this->masker->mask("a {$reversedWrongCheck} b"))->toBe('a [IBAN] b');
     });
 });
 
