@@ -110,6 +110,13 @@ To stop all Docker services:
    ```bash
    docker compose --env-file backend/.env exec api php artisan migrate --seed
    ```
+
+7. **Install the Arabic word list (for PDF ligature repair):**
+```bash
+   docker compose --env-file backend/.env exec api php artisan wordlist:install "https://github.com/CAMeL-Lab/Camel_Arabic_Frequency_Lists/releases/download/v1.0/MSA_freq_lists.tsv.zip"
+```
+   *(Populates `storage/app/dictionary/arabic_wordlist.tsv` with 200,000 Arabic frequency words. See `resources/NOTICE-arabic-wordlist.md` for source and licensing).*
+
 **Note:** The local environment includes an Nginx container via --profile local which automatically proxies HTTP requests to the PHP-FPM API container.
 
 ## Code Quality & Testing
