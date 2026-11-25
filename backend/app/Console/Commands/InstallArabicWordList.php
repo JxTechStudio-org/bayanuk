@@ -33,6 +33,11 @@ class InstallArabicWordList extends Command
 
         if (preg_match('#^https?://#i', $source) === 1) {
             $downloaded = tempnam(sys_get_temp_dir(), 'wordlist');
+            if (preg_match('/\.zip(?:[?#]|$)/i', $source) === 1) {
+                $zipPath = $downloaded.'.zip';
+                rename($downloaded, $zipPath);
+                $downloaded = $zipPath;
+            }
             $this->info("Downloading {$source} ...");
 
             $response = Http::timeout(900)->sink($downloaded)->get($source);
@@ -125,7 +130,10 @@ class InstallArabicWordList extends Command
      */
     private function openInput(string $file)
     {
-        if (strtolower(pathinfo($file, PATHINFO_EXTENSION)) !== 'zip') {
+        $isZip = strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'zip'
+            || @file_get_contents($file, false, null, 0, 4) === "PK\x03\x04";
+
+        if (! $isZip) {
             $handle = fopen($file, 'r');
 
             return $handle === false ? null : $handle;
@@ -140,7 +148,9 @@ class InstallArabicWordList extends Command
         for ($i = 0; $i < $zip->numFiles; $i++) {
             $name = (string) $zip->getNameIndex($i);
 
-            if (str_ends_with(strtolower($name), '.tsv')) {
+            if (str_ends_with(strtolower($name), '.tsv')
+                && ! str_starts_with($name, '__MACOSX')
+                && ! str_starts_with(basename($name), '.')) {
                 $zip->close();
                 $stream = fopen('zip://'.$file.'#'.$name, 'r');
 
