@@ -16,7 +16,7 @@ namespace App\Services\Extraction;
 class ArabicLigatureRepairer
 {
     /** A swapped candidate must be at least this many times more frequent than the extracted word. */
-    private const SWAP_RATIO = 10;
+    private const SWAP_RATIO = 5;
 
     /** Whole-word reversal is riskier, so it needs a much stronger signal. */
     private const REVERSE_RATIO = 100;
