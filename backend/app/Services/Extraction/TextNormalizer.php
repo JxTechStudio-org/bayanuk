@@ -35,42 +35,57 @@ class TextNormalizer
     ];
 
     /**
-     * Common broken Arabic words resulting from reversed Lam-Alif ligatures in PDF fonts.
+     * Allah's name is extracted as the whole word reversed (هللا), also when prefixed (عبدهللا, وهللا, بهللا).
+     * No Arabic word ends with "هللا", so this needs no dictionary signal.
      *
      * @var array<string, string>
      */
-    private const BROKEN_LIGATURE_WORDS = [
-        '/\bإال\b/u' => 'إلا',
-        '/\bخالل\b/u' => 'خلال',
-        '/\bثالثين\b/u' => 'ثلاثين',
-        '/\bثالث\s+(دفعات|شهور|أشهر|سنوات|أيام|ساعات|مرات|أجزاء|عقود|أقساط)\b/u' => 'ثلاث $1',
-        '/\bاستالم\b/u' => 'استلام',
-        '/\bعبدهللا\b/u' => 'عبدالله',
-        '/\bألنظمة\b/u' => 'لأنظمة',
-        '/\bألي\b/u' => 'لأي',
-        '/\bألجل\b/u' => 'لأجل',
-        '/\bألنه\b/u' => 'لأنه',
-        '/\bألن\b/u' => 'لأن',
-        '/\bالختبار\b/u' => 'لاختبار',
-        '/\bااللتزام\b/u' => 'الالتزام',
-        '/\bااللتزامات\b/u' => 'الالتزامات',
-        '/\bاالتفاق\b/u' => 'الاتفاق',
-        '/\bاإلخالل\b/u' => 'الإخلال',
-        '/\bالإخالل\b/u' => 'الإخلال',
-        '/\bوال\s+(يحق|يجوز|تعد|تُعد|يمكن|يلتزم|يتحمل|يقل|يزيد|يتجاوز|يعتبر|ينشأ|يترتب|يخل|يؤثر)\b/u' => 'ولا $1',
-        '/\bال\s+(يحق|يجوز|تعد|تُعد|يمكن|يلتزم|يتحمل|يقل|يزيد|يتجاوز|يعتبر|ينشأ|يترتب|يخل|يؤثر)\b/u' => 'لا $1',
+    private const FIXED_BROKEN_WORDS = [
+        '/هللا(?!\p{L})/u' => 'الله',
     ];
+
+    private ?ArabicLigatureRepairer $repairer;
+
+    public function __construct(?ArabicLigatureRepairer $repairer = null)
+    {
+        $this->repairer = $repairer;
+    }
 
     /**
      * Normalize all numerals, hidden directional characters, broken ligatures, and whitespace in the given text.
      */
     public function normalize(string $text): string
     {
+        $text = $this->fixDirectionalPunctuationTransposition($text);
         $text = $this->stripInvisibleFormatting($text);
+        $text = $this->normalizePunctuation($text);
         $text = $this->normalizeArabicLigatures($text);
         $text = $this->normalizeNumerals($text);
 
         return $this->normalizeWhitespace($text);
+    }
+
+    /**
+     * Fix punctuation transposed by PDF software placing sentence-ending dots inside LTR embedding runs.
+     * E.g. [LRE].sara.m@example.com[PDF] -> sara.m@example.com.
+     * E.g. [LRE].SA03 ...[PDF] -> SA03 ... .
+     */
+    public function fixDirectionalPunctuationTransposition(string $text): string
+    {
+        $marks = '[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{FEFF}]';
+
+        $text = preg_replace('/(?<=[\s]|^)'.$marks.'*([،؛:\.])\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/u', '$2$1', $text) ?? $text;
+
+        return preg_replace('/(?<=[\s]|^)'.$marks.'*([،؛:\.])\s*(SA\s*\d{2}(?:[ ]?[0-9A-Z]{4}){5})/ui', '$2$1', $text) ?? $text;
+    }
+
+    /**
+     * Standard Arabic typography: commas, semicolons, colons, and periods attach to the preceding
+     * word or parenthesis, followed by a single space (e.g. "الوطنية ،1023456789" -> "الوطنية، 1023456789").
+     */
+    public function normalizePunctuation(string $text): string
+    {
+        return preg_replace('/([\p{L}\)])\s+([،؛:\.])\s*(?=[\p{Nd}\p{Latin}\p{L}])/u', '$1$2 ', $text) ?? $text;
     }
 
     /**
@@ -83,12 +98,27 @@ class TextNormalizer
      */
     public function stripInvisibleFormatting(string $text): string
     {
-        return preg_replace('/[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{FEFF}]/u', '', $text) ?? $text;
+        $marks = '[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{FEFF}]+';
+
+        // A mark sitting between a digit/Latin run and Arabic letters (either direction) is what visually
+        // separates them (e.g. "12000<RLM>ريال"), so replace it with a space instead of gluing them together.
+        // Only Arabic *letters* count (\p{Arabic} alone also matches punctuation such as "،").
+        $text = preg_replace(
+            [
+                '/(?<=[\p{Nd}\p{Latin}])'.$marks.'(?=\p{L})(?=\p{Arabic})/u',
+                '/(?<=\p{L})(?<=\p{Arabic})'.$marks.'(?=[\p{Nd}\p{Latin}])/u',
+            ],
+            ' ',
+            $text
+        ) ?? $text;
+
+        // Everywhere else (e.g. between two Arabic letters) the marks are removed without leaving a gap.
+        return preg_replace('/'.$marks.'/u', '', $text) ?? $text;
     }
 
     /**
      * Normalize broken Arabic ligatures caused by PDF text layer glyph-order issues.
-     * E.g. 'األول' -> 'الأول', 'إال' -> 'إلا', 'خالل' -> 'خلال', etc.
+     * E.g. 'األول' -> 'الأول', 'إال' -> 'إلا', 'خالل' -> 'خلال', 'العالوة' -> 'العلاوة', etc.
      */
     public function normalizeArabicLigatures(string $text): string
     {
@@ -101,10 +131,14 @@ class TextNormalizer
         // 3. Definite article followed by Madda: اآل -> الآ (e.g. اآلخر -> الآخر, اآليبان -> الآيبان)
         $text = str_replace('اآل', 'الآ', $text);
 
-        // 4. Common inverted Lam-Alif words and particles
+        // 4. Every other alif+lam / whole-word inversion (إال, خالل, العالوة, الئحة, لاير...) is repaired by
+        //    trying candidates and keeping the one the Arabic word list says is clearly the real word.
+        $text = ($this->repairer ??= new ArabicLigatureRepairer)->repair($text);
+
+        // 5. Fixed whole-word inversions that need no dictionary signal
         return preg_replace(
-            array_keys(self::BROKEN_LIGATURE_WORDS),
-            array_values(self::BROKEN_LIGATURE_WORDS),
+            array_keys(self::FIXED_BROKEN_WORDS),
+            array_values(self::FIXED_BROKEN_WORDS),
             $text
         ) ?? $text;
     }

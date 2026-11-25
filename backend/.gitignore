@@ -21,6 +21,8 @@
 /public/storage
 /storage/*.key
 /storage/pail
+/storage/app/dictionary
+*freq_lists*
 /vendor
 _ide_helper.php
 Homestead.json

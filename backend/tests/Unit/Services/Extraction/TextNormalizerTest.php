@@ -1,9 +1,12 @@
 <?php
 
+use App\Services\Extraction\ArabicLigatureRepairer;
+use App\Services\Extraction\ArabicWordList;
 use App\Services\Extraction\TextNormalizer;
 
 beforeEach(function () {
-    $this->normalizer = new TextNormalizer;
+    $wordList = new ArabicWordList(__DIR__.'/../../../Fixtures/arabic_wordlist_test.tsv');
+    $this->normalizer = new TextNormalizer(new ArabicLigatureRepairer($wordList));
 });
 
 it('converts Eastern Arabic-Indic numerals to Western digits', function () {
@@ -71,6 +74,37 @@ it('strips invisible Unicode directional marks and zero-width characters', funct
 
     expect($this->normalizer->stripInvisibleFormatting($input))->toBe($expected)
         ->and($this->normalizer->normalize($input))->toBe($expected);
+});
+
+it('keeps a space between digits and Arabic words when directional marks are stripped', function () {
+    $input = "راتب أساسي قدره 12000\u{200F}ريال شهريا، وفقا للمادة 53\u{200E}من نظام العمل، "
+        ."و\u{202B}3000\u{202C}ريال، و\u{200F}ريال\u{200F}12000، وSA\u{200F}عقد.";
+    $expected = 'راتب أساسي قدره 12000 ريال شهريا، وفقا للمادة 53 من نظام العمل، '
+        .'و 3000 ريال، وريال 12000، وSA عقد.';
+
+    expect($this->normalizer->stripInvisibleFormatting($input))->toBe($expected);
+});
+
+it('removes directional marks without a gap between two Arabic letters or around punctuation', function () {
+    $input = "عق\u{200C}د المبلغ 12,000\u{200F}، و\u{200F}(5000)\u{200E}.";
+    $expected = 'عقد المبلغ 12,000، و(5000).';
+
+    expect($this->normalizer->stripInvisibleFormatting($input))->toBe($expected);
+});
+
+it('normalizes floating Arabic punctuation and attaches it to the preceding word', function () {
+    $input = "الطرف الثاني) ،رقم الهوية الوطنية ،1023456789 جوال ،0551234567 وتاريخ ،2026/12/01\n"
+        ."البريد\n.sara.m@example.com\n"
+        .'الآيبان .SA03 8000 0000 6080 1016 7519';
+
+    $normalized = $this->normalizer->normalize($input);
+
+    expect($normalized)->toContain('الطرف الثاني)، رقم')
+        ->and($normalized)->toContain('الوطنية، 1023456789')
+        ->and($normalized)->toContain('جوال، 0551234567')
+        ->and($normalized)->toContain('وتاريخ، 2026/12/01')
+        ->and($normalized)->toContain("sara.m@example.com.\n")
+        ->and($normalized)->toContain('SA03 8000 0000 6080 1016 7519.');
 });
 
 it('normalizes broken Arabic ligatures caused by reversed glyphs in PDF extraction', function () {

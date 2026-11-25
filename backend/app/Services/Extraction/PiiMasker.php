@@ -79,69 +79,6 @@ class PiiMasker
     }
 
     /**
-     * Validate an IBAN checksum using the ISO 7064 MOD-97-10 algorithm.
-     * Supports both canonical forward IBANs and OCR-reversed Saudi IBANs.
-     */
-    public static function validateIbanChecksum(string $iban): bool
-    {
-        $clean = strtoupper(preg_replace('/[^A-Z0-9]/i', '', $iban) ?? '');
-
-        // Canonical forward IBAN
-        if (preg_match('/^[A-Z]{2}\d{2}/', $clean)) {
-            return self::checkMod97($clean);
-        }
-
-        // Reversed Saudi IBAN
-        if (preg_match('/^([0-9A-Z]{20})(SA\d{2}|\d{2}SA|\d{2}AS|AS\d{2})$/', $clean, $matches)) {
-            $account = $matches[1];
-            $tag = $matches[2];
-
-            if (preg_match('/SA(\d{2})/', $tag, $m) || preg_match('/(\d{2})SA/', $tag, $m) || preg_match('/(\d{2})AS/', $tag, $m) || preg_match('/AS(\d{2})/', $tag, $m)) {
-                // In RTL OCR, chunks of 4 characters are read in reverse order
-                $chunks = str_split($account, 4);
-                $unreversedAccount = implode('', array_reverse($chunks));
-                $canonical = 'SA'.$m[1].$unreversedAccount;
-
-                return self::checkMod97($canonical);
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Helper to compute ISO 7064 MOD 97 on a canonical forward IBAN.
-     */
-    protected static function checkMod97(string $canonical): bool
-    {
-        if (strlen($canonical) < 15 || strlen($canonical) > 34) {
-            return false;
-        }
-
-        $rearranged = substr($canonical, 4).substr($canonical, 0, 4);
-        $numeric = '';
-        $len = strlen($rearranged);
-
-        for ($i = 0; $i < $len; $i++) {
-            $char = $rearranged[$i];
-            if (ctype_alpha($char)) {
-                $numeric .= (string) (ord($char) - ord('A') + 10);
-            } else {
-                $numeric .= $char;
-            }
-        }
-
-        $remainder = 0;
-        $numLen = strlen($numeric);
-        for ($i = 0; $i < $numLen; $i += 7) {
-            $chunk = (string) $remainder.substr($numeric, $i, 7);
-            $remainder = ((int) $chunk) % 97;
-        }
-
-        return $remainder === 1;
-    }
-
-    /**
      * Mask Saudi and international phone numbers.
      */
     private function maskPhones(string $text): string

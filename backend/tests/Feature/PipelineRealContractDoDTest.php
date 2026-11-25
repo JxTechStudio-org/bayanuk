@@ -102,6 +102,78 @@ describe('Definition of Done (DoD) - Real Contract Fixtures', function () {
             ->and($page2->extraction_method)->toBe(ExtractionMethod::TEXT_LAYER);
     });
 
+    it('satisfies DoD for manager review contract bayanuk-test-arabic-text.pdf preventing glued digits and broken ligatures', function () {
+        $fixturePath = base_path('tests/Fixtures/bayanuk_test_arabic_text.pdf');
+        expect(file_exists($fixturePath))->toBeTrue();
+
+        $pdfBinary = file_get_contents($fixturePath);
+        $storageKey = 'documents/manager-test-arabic-text.pdf';
+        Storage::disk('s3')->put($storageKey, $pdfBinary);
+
+        $document = Document::create([
+            'guest_token_hash' => str_repeat('d', 64),
+            'original_filename' => 'bayanuk-test-arabic-text.pdf',
+            'mime_type' => 'application/pdf',
+            'file_size' => strlen($pdfBinary),
+            'sha256' => hash('sha256', $pdfBinary),
+            'storage_key' => $storageKey,
+            'page_count' => 1,
+            'status' => DocumentStatus::SCANNING,
+            'status_detail' => null,
+            'expires_at' => now()->addHours(24),
+        ]);
+
+        $job = new ExtractText($document);
+        $job->handle();
+
+        $document->refresh();
+
+        expect($document->status)->toBe(DocumentStatus::EXTRACTING)
+            ->and($document->status_detail)->toBeNull()
+            ->and($document->is_scanned)->toBeFalse();
+
+        $pages = DocumentPage::query()
+            ->where('document_id', $document->id)
+            ->get();
+
+        expect($pages)->toHaveCount(1);
+
+        $text = $pages->first()->text;
+
+        // 1. Invisible bidi marks are completely stripped
+        expect(preg_match('/[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{FEFF}]/u', $text))->toBe(0);
+
+        // 2. Digits and words are cleanly separated (no 12000ريال or 53من)
+        expect($text)->toContain('12000 ريال')
+            ->and($text)->toContain('53 من')
+            ->and($text)->toContain('3000 ريال')
+            ->and($text)->not->toContain('12000ريال')
+            ->and($text)->not->toContain('53من');
+
+        // 3. Broken Arabic ligatures are restored
+        expect($text)->toContain('الطرف الأول')
+            ->and($text)->toContain('شركة الأفق للتقنية')
+            ->and($text)->toContain('إلا باتفاق')
+            ->and($text)->toContain('ولا يجوز');
+
+        // 4. All PII is masked
+        expect($text)->toContain('[NATIONAL_ID]')
+            ->and($text)->toContain('[PHONE]')
+            ->and($text)->toContain('[EMAIL]')
+            ->and($text)->toContain('[IBAN]')
+            ->and($text)->not->toContain('1023456789')
+            ->and($text)->not->toContain('0551234567')
+            ->and($text)->not->toContain('sara.m@example.com')
+            ->and($text)->not->toContain('8000 0000 6080 1016 7519');
+
+        // 5. Punctuation is properly attached without transposition
+        expect($text)->toContain('الهوية الوطنية،')
+            ->and($text)->toContain('جوال،')
+            ->and($text)->toContain('الثاني)،')
+            ->and($text)->toContain('[EMAIL].')
+            ->and($text)->toContain('[IBAN].');
+    });
+
     it('satisfies DoD for a real scanned PDF by falling back to local Tesseract OCR', function () {
         $fixturePath = base_path('tests/Fixtures/sample_contract_scanned.pdf');
         expect(file_exists($fixturePath))->toBeTrue();
